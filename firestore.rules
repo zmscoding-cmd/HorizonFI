@@ -1,0 +1,288 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isNumeric(val) {
+      return val is int || val is float;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isHouseholdMember(householdId) {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/households/$(householdId)) &&
+             (request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.members);
+    }
+
+    function isValidHistoricalDatapoint(data) {
+      return data.keys().hasAll(['id', 'userId', 'date', 'assets', 'liabilities', 'aggregatedNetWorth', 'wealthVelocity', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.date is string && data.date.size() > 0 && data.date.size() <= 15 &&
+             (data.assets is list || (data.assets is string && data.assets.size() <= 500000)) &&
+             (data.liabilities is list || (data.liabilities is string && data.liabilities.size() <= 500000)) &&
+             isNumeric(data.aggregatedNetWorth) &&
+             data.wealthVelocity is map &&
+             data.wealthVelocity.keys().hasAll(['currentSpendingRate', 'velocityStatus', 'projectedGrowthDelta']) &&
+             isNumeric(data.wealthVelocity.currentSpendingRate) &&
+             data.wealthVelocity.currentSpendingRate >= 0 &&
+             data.wealthVelocity.velocityStatus is string &&
+             (data.wealthVelocity.velocityStatus in ['Accumulation', 'Velocity Point', 'Distribution/Drawdown']) &&
+             isNumeric(data.wealthVelocity.projectedGrowthDelta) &&
+             isNumeric(data.createdAt) &&
+             (data.get('updatedAt', null) == null || isNumeric(data.get('updatedAt', null))) &&
+             (data.get('_deleted', null) == null || data.get('_deleted', false) is bool) &&
+             (data.get('_meta', null) == null || data.get('_meta', null) is map);
+    }
+
+    function isValidScenarioItem(scenario) {
+      return scenario.keys().hasAll(['id', 'name', 'budget', 'milestones', 'assets']) &&
+             scenario.id is string && scenario.id.size() <= 128 &&
+             scenario.name is string && scenario.name.size() <= 100 &&
+             scenario.budget is map &&
+             scenario.budget.keys().hasAll(['monthlyIncome', 'monthlyExpenses', 'inflationRate', 'lifestyleCreepRate', 'residencyState']) &&
+             isNumeric(scenario.budget.monthlyIncome) && scenario.budget.monthlyIncome >= 0 && scenario.budget.monthlyIncome <= 10000000 &&
+             isNumeric(scenario.budget.monthlyExpenses) && scenario.budget.monthlyExpenses >= 0 && scenario.budget.monthlyExpenses <= 10000000 &&
+             isNumeric(scenario.budget.inflationRate) && scenario.budget.inflationRate >= -0.2 && scenario.budget.inflationRate <= 1.0 &&
+             isNumeric(scenario.budget.lifestyleCreepRate) && scenario.budget.lifestyleCreepRate >= 0 && scenario.budget.lifestyleCreepRate <= 1.0 &&
+             (scenario.budget.get('schdDividendYield', null) == null || (isNumeric(scenario.budget.get('schdDividendYield', null)) && scenario.budget.get('schdDividendYield', 0) >= 0 && scenario.budget.get('schdDividendYield', 0) <= 100)) &&
+             scenario.budget.residencyState is string && scenario.budget.residencyState.size() >= 2 && scenario.budget.residencyState.size() <= 50 &&
+             scenario.milestones is list && scenario.milestones.size() <= 100 &&
+             scenario.assets is list && scenario.assets.size() <= 100;
+    }
+
+    function isScenarioValid(sc) {
+      return sc is map && 
+             (sc.get('budget', null) == null || !(sc.budget is map) || sc.budget.get('budgetPhases', null) == null || areBudgetPhasesValid(sc.budget.budgetPhases)) &&
+             isValidScenarioItem(sc);
+    }
+
+    function isValidAsset(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'value', 'type']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             isNumeric(data.value) && data.value >= 0 &&
+             data.type is string && data.type.size() > 0 && data.type.size() <= 100 &&
+             (data.get('createdAt', null) == null || isNumeric(data.get('createdAt', null))) &&
+             (data.get('updatedAt', null) == null || isNumeric(data.get('updatedAt', null))) &&
+             (data.get('_deleted', null) == null || data.get('_deleted', false) is bool) &&
+             (data.get('_meta', null) == null || data.get('_meta', null) is map);
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['id', 'userId', 'name']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (data.get('color', null) == null || (data.get('color', null) is string && data.get('color', '').size() <= 32)) &&
+             (data.get('createdAt', null) == null || isNumeric(data.get('createdAt', null))) &&
+             (data.get('updatedAt', null) == null || isNumeric(data.get('updatedAt', null))) &&
+             (data.get('_deleted', null) == null || data.get('_deleted', false) is bool) &&
+             (data.get('_meta', null) == null || data.get('_meta', null) is map);
+    }
+
+    function isValidThreeBuckets(tb) {
+      return tb is map &&
+             tb.keys().hasAll(['bucket1LiquiditySecuredYears', 'bucket2IncomeSecuredYears', 'bucket3GrowthRemainingYears', 'rebalancingTriggerType']) &&
+             isNumeric(tb.bucket1LiquiditySecuredYears) && tb.bucket1LiquiditySecuredYears >= 0 &&
+             isNumeric(tb.bucket2IncomeSecuredYears) && tb.bucket2IncomeSecuredYears >= 0 &&
+             isNumeric(tb.bucket3GrowthRemainingYears) && tb.bucket3GrowthRemainingYears >= 0 &&
+             tb.rebalancingTriggerType is string && (tb.rebalancingTriggerType in ['Chronological', 'Threshold', 'Opportunistic']) &&
+             (tb.get('rebalancingThresholdPercent', null) == null || (isNumeric(tb.get('rebalancingThresholdPercent', null)) && tb.get('rebalancingThresholdPercent', 0) >= 0 && tb.get('rebalancingThresholdPercent', 0) <= 100));
+    }
+
+    function isValidBudgetPhase(phase) {
+      return phase is map &&
+             phase.keys().hasAll(['phaseId', 'startYear', 'endYear', 'baselineAmount', 'applyLifestyleAdjustment', 'lifestyleAdjustmentRate']) &&
+             phase.phaseId is string &&
+             isNumeric(phase.startYear) &&
+             isNumeric(phase.endYear) &&
+             phase.startYear <= phase.endYear &&
+             isNumeric(phase.baselineAmount) &&
+             phase.applyLifestyleAdjustment is bool &&
+             isNumeric(phase.lifestyleAdjustmentRate) && phase.lifestyleAdjustmentRate >= -100 && phase.lifestyleAdjustmentRate <= 100;
+    }
+
+    function areBudgetPhasesValid(phases) {
+      return phases is list &&
+             (phases.size() == 0 ||
+              (phases.size() == 1 && isValidBudgetPhase(phases[0])) ||
+              (phases.size() == 2 && isValidBudgetPhase(phases[0]) && isValidBudgetPhase(phases[1]) && phases[0].endYear <= phases[1].startYear) ||
+              (phases.size() == 3 && isValidBudgetPhase(phases[0]) && isValidBudgetPhase(phases[1]) && isValidBudgetPhase(phases[2]) && phases[0].endYear <= phases[1].startYear && phases[1].endYear <= phases[2].startYear) ||
+              (phases.size() >= 4)); // In firestore rules, we manually unroll iteration for basic overlap validations
+    }
+
+    function isValidHousehold(data) {
+      return (data.get('_deleted', false) == true) || 
+             (data.get('id', '') is string && data.get('id', '').size() > 0 &&
+              data.get('name', '') is string &&
+              data.get('members', []) is list &&
+              data.get('members', []).size() > 0);
+    }
+
+    function isValidPlan(data) {
+      return (data.get('_deleted', false) == true) || 
+             (data.get('id', '') is string && data.get('id', '').size() > 0 && data.get('id', '').size() <= 128 &&
+              data.get('name', '') is string && data.get('name', '').size() <= 120 &&
+              data.get('members', []) is list &&
+              data.get('members', []).size() > 0 && data.get('members', []).size() <= 20 &&
+              (data.get('threeBuckets', null) == null || isValidThreeBuckets(data.threeBuckets)) &&
+              (data.get('scenarios', null) == null || (data.scenarios is list && data.scenarios.size() <= 10 && (data.scenarios.size() == 0 || isScenarioValid(data.scenarios[0]))))
+             );
+    }
+
+    function isValidPlannedExpense(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'frequency', 'valuationType']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.frequency is string && (data.frequency == 'Monthly' || data.frequency == 'Annual') &&
+             data.valuationType is string && (data.valuationType == 'Static' || data.valuationType == 'Relational') &&
+             (data.get('categoryId', null) == null || data.categoryId == null || (data.categoryId is string && data.categoryId.size() <= 128)) &&
+             (data.get('staticAmount', null) == null || data.staticAmount == null || (data.staticAmount is string && data.staticAmount.size() <= 256)) &&
+             (data.get('relationalTargetId', null) == null || data.relationalTargetId == null || (data.relationalTargetId is string && data.relationalTargetId.size() <= 128)) &&
+             (data.get('relationalPercent', null) == null || data.relationalPercent == null || (data.relationalPercent is string && data.relationalPercent.size() <= 64)) &&
+             (data.get('notes', null) == null || data.notes == null || (data.notes is string && data.notes.size() <= 1000)) &&
+             (data.get('urls', null) == null || data.urls == null || (data.urls is list || (data.urls is string && data.urls.size() <= 2000))) &&
+             (data.get('renewalDate', null) == null || data.renewalDate == null || (data.renewalDate is string && data.renewalDate.size() <= 100)) &&
+             (data.get('createdAt', null) == null || isNumeric(data.get('createdAt', null))) &&
+             (data.get('updatedAt', null) == null || isNumeric(data.get('updatedAt', null))) &&
+             (data.get('_deleted', null) == null || data.get('_deleted', false) is bool) &&
+             (data.get('_meta', null) == null || data.get('_meta', null) is map);
+    }
+
+    function isValidBudget(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'totalPlaintextMonthly', 'totalPlaintextAnnual']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             isNumeric(data.totalPlaintextMonthly) && data.totalPlaintextMonthly >= 0 &&
+             isNumeric(data.totalPlaintextAnnual) && data.totalPlaintextAnnual >= 0 &&
+             (data.get('notes', null) == null || (data.get('notes', null) is string && data.get('notes', '').size() <= 1000)) &&
+             (data.get('createdAt', null) == null || isNumeric(data.get('createdAt', null))) &&
+             (data.get('updatedAt', null) == null || isNumeric(data.get('updatedAt', null))) &&
+             (data.get('_deleted', null) == null || data.get('_deleted', false) is bool) &&
+             (data.get('_meta', null) == null || data.get('_meta', null) is map);
+    }
+
+    function isValidActualExpense(data) {
+      return data.keys().hasAll(['id', 'userId', 'householdId', 'dateLogged']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.householdId is string && data.householdId.size() > 0 && data.householdId.size() <= 128 &&
+             data.dateLogged is string && data.dateLogged.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+             (data.get('category', null) == null || (data.get('category', null) is string && data.get('category', '').size() <= 100)) &&
+             (data.get('amount', null) == null || (isNumeric(data.get('amount', null)) && data.get('amount', 0) >= 0)) &&
+             (data.get('notes', null) == null || (data.get('notes', null) is string && data.get('notes', '').size() <= 1000)) &&
+             (data.get('createdAt', null) == null || isNumeric(data.get('createdAt', null))) &&
+             (data.get('updatedAt', null) == null || isNumeric(data.get('updatedAt', null))) &&
+             (data.get('_deleted', null) == null || data.get('_deleted', false) is bool) &&
+             (data.get('_meta', null) == null || data.get('_meta', null) is map);
+    }
+
+    function isValidLink(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'url']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.url is string && data.url.size() > 0 && data.url.size() <= 2000 &&
+             (data.get('label', null) == null || (data.get('label', null) is string && data.get('label', '').size() <= 256)) &&
+             (data.get('labels', null) == null || (data.get('labels', null) is list && data.get('labels', []).size() <= 20 && (data.get('labels', []).size() == 0 || data.get('labels', [])[0] is string))) &&
+             (data.get('createdAt', null) == null || isNumeric(data.get('createdAt', null))) &&
+             (data.get('updatedAt', null) == null || isNumeric(data.get('updatedAt', null))) &&
+             (data.get('_deleted', null) == null || data.get('_deleted', false) is bool) &&
+             (data.get('_meta', null) == null || data.get('_meta', null) is map);
+    }
+    
+    // Allow any collection ending with -rxdb-replication-state at the root, ONLY for the matching authenticated user UID
+    match /{collectionName}/{docId} {
+      allow read, write: if isSignedIn() && collectionName.matches('.*-rxdb-replication-state') && (docId.matches('.*' + request.auth.uid + '.*') || docId == request.auth.uid);
+    }
+
+    // Allow nested rxdb replication states under users
+    match /users/{userId}/{collectionName}/{docId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId && collectionName.matches('.*-rxdb-replication-state');
+    }
+    
+    match /users/{userId}/historical_datapoints/{docId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidHistoricalDatapoint(incoming());
+    }
+    match /users/{userId}/links/{docId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidLink(incoming());
+    }
+    match /users/{userId}/budgets/{docId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidBudget(incoming());
+    }
+    match /users/{userId}/planned_expenses/{docId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidPlannedExpense(incoming());
+    }
+    match /users/{userId}/assets/{docId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidAsset(incoming());
+    }
+    match /users/{userId}/categories/{docId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidCategory(incoming());
+    }
+    match /users/{userId}/plans/{docId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidPlan(incoming());
+    }
+
+    match /households/{householdId} {
+      allow read: if isSignedIn() && (resource == null || (request.auth.uid in resource.data.get('members', [])));
+      allow delete: if isSignedIn() && resource != null && (request.auth.uid in resource.data.get('members', []));
+      
+      allow create: if isSignedIn() && 
+                    (request.auth.uid in incoming().get('members', [])) &&
+                    (incoming().get('_deleted', false) == true || isValidHousehold(incoming()));
+                    
+      allow update: if isSignedIn() && 
+                    resource != null && (request.auth.uid in resource.data.get('members', [])) &&
+                    (incoming().get('_deleted', false) == true || isValidHousehold(incoming())) &&
+                    (request.auth.uid in incoming().get('members', []));
+    }
+
+    match /actual_expenses/{actualId} {
+      allow read: if isSignedIn() && isHouseholdMember(resource.data.householdId);
+      
+      allow create: if isSignedIn() &&
+                    isValidId(actualId) &&
+                    isValidActualExpense(incoming()) &&
+                    incoming().id == actualId &&
+                    isHouseholdMember(incoming().householdId);
+                    
+      allow update: if isSignedIn() &&
+                    isValidId(actualId) &&
+                    isValidActualExpense(incoming()) &&
+                    incoming().id == existing().id &&
+                    incoming().userId == existing().userId &&
+                    isHouseholdMember(existing().householdId) &&
+                    incoming().householdId == existing().householdId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['category', 'amount', 'dateLogged', 'notes', 'updatedAt', 'serverTimestamp', '_deleted', '_rev', '_meta']);
+                    
+      allow delete: if isSignedIn() && isValidId(actualId) && isHouseholdMember(existing().householdId);
+    }
+  }
+}

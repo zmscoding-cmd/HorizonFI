@@ -1,0 +1,6 @@
+{
+  "name": "HorizonFI",
+  "description": "Offline-first financial planning for remote environments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

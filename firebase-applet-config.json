@@ -1,0 +1,10 @@
+{
+  "projectId": "horizonfi-b83d3",
+  "appId": "1:90308241336:web:7f3f7d25d68c90e645514d",
+  "apiKey": "REPLACE_WITH_VITE_FIREBASE_API_KEY",
+  "authDomain": "horizonfi-b83d3.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "horizonfi-b83d3.firebasestorage.app",
+  "messagingSenderId": "90308241336",
+  "measurementId": ""
+}

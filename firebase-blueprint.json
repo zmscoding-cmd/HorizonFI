@@ -1,0 +1,154 @@
+{
+  "entities": {
+    "Household": {
+      "title": "Household",
+      "description": "A shared household for the users. Scenarios are nested specifically to prevent N+1 queries.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "scenarios": { 
+          "type": "array",
+          "items": {
+             "type": "object",
+             "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "budget": { 
+                   "type": "object",
+                   "properties": {
+                      "monthlyIncome": { "type": "number" },
+                      "monthlyExpenses": { "type": "number" },
+                      "inflationRate": { "type": "number" },
+                      "lifestyleCreepRate": { "type": "number" },
+                      "residencyState": { "type": "string" }
+                   },
+                   "required": ["monthlyIncome", "monthlyExpenses", "inflationRate", "lifestyleCreepRate", "residencyState"]
+                },
+                "milestones": { "type": "array" },
+                "assets": { "type": "array" }
+             },
+             "required": ["id", "name", "budget", "milestones", "assets"]
+          }
+        },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["id", "name", "members", "scenarios", "createdAt", "updatedAt"]
+    },
+    "HistoricalDatapoint": {
+      "title": "HistoricalDatapoint",
+      "description": "Historical net worth statement record for assets and liabilities snapshots with plaintext net worth.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "assets": { "type": "array" },
+        "liabilities": { "type": "array" },
+        "aggregatedNetWorth": { "type": "number" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["id", "userId", "date", "aggregatedNetWorth", "createdAt"]
+    },
+    "PlannedExpense": {
+      "title": "PlannedExpense",
+      "description": "A planned monthly or annual expense nested inside a shared household.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "name": { "type": "string" },
+        "frequency": { "type": "string", "enum": ["Monthly", "Annual"] },
+        "valuationType": { "type": "string", "enum": ["Static", "Relational"] },
+        "staticAmount": { "type": "string" },
+        "relationalTargetId": { "type": "string" },
+        "relationalPercent": { "type": "string" },
+        "notes": { "type": "string" },
+        "urls": { "type": "array", "items": { "type": "string" } },
+        "renewalDate": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["id", "userId", "name", "frequency", "valuationType"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Active budget and calculated limits matching parent householdId.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "householdId": { "type": "string" },
+        "name": { "type": "string" },
+        "totalPlaintextMonthly": { "type": "number" },
+        "totalPlaintextAnnual": { "type": "number" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["id", "userId", "householdId", "name", "totalPlaintextMonthly", "totalPlaintextAnnual"]
+    },
+    "ActualExpense": {
+      "title": "ActualExpense",
+      "description": "Actual expense record matching historical logs with dateLogged and householdId.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "householdId": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "dateLogged": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["id", "userId", "householdId", "dateLogged"]
+    },
+    "Link": {
+      "title": "Link",
+      "description": "User specific quick link bookmark.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "label": { "type": "string" },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["id", "userId", "name", "url"]
+    }
+  },
+  "firestore": {
+    "/households/{householdId}": {
+      "schema": { "$ref": "#/entities/Household" },
+      "description": "Shared households representing a family unit."
+    },
+    "/households/{householdId}/planned_expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/PlannedExpense" },
+      "description": "Planned expenses linked directly to the parent household."
+    },
+    "/net_worth_history/{datapointId}": {
+      "schema": { "$ref": "#/entities/HistoricalDatapoint" },
+      "description": "Secure historical net worth snapshots for tracking assets and liabilities."
+    },
+    "/budgets/{budgetId}": {
+      "schema": { "$ref": "#/entities/Budget" },
+      "description": "Calculated baseline budget summaries."
+    },
+    "/actual_expenses/{actualId}": {
+      "schema": { "$ref": "#/entities/ActualExpense" },
+      "description": "Logged actual expenses for variance tracking."
+    },
+    "/links/{linkId}": {
+      "schema": { "$ref": "#/entities/Link" },
+      "description": "User quick links for reference."
+    }
+  }
+}

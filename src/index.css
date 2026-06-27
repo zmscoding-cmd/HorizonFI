@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+@variant night-watch (&:where(.night-watch, .night-watch *));
+
+/* Global adjustments for body during night-watch transition */
+:root {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+:root:where(.dark) {
+  --color-zinc-50: #09090b;
+  --color-zinc-100: #18181b;
+  --color-zinc-200: #27272a;
+  --color-zinc-300: #3f3f46;
+  --color-zinc-400: #52525b;
+  --color-zinc-500: #71717a;
+  --color-zinc-600: #a1a1aa;
+  --color-zinc-700: #d4d4d8;
+  --color-zinc-800: #e4e4e7;
+  --color-zinc-900: #f4f4f5;
+}
+
+/* Red Scale Sensory Preservation Override for Night-Watch (theme-red extreme dark environment) */
+:root:where(.night-watch) {
+  --color-zinc-50: #000000;
+  --color-zinc-100: #0c0204;
+  --color-zinc-200: #1a0509;
+  --color-zinc-300: #2e0910;
+  --color-zinc-400: #4a0d1a;
+  --color-zinc-500: #7f1d1d;
+  --color-zinc-600: #991b1b;
+  --color-zinc-700: #b91c1c;
+  --color-zinc-800: #dc2626;
+  --color-zinc-900: #f87171;
+  
+  --color-blue-50: #0a0102;
+  --color-blue-100: #1c0509;
+  --color-blue-200: #2d060f;
+  --color-blue-600: #b91c1c;
+  --color-blue-700: #991b1b;
+}
+
+/* Deep physical red scale override for sensory preservation when vessels are in night-watch mode */
+.night-watch {
+  background-color: #000000 !important;
+  color: #ef4444 !important;
+}
+
+.night-watch * {
+  border-color: #450a0a !important;
+}
+
+.night-watch input, .night-watch select, .night-watch textarea {
+  background-color: #090102 !important;
+  color: #f87171 !important;
+  border-color: #7f1d1d !important;
+}
+
+.night-watch button {
+  background-color: #1a0509 !important;
+  color: #fca5a5 !important;
+  border-color: #7f1d1d !important;
+}
+
+.night-watch button:hover {
+  background-color: #2d060f !important;
+}
+
+.night-watch svg {
+  color: #ef4444 !important;
+}
+
+/* Handle specific charts or scrollbars in Night Watch */
+.night-watch ::-webkit-scrollbar {
+  background-color: #000000;
+}
+
+.night-watch ::-webkit-scrollbar-thumb {
+  background-color: #7f1d1d;
+}
