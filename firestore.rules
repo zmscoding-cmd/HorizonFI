@@ -17,6 +17,10 @@ service cloud.firestore {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
     }
 
+    function isCheckpoint(id) {
+      return id is string && id.matches('^checkpoint-.*');
+    }
+
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
@@ -56,12 +60,9 @@ service cloud.firestore {
              scenario.id is string && scenario.id.size() <= 128 &&
              scenario.name is string && scenario.name.size() <= 100 &&
              scenario.budget is map &&
-             scenario.budget.keys().hasAll(['monthlyIncome', 'monthlyExpenses', 'inflationRate', 'lifestyleCreepRate', 'residencyState']) &&
+             scenario.budget.keys().hasAll(['monthlyIncome', 'inflationRate', 'residencyState', 'budgetPhases']) &&
              isNumeric(scenario.budget.monthlyIncome) && scenario.budget.monthlyIncome >= 0 && scenario.budget.monthlyIncome <= 10000000 &&
-             isNumeric(scenario.budget.monthlyExpenses) && scenario.budget.monthlyExpenses >= 0 && scenario.budget.monthlyExpenses <= 10000000 &&
              isNumeric(scenario.budget.inflationRate) && scenario.budget.inflationRate >= -0.2 && scenario.budget.inflationRate <= 1.0 &&
-             isNumeric(scenario.budget.lifestyleCreepRate) && scenario.budget.lifestyleCreepRate >= 0 && scenario.budget.lifestyleCreepRate <= 1.0 &&
-             (scenario.budget.get('schdDividendYield', null) == null || (isNumeric(scenario.budget.get('schdDividendYield', null)) && scenario.budget.get('schdDividendYield', 0) >= 0 && scenario.budget.get('schdDividendYield', 0) <= 100)) &&
              scenario.budget.residencyState is string && scenario.budget.residencyState.size() >= 2 && scenario.budget.residencyState.size() <= 50 &&
              scenario.milestones is list && scenario.milestones.size() <= 100 &&
              scenario.assets is list && scenario.assets.size() <= 100;
@@ -223,34 +224,36 @@ service cloud.firestore {
     
     match /users/{userId}/historical_datapoints/{docId} {
       allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidHistoricalDatapoint(incoming());
+      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidHistoricalDatapoint(incoming()));
     }
     match /users/{userId}/links/{docId} {
       allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidLink(incoming());
+      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidLink(incoming()));
     }
     match /users/{userId}/budgets/{docId} {
       allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidBudget(incoming());
+      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidBudget(incoming()));
     }
     match /users/{userId}/planned_expenses/{docId} {
       allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidPlannedExpense(incoming());
+      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidPlannedExpense(incoming()));
     }
     match /users/{userId}/assets/{docId} {
       allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidAsset(incoming());
+      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidAsset(incoming()));
     }
     match /users/{userId}/categories/{docId} {
       allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidCategory(incoming());
+      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidCategory(incoming()));
     }
     match /users/{userId}/plans/{docId} {
       allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidPlan(incoming());
+      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidPlan(incoming()));
     }
 
     match /households/{householdId} {
+      allow read, write: if isSignedIn() && householdId.matches('^checkpoint-.*') && (householdId.matches('.*' + request.auth.uid + '.*') || householdId == request.auth.uid);
+
       allow read: if isSignedIn() && (resource == null || (request.auth.uid in resource.data.get('members', [])));
       allow delete: if isSignedIn() && resource != null && (request.auth.uid in resource.data.get('members', []));
       

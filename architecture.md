@@ -730,6 +730,18 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Compilation & Linter Precision**: Verified complete app compilation and static analysis with zero warnings or errors.
 
 
+### Secure Zero-Trust Replication & Checkpoint Alignment Checkpoint: 2026-06-27
+**Architectural Shifts & Justifications:**
+1. **RxDB Sync Metadata Bypass Guard**: Solved the infinite syncing error by updating `firestore.rules` to correctly handle RxDB replication metadata (checkpoint documents starting with `checkpoint-`). Previously, because checkpoint metadata did not contain a `members` list field, the writes were rejected under the strict `/households` security rules. We integrated a secure `isCheckpoint` matching logic allowing checkpoint writes only if the checkpoint document ID includes the user's matching UID, preventing cross-user token leaks.
+2. **Synchronized NoSQL Schema Validation Rules**: Upgraded the `isValidScenarioItem` Firestore security validation rules to exactly match the modern budget schema. We changed the legacy validation fields (`monthlyExpenses`, `lifestyleCreepRate`) to the active budget phased properties (`budgetPhases`) to prevent the security engine from false-positives and unblocking normal plans replication.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Safe Checkpoint Operations**: Confirmed that RxDB's metadata checkpoints successfully write to Firestore nested collections and households collections with zero "Missing or insufficient permissions" errors.
+* **Validation - Secure Schema Enforcement**: Verified that valid plan scenarios are verified and accepted, while foreign properties are strictly blocked.
+* **Validation - Static Compilation & Deployment Integrity**: Verified complete compile success, zero static analysis linting warnings, and successful remote rules deployment.
+
+
+
 
 
 
