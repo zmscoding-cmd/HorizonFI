@@ -217,3 +217,40 @@ Turning on the **Night-Watch Theme** turns background elements entirely pitch bl
 *   **ITP Iframe Authentication Failsafe:** Some environments (such as iPadOS Safari) block third-party cookies and auth popups inside web applications. HorizonFI bypasses Safari Intelligent Tracking Prevention (ITP) issues by providing a **Secure Password Fallback** option on the login menu. Registered user accounts can bypass popups and log in directly via secure POST tunnels.
 *   **Diagnostic Safety Banner:** Standard offline browsers frequently suppress storage exceptions. HorizonFI intercepts all indexing, write, or authentication errors and presents them in a detailed, user-dismissible red diagnostic banner, ensuring complete technical transparency.
 *   **Technical Hard Reset:** If local browser storage or browser cache files ever suffer structural corruption (e.g., IndexDB schema drift error DB9), select the **Hard Reset** icon in the dashboard settings footer. After confirming the prompt, the application will wipe corrupted IndexedDB instances, flush stale cache files, and pull your encrypted, validated plan data fresh and intact from the secure Firebase database.
+
+---
+
+## 6. Security, Zero-Trust Architecture & Secrets Management
+
+To maintain the highest tier of financial privacy and secure operations, HorizonFI operates on a mathematically rigorous **Zero-Trust Security Perimeter** model. Under this paradigm, both the local browser environment and the remote build pipeline are treated as hostile, and our secrets management practices are explicitly designed to prevent the accidental leakage, commit, or bundling of sensitive tokens.
+
+### I. Fully Decoupled Client Initializer & Environment Isolation
+*   **No Hardcoded Credentials:** Historically, client configurations were bundled into version-controlled files like `firebase-applet-config.json` or committed `.env` files. In HorizonFI, the client initialization layer (`src/lib/firebase.ts`) is completely decoupled from any static file imports.
+*   **Strictly Environment Variable Driven:** The client-side application requests its core parameters strictly from isolated, dynamic runtime environmental variables (`import.meta.env.VITE_FIREBASE_*`).
+*   **Fail-Safe Crash Protection:** If these variables are absent, instead of letting the application crash on evaluation with a fatal blank screen, the core loader intercepts the initialization deficit. It triggers a safe mock-driver fallback and displays a secure, interactive steel-slate **Configuration Assistant** guiding the developer/user on how to configure secrets in their GitHub dashboard.
+
+### II. CI/CD Deployment with Tight GitHub Secrets Bindings
+*   **Accidental Leaks Prevention:** Hardcoding API keys or project credentials into files checked into Git repositories is a critical vulnerability. HorizonFI resolves this by deferring all keys to the secure repository settings tab under **GitHub Actions Secrets**.
+*   **Fine-Grained Step-Level Resolution:** Our automated merging pipeline (`.github/workflows/firebase-hosting-merge.yml`) does not use wildcards to inject credentials globally. Instead, individual secret bindings are explicitly mapped at the compile step:
+    ```yaml
+    - run: npm run build
+      env:
+        VITE_FIREBASE_API_KEY: '${{ secrets.VITE_FIREBASE_API_KEY }}'
+        VITE_FIREBASE_AUTH_DOMAIN: '${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}'
+        VITE_FIREBASE_PROJECT_ID: '${{ secrets.VITE_FIREBASE_PROJECT_ID }}'
+        VITE_FIREBASE_STORAGE_BUCKET: '${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}'
+        VITE_FIREBASE_MESSAGING_SENDER_ID: '${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}'
+        VITE_FIREBASE_APP_ID: '${{ secrets.VITE_FIREBASE_APP_ID }}'
+    ```
+
+### III. Vite Prefix and Scope Controls
+To completely block third-party tools or rogue processes from sweeping and packing adjacent system secrets (e.g. administrative `GITHUB_TOKEN` keys) into the compiled web assets:
+*   **Scope Restriction:** We strictly locked down Vite's environment scanning scope inside `vite.config.ts` by setting `envPrefix: ['VITE_FIREBASE_']`. Vite will ignore any adjacent sensitive environment variables unless they are explicitly prefixed with this Firebase configuration header.
+*   **Source Map Disablement:** Production source maps are completely disabled (`sourcemap: false`) within the build payload, preventing arbitrary crawlers from scanning structural comments or decompiling local AES-256 encryption algorithms.
+
+### IV. Content Security Policy (CSP) & CDN Edge Defenses
+Because your financial data deserves defense-in-depth, our Firebase Hosting configuration (`firebase.json`) injects rigid HTTP response headers directly from the edge CDN routers on every page request:
+*   **Content-Security-Policy (CSP):** restrains script execution, font loading, style injections, and network connections strictly to standard Google/Firebase authentication and database endpoints. This systematically prevents cross-site scripting (XSS) from exfiltrating data.
+*   **Clickjacking Blockade:** Serves `X-Frame-Options: DENY` headers to refuse page rendering if embedded inside malicious or unapproved third-party iframes.
+*   **Strict-Transport-Security (HSTS):** Guarantees that any browser attempting to access the dashboard is forced to use cryptographically secure HTTPS, shielding local connections from passive packet sniffing.
+
