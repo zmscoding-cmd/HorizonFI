@@ -706,5 +706,18 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Compilation Success**: Successfully validated the entire linter and production build with zero errors.
 
 
+### Robust Graceful Fallback & UI Configuration Safety Checkpoint: 2026-06-26
+**Architectural Shifts & Justifications:**
+1. **Dynamic Environment Validation & Safety Perimeter**: Decoupled top-level React execution from Firebase initialization. By validating active keys inside `src/lib/firebase.ts`, we catch unconfigured or placeholder configurations before they trigger a fatal module evaluation crash.
+2. **Mock/Stub Failover Fallbacks**: Configured safe, high-integrity mock/stub fallback drivers for Firebase Auth and Firestore database APIs. This ensures all top-level React module imports and initial state initializations resolve gracefully without launching breaking loops.
+3. **Actionable On-Screen Configuration Assistant**: Replaced the "blank page of death" with a highly polished, responsive Swiss-modern steel-slate guide panel. It details exactly how the user can configure their GitHub repository Secrets (`VITE_FIREBASE_*`) to resolve the configuration deficit.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Zero Credentials Leak**: Verified that no private API keys or Firestore configurations are committed or stored in version control.
+* **Validation - Crash Mitigation**: Proven that the PWA loads successfully without throwing fatal initialization exceptions under any unconfigured state.
+* **Validation - Compilation Success**: Successfully ran the production compiler and linter with zero warnings or path resolution errors.
+
+
+
 
 

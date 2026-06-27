@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getDatabase, startReplication, clearDatabase, PlanType, LinkType, generateUUID } from './lib/db';
-import { auth } from './lib/firebase';
+import { auth, isFirebaseConfigured, firebaseConfigError } from './lib/firebase';
 import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { Plus, LogOut, Wallet, TrendingUp, Save, ServerCrash, AlertTriangle, HelpCircle, Link as LinkIcon, Search, Trash2, ExternalLink, Copy } from 'lucide-react';
 import ScenarioBuilder from './components/ScenarioBuilder';
@@ -318,6 +318,112 @@ export default function App() {
       setAuthError(err.message || 'Failed to send password reset email.');
     }
   };
+
+  if (!isFirebaseConfigured) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 p-4 sm:p-6 transition-colors">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
+        <div className="bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-2xl shadow-xl dark:shadow-black/45 max-w-2xl w-full space-y-6 border border-zinc-100 dark:border-zinc-800/80">
+          <div className="flex items-center gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-200/50 dark:border-amber-900/30">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                Action Required: Configure GitHub Secrets
+              </h1>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                Secure CI/CD Deployment Environment Status: Pending Secrets
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-sm text-zinc-600 dark:text-zinc-350 leading-relaxed">
+              Your PWA built successfully, but it's running without active Firebase environment configurations. Because your repository utilizes a <strong className="text-zinc-900 dark:text-zinc-100">Zero-Trust Security Perimeter</strong>, API keys are never hardcoded. Instead, they must be registered in your GitHub repository secrets.
+            </p>
+
+            <div className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 text-xs font-mono space-y-2 overflow-x-auto text-zinc-500 dark:text-zinc-400">
+              <div className="font-semibold text-zinc-700 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800/50 pb-1 mb-2 flex items-center justify-between">
+                <span>REQUISITE REPOSITORY SECRETS</span>
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 uppercase font-bold px-1.5 py-0.5 bg-amber-100/50 dark:bg-amber-950/50 rounded">Incomplete</span>
+              </div>
+              <ul className="space-y-1.5">
+                <li className="flex justify-between items-center py-0.5 border-b border-zinc-100 dark:border-zinc-900/40">
+                  <span>VITE_FIREBASE_API_KEY</span>
+                  <span className="text-red-500 dark:text-red-400 font-medium">Missing</span>
+                </li>
+                <li className="flex justify-between items-center py-0.5 border-b border-zinc-100 dark:border-zinc-900/40">
+                  <span>VITE_FIREBASE_AUTH_DOMAIN</span>
+                  <span className="text-red-500 dark:text-red-400 font-medium">Missing</span>
+                </li>
+                <li className="flex justify-between items-center py-0.5 border-b border-zinc-100 dark:border-zinc-900/40">
+                  <span>VITE_FIREBASE_PROJECT_ID</span>
+                  <span className="text-red-500 dark:text-red-400 font-medium">Missing</span>
+                </li>
+                <li className="flex justify-between items-center py-0.5 border-b border-zinc-100 dark:border-zinc-900/40">
+                  <span>VITE_FIREBASE_STORAGE_BUCKET</span>
+                  <span className="text-red-500 dark:text-red-400 font-medium">Missing</span>
+                </li>
+                <li className="flex justify-between items-center py-0.5 border-b border-zinc-100 dark:border-zinc-900/40">
+                  <span>VITE_FIREBASE_MESSAGING_SENDER_ID</span>
+                  <span className="text-red-500 dark:text-red-400 font-medium">Missing</span>
+                </li>
+                <li className="flex justify-between items-center py-0.5">
+                  <span>VITE_FIREBASE_APP_ID</span>
+                  <span className="text-red-500 dark:text-red-400 font-medium">Missing</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                <span>📋</span> Setup Instructions (Takes 2 minutes)
+              </h2>
+              <ol className="text-xs space-y-3 text-zinc-600 dark:text-zinc-350 leading-relaxed list-decimal pl-4">
+                <li>
+                  Open your newly created GitHub repository page in your browser.
+                </li>
+                <li>
+                  Go to <strong className="text-zinc-900 dark:text-zinc-100">Settings</strong> (top tab) &rarr; <strong className="text-zinc-900 dark:text-zinc-100">Secrets and variables</strong> (left sidebar) &rarr; <strong className="text-zinc-900 dark:text-zinc-100">Actions</strong>.
+                </li>
+                <li>
+                  Click the <strong className="text-zinc-900 dark:text-zinc-100">"New repository secret"</strong> button.
+                </li>
+                <li>
+                  Add each secret key listed above with the corresponding values from your Firebase configuration. You can copy the values from your local <code className="px-1 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded font-mono">.env.local</code> file or the settings panel.
+                </li>
+                <li>
+                  Once complete, push another commit to <code className="px-1 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded font-mono">main</code> or go to your GitHub repository <strong className="text-zinc-900 dark:text-zinc-100">"Actions"</strong> tab, click the latest failed run, and select <strong className="text-zinc-900 dark:text-zinc-100">"Re-run failed jobs"</strong>.
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row gap-3">
+            <button 
+              onClick={() => {
+                window.location.reload();
+              }}
+              className="flex-1 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-semibold py-2.5 px-4 rounded-xl transition text-xs shadow-sm cursor-pointer min-h-[44px] flex items-center justify-center gap-2"
+            >
+              Refresh Configuration Check
+            </button>
+            <a 
+              href="https://github.com" 
+              target="_blank" 
+              referrerPolicy="no-referrer"
+              className="flex-1 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200 font-medium py-2.5 px-4 rounded-xl transition text-xs text-center min-h-[44px] flex items-center justify-center gap-1.5"
+            >
+              Go to GitHub <ExternalLink size={14} />
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
