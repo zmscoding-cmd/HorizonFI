@@ -638,15 +638,28 @@ export default function App() {
         {(dbInitError || planError) && (
           <div className="mb-6 bg-red-50 dark:bg-red-950/35 text-red-650 dark:text-red-400 text-sm p-4 rounded-xl border border-red-200 dark:border-red-900/40 flex items-start gap-3.5 shadow-sm">
             <AlertTriangle className="shrink-0 mt-0.5 text-red-600 dark:text-red-400 animate-pulse" size={18} />
-            <div className="space-y-1">
-              <h4 className="font-semibold text-red-850 dark:text-red-300 leading-none">Planning / Storage Warning</h4>
-              <p className="text-xs leading-relaxed text-red-600 dark:text-red-400/90 whitespace-pre-wrap mt-1">{dbInitError || planError}</p>
-              <button 
-                onClick={() => { setDbInitError(null); setPlanError(null); }}
-                className="text-[10px] uppercase font-bold tracking-wider text-red-700 dark:text-red-300 hover:underline pt-1 block cursor-pointer"
-              >
-                Dismiss
-              </button>
+            <div className="flex-1 space-y-2">
+              <div>
+                <h4 className="font-semibold text-red-850 dark:text-red-300 leading-none">Planning / Storage Warning</h4>
+                <p className="text-xs leading-relaxed text-red-600 dark:text-red-400/90 whitespace-pre-wrap mt-1">{dbInitError || planError}</p>
+              </div>
+              <div className="flex gap-4 items-center">
+                {dbInitError && (
+                  <button 
+                    onClick={hardReset}
+                    disabled={isResetting}
+                    className="bg-red-650 hover:bg-red-700 dark:bg-red-700/80 dark:hover:bg-red-600 text-white font-semibold text-[11px] px-3 py-1.5 rounded-lg transition-colors cursor-pointer min-h-[30px]"
+                  >
+                    {isResetting ? 'Resetting...' : 'Clear & Reset Local Database Cache'}
+                  </button>
+                )}
+                <button 
+                  onClick={() => { setDbInitError(null); setPlanError(null); }}
+                  className="text-[10px] uppercase font-bold tracking-wider text-red-700 dark:text-red-300 hover:underline cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           </div>
         )}

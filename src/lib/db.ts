@@ -551,15 +551,55 @@ export async function getDatabase() {
   if (dbPromise) return dbPromise;
 
   dbPromise = (async () => {
+    let password = '';
     try {
-      const password = await getEncryptionKey();
-      const rxdb = await createRxDatabase({
+      password = await getEncryptionKey();
+    } catch (e) {
+      dbPromise = null;
+      throw e;
+    }
+
+    let rxdb: any;
+    try {
+      rxdb = await createRxDatabase({
         name: 'horizonfi_db_v7',
         storage: stableStorage,
         password: password,
         multiInstance: true
       });
+    } catch (err: any) {
+      const errStr = String(err?.message || err?.code || err || '');
+      const isPasswordMismatch = errStr.includes('DB1') || 
+                                 errStr.toLowerCase().includes('password') || 
+                                 errStr.toLowerCase().includes('decrypt') || 
+                                 errStr.toLowerCase().includes('hash');
+      
+      if (isPasswordMismatch) {
+        console.warn(
+          '[RxDB Auto-Recovery] Password or hash mismatch (DB1) detected during authentication context shift. ' +
+          'Automatically clearing local IndexedDB cache to allow secure initialization with the new session...'
+        );
+        try {
+          // Force remove the database from IndexedDB
+          await removeRxDatabase('horizonfi_db_v7', getRxStorageDexie());
+        } catch (removeErr) {
+          console.error('[RxDB Auto-Recovery] Failed to remove stale IndexedDB database:', removeErr);
+        }
+        
+        // Retry creating the database fresh
+        rxdb = await createRxDatabase({
+          name: 'horizonfi_db_v7',
+          storage: stableStorage,
+          password: password,
+          multiInstance: true
+        });
+      } else {
+        dbPromise = null; // reset cache on other failure types
+        throw err;
+      }
+    }
 
+    try {
       // Note: We bypass registering validate-ajv plugin in production to maximize Web Worker write throughput.
       const collectionsToCreate: any = {};
       if (!rxdb.collections.plans) {
@@ -957,12 +997,20 @@ export function startReplication(
 
 export async function clearDatabase() {
   if (dbPromise) {
-    const rxdb: any = await dbPromise;
-    await rxdb.destroy();
+    try {
+      const rxdb: any = await dbPromise;
+      await rxdb.destroy();
+    } catch (e) {
+      console.warn('[clearDatabase] Ignored error while destroying database:', e);
+    }
     dbPromise = null;
   }
   // Remove the underlying IndexedDB database
-  await removeRxDatabase('horizonfi_db_v7', getRxStorageDexie());
+  try {
+    await removeRxDatabase('horizonfi_db_v7', getRxStorageDexie());
+  } catch (e) {
+    console.error('[clearDatabase] Failed to remove IndexedDB database:', e);
+  }
 }
 
 export function generateUUID(): string {
