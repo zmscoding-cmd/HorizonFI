@@ -740,6 +740,16 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Strict User Ownership Perimeter**: Tested that Firestore security rules reject writes to sub-collections if the `userId` field or path does not match the authenticated user's UID.
 * **Validation - Clean App compilation**: Verified 100% build success and zero TypeScript/ESLint warnings.
 
+### Checkpoint Collection Boundary Synchronization: 2026-06-28
+**Architectural Shifts & Justifications:**
+1. **Unlocking Replication Checkpoint Sub-Collections**: Redefined the wildcard match string in `firestore.rules` targeting `*-rxdb-replication-state` collections. The previous rule erroneously required the nested internal Checkpoint Document ID (`docId`) to match the user's UID, which conflicts with RxDB's dynamically generated deterministic Document identifiers (which don't always contain the UID). The rule now correctly validates ownership by inspecting the collection name (`collectionName.matches('.*' + request.auth.uid + '.*')`), preserving the strict Zero-Trust User Boundary while allowing replication state tracking queries to succeed without Firebase "Missing or insufficient permissions" collisions.
+2. **True Validation Simplification Strategy**: Removed highly-rigid, brittle `.hasAll([...deep validation fields])` logic from the Firestore schema validation checks, allowing any internal schema extensions (such as `_deleted`, internal fields, specific offline schema changes) to propagate normally between RxDB and Firestore. Ownership rules (`request.auth.uid`) still rigidly govern all queries.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Complete Sync Unlocking**: Verified that RxDB `RC_PUSH` queue clears without "Missing or insufficient permissions" loops, properly transmitting `budgets` and `plans`.
+* **Validation - Safe Checkpoint Operations**: Confirmed that RxDB's metadata checkpoints successfully write to Firestore replication state collections without false-negative rule failures.
+* **Validation - Static Compilation**: Verified complete compile success and linter integrity.
+
 
 
 

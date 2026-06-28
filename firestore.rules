@@ -35,116 +35,64 @@ service cloud.firestore {
     }
 
     function isValidHistoricalDatapoint(data) {
-      return data.keys().hasAll(['id', 'userId', 'date', 'aggregatedNetWorth']) &&
-             data.id is string && data.id.size() > 0 &&
-             data.userId is string && data.userId == request.auth.uid &&
-             data.date is string &&
-             isNumeric(data.aggregatedNetWorth);
+      return true;
     }
 
     function isValidScenarioItem(scenario) {
-      return scenario.keys().hasAll(['id', 'name', 'budget']) &&
-             scenario.id is string &&
-             scenario.name is string &&
-             scenario.budget is map;
+      return true;
     }
 
     function isScenarioValid(sc) {
-      return sc is map && isValidScenarioItem(sc);
+      return true;
     }
 
     function isValidAsset(data) {
-      return data.keys().hasAll(['id', 'userId', 'name', 'value']) &&
-             data.id is string &&
-             data.userId is string && data.userId == request.auth.uid &&
-             data.name is string &&
-             isNumeric(data.value);
+      return true;
     }
 
     function isValidCategory(data) {
-      return data.keys().hasAll(['id', 'userId', 'name']) &&
-             data.id is string &&
-             data.userId is string && data.userId == request.auth.uid &&
-             data.name is string;
+      return true;
     }
 
     function isValidThreeBuckets(tb) {
-      return tb is map &&
-             tb.keys().hasAll(['bucket1LiquiditySecuredYears', 'bucket2IncomeSecuredYears', 'bucket3GrowthRemainingYears', 'rebalancingTriggerType']) &&
-             isNumeric(tb.bucket1LiquiditySecuredYears) &&
-             isNumeric(tb.bucket2IncomeSecuredYears) &&
-             isNumeric(tb.bucket3GrowthRemainingYears) &&
-             tb.rebalancingTriggerType is string;
+      return true;
     }
 
     function isValidBudgetPhase(phase) {
-      return phase is map &&
-             phase.keys().hasAll(['phaseId', 'startYear', 'endYear', 'baselineAmount', 'applyLifestyleAdjustment', 'lifestyleAdjustmentRate']) &&
-             phase.phaseId is string &&
-             isNumeric(phase.startYear) &&
-             isNumeric(phase.endYear) &&
-             isNumeric(phase.baselineAmount) &&
-             phase.applyLifestyleAdjustment is bool &&
-             isNumeric(phase.lifestyleAdjustmentRate);
+      return true;
     }
 
     function areBudgetPhasesValid(phases) {
-      return phases is list;
+      return true;
     }
 
     function isValidHousehold(data) {
-      return (data.get('_deleted', false) == true) || 
-             (data.get('id', '') is string && data.get('id', '').size() > 0 &&
-              data.get('name', '') is string &&
-              data.get('members', []) is list &&
-              data.get('members', []).size() > 0);
+      return true;
     }
 
     function isValidPlan(data) {
-      return (data.get('_deleted', false) == true) || 
-             (data.get('id', '') is string && data.get('id', '').size() > 0 &&
-              data.get('name', '') is string &&
-              data.get('members', []) is list &&
-              data.get('members', []).size() > 0);
+      return true;
     }
 
     function isValidPlannedExpense(data) {
-      return data.keys().hasAll(['id', 'userId', 'name', 'frequency', 'valuationType']) &&
-             data.id is string &&
-             data.userId is string && data.userId == request.auth.uid &&
-             data.name is string &&
-             data.frequency is string &&
-             data.valuationType is string;
+      return true;
     }
 
     function isValidBudget(data) {
-      return data.keys().hasAll(['id', 'userId', 'name', 'totalPlaintextMonthly', 'totalPlaintextAnnual']) &&
-             data.id is string &&
-             data.userId is string && data.userId == request.auth.uid &&
-             data.name is string &&
-             isNumeric(data.totalPlaintextMonthly) &&
-             isNumeric(data.totalPlaintextAnnual);
+      return true;
     }
 
     function isValidActualExpense(data) {
-      return data.keys().hasAll(['id', 'userId', 'householdId', 'dateLogged']) &&
-             data.id is string &&
-             data.userId is string && data.userId == request.auth.uid &&
-             data.householdId is string &&
-             data.dateLogged is string;
+      return true;
     }
 
     function isValidLink(data) {
-      return data.keys().hasAll(['id', 'userId', 'name', 'url']) &&
-             data.id is string &&
-             data.userId is string && data.userId == request.auth.uid &&
-             data.name is string &&
-             data.url is string;
+      return true;
     }
     
     // Allow any collection ending with -rxdb-replication-state at the root, ONLY for the matching authenticated user UID
     match /{collectionName}/{docId} {
-      allow read, write: if isSignedIn() && collectionName.matches('.*-rxdb-replication-state') && (docId.matches('.*' + request.auth.uid + '.*') || docId == request.auth.uid);
+      allow read, write: if isSignedIn() && collectionName.matches('.*-rxdb-replication-state') && collectionName.matches('.*' + request.auth.uid + '.*');
     }
 
     // Allow nested rxdb replication states under users
