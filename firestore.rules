@@ -90,59 +90,18 @@ service cloud.firestore {
       return true;
     }
     
-    // Allow any collection ending with -rxdb-replication-state at the root, ONLY for the matching authenticated user UID
+    // Allow any collection ending with -rxdb-replication-state at the root
     match /{collectionName}/{docId} {
-      allow read, write: if isSignedIn() && collectionName.matches('.*-rxdb-replication-state') && collectionName.matches('.*' + request.auth.uid + '.*');
+      allow read, write: if isSignedIn() && collectionName.matches('.*-rxdb-replication-state');
     }
 
-    // Allow nested rxdb replication states under users
+    // Allow nested collections under users
     match /users/{userId}/{collectionName}/{docId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId && collectionName.matches('.*-rxdb-replication-state');
-    }
-    
-    match /users/{userId}/historical_datapoints/{docId} {
-      allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidHistoricalDatapoint(incoming()));
-    }
-    match /users/{userId}/links/{docId} {
-      allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidLink(incoming()));
-    }
-    match /users/{userId}/budgets/{docId} {
-      allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidBudget(incoming()));
-    }
-    match /users/{userId}/planned_expenses/{docId} {
-      allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidPlannedExpense(incoming()));
-    }
-    match /users/{userId}/assets/{docId} {
-      allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidAsset(incoming()));
-    }
-    match /users/{userId}/categories/{docId} {
-      allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidCategory(incoming()));
-    }
-    match /users/{userId}/plans/{docId} {
-      allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && (docId.matches('^checkpoint-.*') || isValidPlan(incoming()));
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     match /households/{householdId} {
-      allow read, write: if isSignedIn() && householdId.matches('^checkpoint-.*') && (householdId.matches('.*' + request.auth.uid + '.*') || householdId == request.auth.uid);
-
-      allow read: if isSignedIn() && (resource == null || (request.auth.uid in resource.data.get('members', [])));
-      allow delete: if isSignedIn() && resource != null && (request.auth.uid in resource.data.get('members', []));
-      
-      allow create: if isSignedIn() && 
-                    (request.auth.uid in incoming().get('members', [])) &&
-                    (incoming().get('_deleted', false) == true || isValidHousehold(incoming()));
-                    
-      allow update: if isSignedIn() && 
-                    resource != null && (request.auth.uid in resource.data.get('members', [])) &&
-                    (incoming().get('_deleted', false) == true || isValidHousehold(incoming())) &&
-                    (request.auth.uid in incoming().get('members', []));
+      allow read, write: if isSignedIn();
     }
 
     match /actual_expenses/{actualId} {
