@@ -57,7 +57,11 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
         TAXABLE: Math.max(0, taxable),
         PRE_TAX: Math.max(0, preTax),
         ROTH: Math.max(0, roth),
-        Total: Math.max(0, cash + taxable + preTax + roth)
+        Total: Math.max(0, cash + taxable + preTax + roth),
+        expectedSpend: snapshot.targetBudgetNominal || 0,
+        expectedGrowth: snapshot.expectedGrowth || 0,
+        expectedYield: snapshot.expectedYield || 0,
+        changeInNetWorth: snapshot.changeInNetWorth || 0
       };
     });
   }, [data, assets]);
@@ -76,6 +80,108 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
       currency: 'USD',
       maximumFractionDigits: 0,
     }).format(val);
+
+  const formatYAxis = (val: number) => {
+    if (val === 0) return '$0';
+    return `$${(val / 1000000).toFixed(2).replace(/\.?0+$/, '')}M`;
+  };
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || !payload.length) return null;
+    
+    const dataObj = payload[0].payload;
+    const year = dataObj.year;
+    const age = dataObj.age;
+    const cash = dataObj.CASH;
+    const taxable = dataObj.TAXABLE;
+    const preTax = dataObj.PRE_TAX;
+    const roth = dataObj.ROTH;
+    const total = dataObj.Total;
+    
+    const spend = dataObj.expectedSpend;
+    const growth = dataObj.expectedGrowth;
+    const yieldVal = dataObj.expectedYield;
+    const change = dataObj.changeInNetWorth;
+
+    const isChangePositive = change >= 0;
+
+    return (
+      <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-xl text-xs max-w-xs transition-colors space-y-3.5">
+        <div className="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-800/85 pb-2">
+          <span className="font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider font-mono">
+            Year {year}
+          </span>
+          <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 px-2 py-0.5 rounded-full font-mono">
+            Age {age}
+          </span>
+        </div>
+        
+        {/* Asset Classes Breakdown */}
+        <div className="space-y-1.5">
+          <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Portfolio Balances</div>
+          <div className="flex justify-between gap-8 items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              Cash
+            </span>
+            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-100">{formatCurrency(cash)}</span>
+          </div>
+          <div className="flex justify-between gap-8 items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              Taxable
+            </span>
+            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-100">{formatCurrency(taxable)}</span>
+          </div>
+          <div className="flex justify-between gap-8 items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+              <span className="w-2 h-2 rounded-full bg-orange-500" />
+              Pre-Tax
+            </span>
+            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-100">{formatCurrency(preTax)}</span>
+          </div>
+          <div className="flex justify-between gap-8 items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Roth
+            </span>
+            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-100">{formatCurrency(roth)}</span>
+          </div>
+          <div className="flex justify-between gap-8 items-center border-t border-zinc-100 dark:border-zinc-850/60 pt-1.5 mt-1 font-bold">
+            <span className="text-zinc-900 dark:text-zinc-50">Total Net Worth</span>
+            <span className="font-mono text-zinc-900 dark:text-white">{formatCurrency(total)}</span>
+          </div>
+        </div>
+
+        {/* Dynamic Yearly Details */}
+        <div className="border-t border-zinc-100 dark:border-zinc-800/85 pt-3.5 space-y-2">
+          <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Yearly Flow & Growth</div>
+          
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-zinc-600 dark:text-zinc-400">Expected Spend:</span>
+            <span className="font-mono text-zinc-800 dark:text-zinc-200">{formatCurrency(spend)}</span>
+          </div>
+          
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-zinc-600 dark:text-zinc-400">Portfolio Growth:</span>
+            <span className="font-mono text-emerald-600 dark:text-emerald-400">+{formatCurrency(growth)}</span>
+          </div>
+          
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-zinc-600 dark:text-zinc-400">Portfolio Yield:</span>
+            <span className="font-mono text-cyan-600 dark:text-cyan-400">+{formatCurrency(yieldVal)}</span>
+          </div>
+          
+          <div className="flex justify-between items-center gap-4 border-t border-zinc-100 dark:border-zinc-800/60 pt-2 font-semibold">
+            <span className="text-zinc-700 dark:text-zinc-300">Yearly Change:</span>
+            <span className={`font-mono ${isChangePositive ? 'text-emerald-500' : 'text-rose-500'}`}>
+              {isChangePositive ? '+' : ''}{formatCurrency(change)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="w-full h-full relative" style={{ minHeight: '300px' }}>
@@ -117,39 +223,14 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
             minTickGap={30}
           />
           <YAxis
-            tickFormatter={(val) => `$${(val / 1000).toFixed(0)}k`}
+            tickFormatter={formatYAxis}
             className="text-xs font-mono"
             tick={{ fill: isDark ? '#a1a1aa' : '#71717a' }}
             tickLine={false}
             axisLine={false}
             width={80}
           />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: isDark ? '#18181b' : '#ffffff',
-              borderColor: isDark ? '#3f3f46' : '#e4e4e7',
-              borderRadius: '0.75rem',
-              color: isDark ? '#f4f4f5' : '#09090b',
-              boxShadow: isDark ? '0 10px 15px -3px rgba(0, 0, 0, 0.45)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-            }}
-            itemStyle={{ fontSize: '12px', fontWeight: 500 }}
-            labelStyle={{
-              color: isDark ? '#a1a1aa' : '#71717a',
-              fontSize: '11px',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: '0.5rem',
-            }}
-            formatter={(value: number) => [formatCurrency(value)]}
-            labelFormatter={(label, payload) =>
-              `Year: ${label} ${
-                payload && payload[0] && payload[0].payload.age
-                  ? `(Age ${payload[0].payload.age})`
-                  : ''
-              }`
-            }
-          />
+          <Tooltip content={<CustomTooltip />} />
           <Legend
             verticalAlign="top"
             height={36}

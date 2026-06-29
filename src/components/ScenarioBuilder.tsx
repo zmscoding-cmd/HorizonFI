@@ -250,7 +250,10 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
           budgetPhases: config.budgetPhases,
           maxRealWithdrawal: config.maxRealWithdrawal,
           liquidBufferYears: config.liquidBufferYears,
-          nonTaxableGifts: scenario.nonTaxableGifts || []
+          nonTaxableGifts: scenario.nonTaxableGifts || [],
+          targetRothConversionAmount: scenario.budget?.targetRothConversionAmount || 0,
+          taxableRebalancingSaleAmount: scenario.budget?.taxableRebalancingSaleAmount || 0,
+          rebalancingCapitalGainPercentage: scenario.budget?.rebalancingCapitalGainPercentage || 0
         });
       }
     });

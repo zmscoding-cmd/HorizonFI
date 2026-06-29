@@ -112,6 +112,9 @@ export type SubScenario = {
     allocationMode?: 'PERCENTAGE' | 'DOLLARS';
     buckets?: AllocationBuckets;
     blendedCostBasisPercentage?: number;
+    targetRothConversionAmount?: number;
+    taxableRebalancingSaleAmount?: number;
+    rebalancingCapitalGainPercentage?: number;
   };
   stages?: Stage[];
   milestones: any[];
@@ -403,6 +406,9 @@ export type BudgetType = {
   totalPlaintextMonthly: number;
   totalPlaintextAnnual: number;
   notes?: string;
+  targetRothConversionAmount?: number;
+  taxableRebalancingSaleAmount?: number;
+  rebalancingCapitalGainPercentage?: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -459,7 +465,7 @@ export type CategoryType = {
 };
 
 const budgetSchema = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -468,6 +474,9 @@ const budgetSchema = {
     name: { type: 'string' },
     totalPlaintextMonthly: { type: 'number' },
     totalPlaintextAnnual: { type: 'number' },
+    targetRothConversionAmount: { type: 'number' },
+    taxableRebalancingSaleAmount: { type: 'number' },
+    rebalancingCapitalGainPercentage: { type: 'number' },
     notes: { type: 'string' },
     createdAt: { type: 'integer' },
     updatedAt: { type: 'integer' }
@@ -784,7 +793,19 @@ export async function getDatabase() {
           }
         };
       }
-      if (!rxdb.collections.budgets) collectionsToCreate.budgets = { schema: budgetSchema };
+      if (!rxdb.collections.budgets) {
+        collectionsToCreate.budgets = { 
+          schema: budgetSchema,
+          migrationStrategies: {
+            1: function (oldDoc: any) {
+              oldDoc.targetRothConversionAmount = 0;
+              oldDoc.taxableRebalancingSaleAmount = 0;
+              oldDoc.rebalancingCapitalGainPercentage = 0;
+              return oldDoc;
+            }
+          }
+        };
+      }
       if (!rxdb.collections.planned_expenses) {
         collectionsToCreate.planned_expenses = {
           schema: plannedExpenseSchema,

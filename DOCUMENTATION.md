@@ -289,3 +289,74 @@ Because your financial data deserves defense-in-depth, our Firebase Hosting conf
 *   **Clickjacking Blockade:** Serves `X-Frame-Options: DENY` headers to refuse page rendering if embedded inside malicious or unapproved third-party iframes.
 *   **Strict-Transport-Security (HSTS):** Guarantees that any browser attempting to access the dashboard is forced to use cryptographically secure HTTPS, shielding local connections from passive packet sniffing.
 
+---
+
+## 7. Tax Projections & Gross-Up Engine
+
+### Mathematical Foundations of Multi-Bucket Drawdowns
+
+Executing a successful early retirement drawdown strategy—specifically a high-complexity framework like the **Circumnavigation Bridge Strategy**—demands far more than generic tax projections. Traditional tools rely on pro-rata assumptions, applying static average tax rates or flat-percentage deductions across all asset classes. HorizonFI, conversely, rejects these crude simplifications in favor of a mathematically rigorous, offline-first tax simulation engine. 
+
+To guarantee that your estimated net budget matches your actual cash in hand, the computation layer in `simulation.worker.ts` isolates processing to a dedicated background thread, executing a precise **Income Stacking Methodology** coupled with a high-performance **Gross-Up Computational Loop**.
+
+---
+
+### The Mechanics of Income Stacking
+
+Under the United States federal tax code (projected for the Post-TCJA 2026 sunset era), different types of income are taxed under distinct bracket structures. Crucially, these structures are not independent; they stack sequentially. The rate applied to your last dollar of capital gains depends entirely on the volume of ordinary income underneath it.
+
+```
+       ┌────────────────────────────────────────────────────────┐
+       │ LONG-TERM CAPITAL GAINS (LTCG) STACK                   │
+       │ (Qualified Dividends & Taxable Brokerage Gains)        │
+       │ Subject to 0% / 15% / 20% brackets depending on the    │
+       │ underlying Ordinary Income level.                      │
+       ├────────────────────────────────────────────────────────┤ ◄─── $98,900 LTCG Threshold (2026 MFJ)
+       │ ORDINARY INCOME STACK                                  │
+       │ (Pre-existing pensions, social security, plus active   │
+       │ manual Roth Conversions & Traditional IRA drawdowns)   │
+       ├────────────────────────────────────────────────────────┤ ◄─── $30,000 Standard Deduction
+       │ STANDARD DEDUCTION (Tax-Sheltered Base)                │
+       └────────────────────────────────────────────────────────┘
+```
+
+HorizonFI evaluates your annual tax liabilities in this exact chronological order:
+
+#### 1. The Standard Deduction Shield
+The engine starts by applying the projected 2026 Married Filing Jointly (MFJ) standard deduction of **$30,000** as a baseline tax-sheltered floor. Any ordinary income streams must completely exhaust this shield before generating an active tax liability.
+
+#### 2. Stacking Ordinary Income
+Ordinary income consists of baseline streams (such as pre-existing railroad retirement benefits, pensions, and non-portfolio income) plus your proactive, user-defined **Target Roth Conversion Amount** and traditional IRA distributions.
+$$\text{Taxable Ordinary Income} = \max(0, \text{Total Ordinary Income} - \$30,000)$$
+The engine then applies the progressive post-TCJA 2026 ordinary income tax brackets (starting at 10%, 12%, 22%, and 24%) directly to this taxable ordinary base:
+$$\text{Ordinary Tax Liability} = f_{\text{progressive}}(\text{Taxable Ordinary Income})$$
+
+#### 3. Stacking Capital Gains (The Bracket Push)
+Once the ordinary income base is established, long-term capital gains—consisting of qualified dividends, tax-taxable brokerage gains from standard withdrawals, and the gain portion of your proactive **Taxable Rebalancing Sale Amount** (determined by your `rebalancingCapitalGainPercentage`)—are stacked directly on top.
+*   **Standard Deduction Offsets:** If your total ordinary income is less than the standard deduction, the unused deduction portion is allowed to spill over and shield a portion of your capital gains:
+    $$\text{Remaining Standard Deduction} = \max(0, \$30,000 - \text{Total Ordinary Income})$$
+    $$\text{Taxable LTCG} = \max(0, \text{Total LTCG} - \text{Remaining Standard Deduction})$$
+*   **The Marginal LTCG Bracket Drag:** The stacked capital gains are evaluated relative to the 2026 LTCG thresholds ($0\% \le \$98,900$, $15\% \le \$613,700$, and $20\%$ beyond, for MFJ). If your ordinary income base has already filled your brackets up to or past the $98,900 threshold, **every single dollar of capital gains is immediately pushed into the 15% or 20% bracket**. 
+    *   *Strategic Rule:* A $40,000 Roth conversion on top of $60,000 of other ordinary income will push your capital gains out of the 0% bracket, transforming what would have been tax-free brokerage liquidations into 15% tax drag. HorizonFI exposes this exact interactive friction.
+
+---
+
+### The Gross-Up Algorithm & Computational Loop
+
+When you specify that you need to withdraw a net sum of **$50,000** to fund your cruising lifestyle, the raw portfolio withdrawal cannot be a flat $50,000. Because withdrawing from pre-tax or brokerage accounts triggers immediate tax liabilities, your total withdrawal must be "grossed up" to cover both the baseline net target and the resulting tax burden:
+$$\text{Gross Withdrawal} = \text{Net Lifestyle Target} + \text{Total Tax Liability}$$
+
+To determine this exact figure, the Web Worker executes a **multi-variable numerical convergence loop** (configured for a maximum of 40 iterations or a strict $< \$0.01$ precision limit):
+
+1.  **Initialize Target Allocation:** Net targets for each of the five buckets (Qualified Dividends, Taxable Brokerage, Pre-Tax, Roth, and Cash/Gifts) are established based on your active funding configuration.
+2.  **Evaluate Starting Guess:** The loop begins with a baseline guess where gross withdrawals equal the net target allocations.
+3.  **Income Stack & Tax Evaluation:** At each iteration, the engine stacks the active gross traditional withdrawals and brokerage gain portions alongside manual strategic events (Roth conversions and rebalancing sales) to run the full statutory 2026 bracket calculations.
+4.  **Shortfall Calculation:** The engine calculates the net cash actually achieved after subtracting the generated tax liability:
+    $$\text{Net Achieved} = (\text{Traditional}_{\text{Gross}} + \text{Brokerage}_{\text{Gross}} + \text{Dividends}_{\text{Gross}} + \text{Roth}_{\text{Gross}} + \text{Cash}_{\text{Gross}}) - \text{Total Tax}$$
+    $$\text{Shortfall} = \text{Total Net Target} - \text{Net Achieved}$$
+5.  **Proportional Distribution of Drag:** If the shortfall is greater than \$0.01, the engine dynamically adjusts the gross withdrawal targets. Critically, to preserve mathematical correctness, this tax drag adjustment is distributed proportionally across **all active funding sources**:
+    $$\text{Withdrawal}_{\text{Gross}, t+1} = \text{Withdrawal}_{\text{Gross}, t} + \text{Shortfall} \times \left(\frac{\text{Withdrawal}_{\text{Net}}}{\text{Total Net Target}}\right)$$
+    This ensures that tax-free buckets (like Roth IRAs or Cash Gifts) only grow by their proportional net share to cover the global deficit, while taxable buckets expand dynamically to absorb their tax-on-tax drag.
+6.  **Loop Termination:** Once the absolute difference in `Shortfall` shrinks below **$0.01**, the loop terminates and passes the exact gross outputs down to your scenario ledger. This prevents cash flow deficits from compounding over 30+ year projection timelines.
+
+

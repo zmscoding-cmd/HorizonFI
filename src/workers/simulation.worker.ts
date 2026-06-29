@@ -471,6 +471,9 @@ export type MultiStageSimPayload = {
   futureLiabilities?: FutureLiabilityInput[];
   nonTaxableGifts?: NonTaxableType[];
   threeBuckets?: ThreeBucketConfig;
+  targetRothConversionAmount?: number;
+  taxableRebalancingSaleAmount?: number;
+  rebalancingCapitalGainPercentage?: number;
 };
 
 export type NetWorthLiabilityInput = {
@@ -521,6 +524,9 @@ export interface TaxEngineInput {
   buckets: AllocationBuckets;
   blendedCostBasisPercentage: number;
   preExistingOrdinaryIncome: number; // For structural streams like pensions
+  targetRothConversionAmount?: number;
+  taxableRebalancingSaleAmount?: number;
+  rebalancingCapitalGainPercentage?: number;
 }
 
 export interface TaxEngineOutput {
@@ -577,58 +583,81 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
   ];
 
   const brokerageGainRatio = Math.max(0, Math.min(1, 1.0 - (blendedCostBasisPercentage / 100)));
+  const rebalancingGainRatio = Math.max(0, Math.min(1, (input.rebalancingCapitalGainPercentage || 0) / 100));
+  const targetRothConversionAmount = input.targetRothConversionAmount || 0;
+  const taxableRebalancingSaleAmount = input.taxableRebalancingSaleAmount || 0;
 
   // Convergence parameters for the multi-variable loop
   let traditionalGross = netTargets.traditional401kIra;
   let brokerageGross = netTargets.taxableBrokerage;
   let dividendGross = netTargets.qualifiedDividends;
+  let rothGross = netTargets.rothIra;
+  let cashGross = netTargets.nonTaxableGift;
+
+  const totalAllocationNet = traditionalGross + brokerageGross + dividendGross + rothGross + cashGross;
 
   const TOLERANCE = 0.01;
-  const MAX_ITERATIONS = 25;
+  const MAX_ITERATIONS = 40;
   let iteration = 0;
+  
+  // Apply Standard Deduction (2026 MFJ projected standard deduction: $30,000)
+  const STANDARD_DEDUCTION = 30000;
+  
+  // 1. Manual Tax Events Pre-Calculation (Strategic Tax Events)
+  const manualOrdinaryIncome = preExistingOrdinaryIncome + targetRothConversionAmount;
+  const manualLtcgIncome = taxableRebalancingSaleAmount * rebalancingGainRatio;
+
+  let computedTaxTotal = 0;
 
   while (iteration < MAX_ITERATIONS) {
     iteration++;
 
     // Compute active progressive taxable incomes
-    const ordinaryTaxableBase = preExistingOrdinaryIncome + traditionalGross;
-    const ltcgTaxableGains = dividendGross + (brokerageGross * brokerageGainRatio);
+    const totalOrdinaryIncome = manualOrdinaryIncome + traditionalGross;
+    const taxableOrdinaryIncome = Math.max(0, totalOrdinaryIncome - STANDARD_DEDUCTION);
+    
+    // Stack Capital Gains (LTCG sits on top of ordinary income)
+    const totalLtcgGains = manualLtcgIncome + dividendGross + (brokerageGross * brokerageGainRatio);
+    
+    // Note: If standard deduction wasn't fully used by ordinary income, the remainder offsets LTCG
+    const remainingStandardDeduction = Math.max(0, STANDARD_DEDUCTION - totalOrdinaryIncome);
+    const taxableLtcgGains = Math.max(0, totalLtcgGains - remainingStandardDeduction);
 
     // Run structural statutory stacking logic
-    const ordTax = computeProgressiveTax(traditionalGross, preExistingOrdinaryIncome, ordinaryBrackets);
-    const ltcgTax = computeStackedLtcgTax(ltcgTaxableGains, ordinaryTaxableBase, ltcgBrackets);
+    const ordTax = computeProgressiveTax(taxableOrdinaryIncome, 0, ordinaryBrackets);
+    const ltcgTax = computeStackedLtcgTax(taxableLtcgGains, taxableOrdinaryIncome, ltcgBrackets);
     const totalCalculatedTax = ordTax + ltcgTax;
+    computedTaxTotal = totalCalculatedTax;
 
-    // Distribute tax drag proportionally across the tax-bearing funding sources
-    const totalTaxBearingNet = netTargets.traditional401kIra + netTargets.taxableBrokerage + netTargets.qualifiedDividends;
-    
-    if (totalTaxBearingNet <= 0) break;
-
-    const actualNetAchieved = (traditionalGross + brokerageGross + dividendGross) - totalCalculatedTax;
-    const missingNetShortfall = totalTaxBearingNet - actualNetAchieved;
+    const actualNetAchieved = (traditionalGross + brokerageGross + dividendGross + rothGross + cashGross) - totalCalculatedTax;
+    const missingNetShortfall = totalAllocationNet - actualNetAchieved;
 
     if (Math.abs(missingNetShortfall) < TOLERANCE) {
       break;
     }
 
-    // Dynamic adjustment of gross parameters based on source weightings
-    traditionalGross += missingNetShortfall * (netTargets.traditional401kIra / totalTaxBearingNet);
-    brokerageGross += missingNetShortfall * (netTargets.taxableBrokerage / totalTaxBearingNet);
-    dividendGross += missingNetShortfall * (netTargets.qualifiedDividends / totalTaxBearingNet);
+    if (totalAllocationNet <= 0) {
+      // If no allocation is specified, default to taking tax out of cash
+      cashGross += missingNetShortfall;
+    } else {
+      // Dynamic adjustment of gross parameters based on source weightings
+      traditionalGross += missingNetShortfall * (netTargets.traditional401kIra / totalAllocationNet);
+      brokerageGross += missingNetShortfall * (netTargets.taxableBrokerage / totalAllocationNet);
+      dividendGross += missingNetShortfall * (netTargets.qualifiedDividends / totalAllocationNet);
+      rothGross += missingNetShortfall * (netTargets.rothIra / totalAllocationNet);
+      cashGross += missingNetShortfall * (netTargets.nonTaxableGift / totalAllocationNet);
+    }
   }
 
-  const computedTaxTotal = (traditionalGross + brokerageGross + dividendGross) - 
-                           (netTargets.traditional401kIra + netTargets.taxableBrokerage + netTargets.qualifiedDividends);
-
   return {
-    grossWithdrawalTotal: Math.round((traditionalGross + brokerageGross + dividendGross + netTargets.rothIra + netTargets.nonTaxableGift) * 100) / 100,
+    grossWithdrawalTotal: Math.round((traditionalGross + brokerageGross + dividendGross + rothGross + cashGross) * 100) / 100,
     totalTaxOwed: Math.round(computedTaxTotal * 100) / 100,
     bucketBreakdown: {
       qualifiedDividendsGross: Math.round(dividendGross * 100) / 100,
       taxableBrokerageGross: Math.round(brokerageGross * 100) / 100,
       traditional401kIraGross: Math.round(traditionalGross * 100) / 100,
-      rothIraGross: Math.round(netTargets.rothIra * 100) / 100,
-      nonTaxableGiftGross: Math.round(netTargets.nonTaxableGift * 100) / 100,
+      rothIraGross: Math.round(rothGross * 100) / 100,
+      nonTaxableGiftGross: Math.round(cashGross * 100) / 100,
     }
   };
 }
@@ -1271,6 +1300,9 @@ export type MultiStageYearlySnapshot = {
   bucket1Balance?: number;
   bucket2Balance?: number;
   bucket3Balance?: number;
+  expectedGrowth?: number;
+  expectedYield?: number;
+  changeInNetWorth?: number;
 };
 
 export function computePresentValue(
@@ -1560,6 +1592,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
         availableDividendsCash += a.value * yieldRate;
       }
     });
+    const paidOutYield = availableDividendsCash;
 
     let remainingNetNeed = remainingBudgetTarget;
     let netDrawn = {
@@ -1617,7 +1650,10 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
        allocationMode: 'DOLLARS',
        buckets: netDrawn,
        blendedCostBasisPercentage: 60,
-       preExistingOrdinaryIncome: pensionIncome + rrbIncome
+       preExistingOrdinaryIncome: pensionIncome + rrbIncome,
+       targetRothConversionAmount: payload.targetRothConversionAmount,
+       taxableRebalancingSaleAmount: payload.taxableRebalancingSaleAmount,
+       rebalancingCapitalGainPercentage: payload.rebalancingCapitalGainPercentage
     });
 
     let withdrawnDividends = 0;
@@ -1698,10 +1734,16 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     }
 
     // 6. Grow / Appreciate Assets for remainder of year
+    let growthAppreciation = 0;
+    let reinvestedYield = 0;
     currentAssets.forEach(a => {
       const growth = a.expectedGrowthRate !== undefined ? a.expectedGrowthRate : (a.growthRate || 0);
       const isReinvest = a.dividendReinvestment === 'reinvest';
       const yieldRate = isReinvest ? (a.expectedDividendYield !== undefined ? a.expectedDividendYield : (a.dividendYield || 0)) : 0;
+      
+      growthAppreciation += a.value * growth;
+      reinvestedYield += a.value * yieldRate;
+      
       a.value = Math.max(0, a.value * (1 + growth + yieldRate));
     });
     
@@ -1796,7 +1838,10 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       lifestyleShrinking,
       bucket1Balance,
       bucket2Balance,
-      bucket3Balance
+      bucket3Balance,
+      expectedGrowth: Math.round(growthAppreciation * 100) / 100,
+      expectedYield: Math.round((paidOutYield + reinvestedYield) * 100) / 100,
+      changeInNetWorth: Math.round((finalBalance - startAssets) * 100) / 100
     });
     
     cumInflation *= (1 + payload.inflationRate);

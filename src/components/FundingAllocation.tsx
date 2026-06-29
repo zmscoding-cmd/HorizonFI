@@ -93,9 +93,17 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
     const textAnchor = x > cx ? 'start' : 'end';
 
-    const displayValue = allocationMode === 'PERCENTAGE'
-      ? `${value}%`
-      : `$${value.toLocaleString()}`;
+    let displayValue = '';
+    if (allocationMode === 'PERCENTAGE') {
+      if (targetNetExpense > 0) {
+        const extrapolatedDollars = (value / 100) * targetNetExpense;
+        displayValue = `${value}% ($${Math.round(extrapolatedDollars).toLocaleString()})`;
+      } else {
+        displayValue = `${value}%`;
+      }
+    } else {
+      displayValue = `$${value.toLocaleString()}`;
+    }
 
     // Elegant short alias labels
     let shortName = name;
@@ -111,7 +119,7 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
         fill={isDark ? '#e4e4e7' : '#18181b'}
         textAnchor={textAnchor}
         dominantBaseline="central"
-        className="text-[10px] font-bold"
+        className="text-[9px] sm:text-[10px] font-semibold"
       >
         {`${displayValue} ${shortName}`}
       </text>
@@ -153,6 +161,7 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
               field="traditional401kIra"
               value={buckets.traditional401kIra}
               mode={allocationMode}
+              targetNetExpense={targetNetExpense}
               onChange={(val: number) => handleUpdate('traditional401kIra', val, true)}
             />
             <BucketInput 
@@ -160,6 +169,7 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
               field="taxableBrokerage"
               value={buckets.taxableBrokerage}
               mode={allocationMode}
+              targetNetExpense={targetNetExpense}
               onChange={(val: number) => handleUpdate('taxableBrokerage', val, true)}
             />
             <BucketInput 
@@ -167,6 +177,7 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
               field="qualifiedDividends"
               value={buckets.qualifiedDividends}
               mode={allocationMode}
+              targetNetExpense={targetNetExpense}
               onChange={(val: number) => handleUpdate('qualifiedDividends', val, true)}
             />
             <BucketInput 
@@ -174,6 +185,7 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
               field="rothIra"
               value={buckets.rothIra}
               mode={allocationMode}
+              targetNetExpense={targetNetExpense}
               onChange={(val: number) => handleUpdate('rothIra', val, true)}
             />
             <BucketInput 
@@ -181,6 +193,7 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
               field="nonTaxableGift"
               value={buckets.nonTaxableGift}
               mode={allocationMode}
+              targetNetExpense={targetNetExpense}
               onChange={(val: number) => handleUpdate('nonTaxableGift', val, true)}
             />
             
@@ -231,6 +244,14 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
 
         {/* Donut Chart */}
         <div className="w-full lg:w-[320px] h-[280px] shrink-0 mx-auto lg:mx-0 flex flex-col justify-center border-t lg:border-t-0 lg:border-l border-zinc-200 dark:border-zinc-800 pt-6 lg:pt-0 lg:pl-6">
+          {targetNetExpense > 0 && allocationMode === 'PERCENTAGE' && (
+            <div className="text-center mb-1">
+              <span className="text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500 tracking-wider">Extrapolating Budget</span>
+              <div className="text-xs font-black text-blue-600 dark:text-blue-400 font-mono">
+                ${targetNetExpense.toLocaleString()} Net / Yr
+              </div>
+            </div>
+          )}
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
@@ -256,7 +277,16 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => allocationMode === 'PERCENTAGE' ? `${value}%` : `$${value.toLocaleString()}`}
+                  formatter={(value: number) => {
+                    if (allocationMode === 'PERCENTAGE') {
+                      if (targetNetExpense > 0) {
+                        const extrapolatedDollars = (value / 100) * targetNetExpense;
+                        return `${value}% ($${Math.round(extrapolatedDollars).toLocaleString()})`;
+                      }
+                      return `${value}%`;
+                    }
+                    return `$${value.toLocaleString()}`;
+                  }}
                   contentStyle={{
                     borderRadius: '12px',
                     border: `1px solid ${tooltipBorder}`,
@@ -390,10 +420,24 @@ function GrossUpBucketCard({ name, badge, net, gross, tax, color, textColor, isT
   );
 }
 
-function BucketInput({ label, field, value, mode, onChange }: any) {
+function BucketInput({ label, field, value, mode, targetNetExpense, onChange }: any) {
+  const extrapolatedDollars = useMemo(() => {
+    if (mode === 'PERCENTAGE' && targetNetExpense > 0) {
+      return (Number(value || 0) / 100) * targetNetExpense;
+    }
+    return null;
+  }, [value, mode, targetNetExpense]);
+
   return (
     <div className="p-3 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800/80 rounded-xl space-y-1">
-      <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400">{label}</label>
+      <div className="flex justify-between items-center">
+        <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400">{label}</label>
+        {extrapolatedDollars !== null && (
+          <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 font-bold">
+            ≈ ${Math.round(extrapolatedDollars).toLocaleString()}
+          </span>
+        )}
+      </div>
       <div className="relative">
         {mode === 'DOLLARS' && <span className="absolute left-3 top-3 text-sm text-zinc-400 font-bold">$</span>}
         <input 
