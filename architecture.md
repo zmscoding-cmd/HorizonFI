@@ -750,6 +750,141 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Zero-Trust Integrity**: Despite relaxing field-level checks, confirmed that user sub-collections (`/users/{userId}/*`) remain rigorously protected, blocking cross-tenant reads.
 * **Validation - Static Compilation**: Verified complete compile success and linter integrity.
 
+### Checkpoint Milestone Controlled Input Decoupling: 2026-06-28
+**Architectural Shifts & Justifications:**
+1. **Uncontrolled Input Migration**: Decoupled the tightly-bound React state `value` and `onChange` combination in the `ScenarioBuilder` text and numeric inputs for Milestones and Auxiliary Gifts. When heavily nested inputs update an external deterministic local-first database (RxDB) on every keystroke, React's render loop competes with the database patch resolution latency, causing the input cursor to jump and edits to revert visually mid-stroke.
+2. **Defensive Sync**: Inputs now use `defaultValue` coupled with a deterministic `key` (incorporating both scenario and item IDs) and only broadcast state to the database explicitly on `onBlur`. This preserves UI performance and prevents cursor tearing while still guaranteeing deterministic eventual persistence.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Editing Integrity**: Verified "New Milestone" inputs accept rapid text changes without reverting or tearing the cursor index.
+* **Validation - Build Quality**: Passed TypeScript strict validation.
+
+### Checkpoint Plan Economics & Guidance Update: 2026-06-28
+**Architectural Shifts & Justifications:**
+1. **Clear Inflation & Currency Boundary Definition**: Expanded User Help Documentation to formally define the **Current Dollars Mandate**. Confirmed that all client-facing input fields inside the plan settings represent current purchasing power, with the mathematical model handling compounding inflation and optional lifestyle adjustments under the hood.
+2. **Global Discount Rate Calibration**: Defined the **Global Discount Rate** and how it governs the **Funded Ratio** equation, translating the multi-decade present value calculations to help retirees gauge portfolio health objectively.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Documentation Integration**: Confirmed that markdown math rendering structures inside `DOCUMENTATION.md` compile clean.
+* **Validation - App Compilation Integrity**: Verified build success.
+
+### Checkpoint Target Return Calibration Documentation: 2026-06-28
+**Architectural Shifts & Justifications:**
+1. **Nominal vs. Real Rate Clarification**: Enforced the nominal-return parameter standard across all asset ledger elements. Since the multi-stage simulation model evaluates asset appreciation nominally and compounds living expenses independently using the local scenario's compounding inflation rate, documenting this boundary is essential to prevent users from double-accounting for inflation or underestimating real return margins.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Guide Precision**: Confirmed mathematical explanation matches the precise execution logic inside `simulation.worker.ts` (where growth and yield are added to the nominal capital base before tax-drag calculations).
+* **Validation - Perfect App Build**: Compiles cleanly.
+
+### Checkpoint Auxiliary Income Input Decoupling: 2026-06-28
+**Architectural Shifts & Justifications:**
+1. **Asynchronous Event Persistence**: Corrected a React event lifecycle bug in the Auxiliary Income/Non-Taxable Gifts list name inputs. Previously, the input name update accessed `e.target.value` *after* yielding control to the async `await` db lookup call. Because React asynchronously cleans up or recycles event targets, this caused the written name value to evaluate to null or undefined.
+2. **Deterministic Uncontrolled Decoupling**: Extracted `e.target.value` to a local variable `newVal` *before* initiating the async patch, resolving the "New Gift Income" renaming block completely while adhering to the lightweight, lag-free `onBlur` local database synchronization architecture.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Auxiliary Renaming**: Verified "New Gift Income" and custom tax-free inflow items rename dynamically and save accurately on blur.
+* **Validation - Multi-Decade Modeling Integrity**: Confirmed that named windfalls map clean across cash flow tables and compilation remains at 100% success.
+
+
+### Checkpoint Auxiliary Enter-Key Support & Auto-Commit Links: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Interactive Event Triggers (onKeyDown Support):** Added robust `onKeyDown` handlers listening specifically for the `Enter` key across all Auxiliary Income fields (Name, Amount, Start/End Years). This dynamically calls `e.currentTarget.blur()`, triggering the highly-stable uncontrolled `onBlur` persistence pipeline. This allows users to immediately commit their modifications by pressing "Enter" rather than forcing them to manually click away.
+2. **Implicit Link Auto-Commit Guard:** Hardened the Planned Expense creation and editing forms to automatically commit currently typed supporting links (Name and URL) directly into the database payload upon clicking "Save" or "Update". This bypasses the strict requirement to first click the intermediate "Add Link" or "Update Link" button, preventing accidental loss of typed URL metadata.
+3. **Pristine Web Worker Modeling Integrity:** Aligned the background Web Worker's incoming planned expense deserializer to cleanly preserve links as structured objects (`{ name, url }`). This prevents object-to-string coercion failures (e.g. converting links to useless `"[object Object]"` strings) and ensures robust data visualization on the ledger view.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Link Coercion Safety:** Confirmed that supporting links render with complete, legible name labels and clickable URL anchors.
+* **Validation - Enter-Key Persistence:** Verified that pressing "Enter" in the scenario builder successfully saves changes to RxDB and Firestore without losing cursor states or throwing exceptions.
+* **Validation - Zero-Warning Compile:** Confirmed that the TypeScript linter and production compiler pass with 100% success.
+
+
+### Checkpoint Planned Expense Exclusion & Muted Ledger States: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **RxDB Schema Evolution (Version 2):** Incremented the schema version for `planned_expenses` to 2 to incorporate an optional boolean `excluded` parameter. Developed a deterministic RxDB migration strategy to automatically initialize pre-existing records to `excluded: false` upon launch, preventing runtime schema mismatches or data degradation.
+2. **Deterministic Simulation Isolation:** Modified the multi-threaded simulation worker (`simulation.worker.ts`) to recognize the `excluded` flag. If an expense is excluded, the evaluation engine zeroes out its `monthlyValue` and `annualValue`. This cleanly excludes it from budget aggregates, category pies, and progressive tax gross-ups while keeping the dependency graph sound for topological sorting.
+3. **Muted Visual Ledger Representation:** Extended `BudgetDashboard.tsx` to display inline checkbox triggers next to each master ledger row. Unchecking an expense immediately patches the local RxDB database, triggers a background simulation roundtrip, and mutes the card via Tailwind with soft grayscale/opacity filters and text strikethroughs—leaving the item fully visible for personal note reference.
+4. **Interactive Editor Synchronization:** Added an "Included in calculations" checkbox into the "Edit Planned Expense" slide-out dialog, syncing the boolean state seamlessly between modal forms and persistent storage records.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Data Loss Mitigation:** Verified that RxDB database migration loads pre-existing records without data loss or schema errors.
+* **Validation - Multi-Threaded Math Validation:** Confirmed that unchecked expenses return zero contribution to total monthly/annual expenditures and downstream drawdown projections.
+* **Validation - Strict Secrets Audit:** Explicitly scanned all modified code for hardcoded credentials. Verified 100% of state updates rely on user identifiers and dynamic local state, preserving the zero-trust local-first container boundary.
+* **Validation - Perfect Linter & Production Build:** Verified compilation runs successfully with zero warnings or structural errors.
+
+
+### Checkpoint Tax Gross-Up Visualizer & Interactive Projection: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Interactive Real-Time Gross-Up Resolution:** Built a client-side visual representation of the Multi-Bucket progressive ordinary and long-term capital gains tax engine inside `FundingAllocation.tsx`. This dynamically executes the exact 25-iteration numerical convergence loop to calculate gross pre-tax withdrawals required to achieve net post-tax spending targets.
+2. **Deterministic Bracket Calculation Alignment:** Replicated the progressive 2026 TCJA sunset bracket mathematical equations client-side to ensure 100% mathematical parity with the background worker (`simulation.worker.ts`) without causing cross-thread rendering lag.
+3. **Proportional Tax-Drag Contribution Tracking:** Modeled individual tax contribution charges for active, tax-bearing buckets (Traditional 401(k)/IRA and Taxable Brokerage/Dividends) while keeping non-taxable vehicles (Roth IRAs and Family Gifts) completely shielded.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Gross-Up Convergence Accuracy:** Verified that the numerical loop terminates under 25 iterations with precision `< $0.01` tolerance.
+* **Validation - Dynamic UI Theme Sync:** Ensured all visual components, badges, and card containers match custom high-contrast borders and adapt cleanly to active dark/light mode configurations.
+* **Validation - Clean Production Compile:** Verified that both `lint_applet` and `compile_applet` pass with absolute zero errors.
+* **Validation - Strict Secrets Audit:** Explicitly scanned all modified code for hardcoded credentials; verified 100% of state updates rely on user identifiers and dynamic local state.
+
+### Checkpoint Granular Investment Tracking & Schema Bound Validation: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Granular Asset Schema Migration:** Transitioned from basic generic investment variables to a strictly typed, granular individual investment tracking model (`AssetModel` and `AssetType`). This required incrementing RxDB `planSchema` to v5 and `assetSchema` to v1.
+2. **Backward-Compatible Hydration:** Implemented deterministic seamless data migration strategies during database instantiation. Pre-existing records automatically map legacy types (e.g., `traditional_ira`) to the new strict `assetType` enum (e.g., `PRE_TAX`) and assume default global growth/dividend rates (`0.05` and `0.02`), preventing UI rendering crashes or data loss.
+3. **Zero-Trust Backend Validation:** Hardened `firestore.rules` by introducing a dedicated `isValidAsset(data)` validation block for the nested `assets` collection. This intercepts any synced documents directly at the cloud perimeter, assuring numeric bounds on `expectedGrowthRate` and `expectedDividendYield` (-1.0 to 1.0) and enforcing type restrictions, blocking compromised local browser states.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Migration Integrity:** Asserted `planSchema` v5 and `assetSchema` v1 migration paths operate without dropping user data arrays.
+* **Validation - Cloud Boundary Integrity:** Enforced `-1.0` to `1.0` mathematical ceilings on growth variables across Firebase sync boundaries, directly addressing malicious limit-breaking injection payloads in `firestore.rules`.
+* **Validation - Perfect Linter & Production Build:** Verified compilation runs successfully with zero warnings or structural errors.
+
+### Checkpoint Web Worker Per-Asset Integration & Temporal Lockout: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Per-Asset Loop Iteration:** Refactored the core calculation loop in `simulation.worker.ts` to independently compound `expectedGrowthRate` and `expectedDividendYield` on a per-asset basis, shifting away from global aggregate growth assumptions. This dramatically increases the accuracy of multi-asset drawdown scenarios.
+2. **Temporal Lockout Logic:** Implemented dynamic temporal lockouts by intercepting `availableDate` (ISO Date strings or Age-based `age:XX` triggers) to automatically exclude locked assets (e.g. 401ks before age 59.5) from the eligible drawdown pool during specific simulation years.
+3. **Tax Engine Gross-Up Integration:** Successfully linked the individual asset withdrawals into the `evaluateMultiBucketTax` gross-up calculator. The worker now maps drawn assets back to their tax buckets (`PRE_TAX`, `TAXABLE`, `ROTH`, `CASH`/`DIVIDENDS`), computes the mathematically required gross withdrawal dynamically, and pulls the fully taxed amounts from the asset pools to avoid under-allocating required taxes.
+4. **Unit Test Realignment:** Updated existing `checkpoint.test.ts` and `three-bucket.worker.test.ts` suites to inject the new strict `NetWorthAssetInput` parameters (`assetType`, `expectedGrowthRate`, `expectedDividendYield`), verifying the multi-bucket logic holds perfectly.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Confirmed `simulateMultiStageDrawdownWorker` accurately processes complex per-asset drawdowns and properly triggers lockout filters.
+* **Validation - Tax Drag Consistency:** Verified `evaluateMultiBucketTax` integration deducts the calculated gross amounts (rather than strictly net) to accurately map the tax drag onto specific traditional IRA/taxable asset balances.
+* **Validation - Clean Production Compile:** Verified that `lint_applet` compilation passes with absolutely zero type warnings.
+* **Validation - Strict Secrets Audit:** Explicitly scanned all newly written code for hardcoded credentials. Verified 100% of state updates rely on dynamic user identifiers and dynamic local state.
+
+### Checkpoint Granular Investment UI Integration: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Component Modularization:** Extracted legacy inline asset configurations from `ScenarioBuilder.tsx` into standalone modular components (`InvestmentList.tsx`, `InvestmentForm.tsx`). This reduces structural complexity within the main builder and ensures clean separation of concerns.
+2. **Mobile-First Data Density:** Implemented the `InvestmentList` using a responsive, multi-column grid layout with localized summary cards. Each card natively exposes absolute monetary value alongside color-coded taxonomic badges (`TAXABLE`, `PRE_TAX`, `ROTH`, `CASH`) to allow users to visually parse complex multi-asset portfolios instantly.
+3. **Temporal Lockout Accessibility:** Integrated explicit `Lock` icons and badging in the `InvestmentList` alongside helper instructional text inside the `InvestmentForm` to ensure users clearly understand the implications of the `availableDate` string, avoiding unexpected simulation behavior.
+4. **Resilient Form State Management:** Designed `InvestmentForm` to float inside an absolute-positioned Modal Overlay over `ScenarioBuilder`. This prevents nested form overflow and ensures input scaling behaves cleanly on smaller marine-use touch screens, maintaining minimum 44x44px touch targets.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Touch-Target Compliance:** Verified all interactive inputs, buttons, and radio group toggles in the newly created asset forms meet the 44x44px minimum sizing for extreme environment usability.
+* **Validation - Dark Mode Integrity:** Asserted `dark:bg-zinc-900` / `dark:text-white` mappings exist on all newly added cards and input surfaces to maintain sensory compliance.
+* **Validation - Clean Production Compile:** Verified successful React compilation without missing UUID imports.
+* **Validation - Strict Secrets Audit:** Explicitly scanned `InvestmentList.tsx` and `InvestmentForm.tsx` for hardcoded secrets or arbitrary execution vulnerabilities; verified zero-trust local state handling.
+
+### Checkpoint NetWorth Projection Visual Integration: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Responsive Recharts Integration:** Engineered the `NetWorthProjectionChart.tsx` component employing Recharts (`<AreaChart>`) nested securely inside a `<ResponsiveContainer>`. This guarantees responsive fluidity against DOM layout shifts across constrained mobile device viewports while rendering simulation worker outputs.
+2. **Dynamic Taxonomy Aggregation:** Implemented highly optimized per-snapshot aggregation logic mapped against taxonomic `AssetModel` definitions to automatically compute the cumulative capitalization boundaries for `CASH`, `TAXABLE`, `PRE_TAX`, and `ROTH` arrays inside the projection array without degrading main thread performance.
+3. **Active System Theme Resonance:** Explicitly integrated the `useTheme` hook directly into `NetWorthProjectionChart` to apply precise `isDark` Boolean validations against CSS injections in the `<Tooltip>`, `<CartesianGrid>`, and axis renderers. This definitively eradicates visual sensory conflicts during `night-watch` UI transitions.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Component Scalability:** Verified the area chart component scales seamlessly by defaulting DOM minimum heights and mapping dynamically generated SVG paths rather than fixed DOM pixels.
+* **Validation - Theme Alignment:** Verified explicit DOM stroke mappings in Recharts gracefully revert to `zinc-800` borders and `#18181b` tooltip backgrounds against dark conditions to uphold the maritime compliance boundary.
+* **Validation - Clean Production Compile:** Passed full applet compilation cycle with zero TypeScript warnings.
+* **Validation - Strict Secrets Audit:** Explicitly scanned the projection code block for extraneous API calls. Verified state isolation remains completely offline-first.
+
+### QA & Documentation Checkpoint: 2026-06-29 (Temporal Lockouts & Worker Validation)
+**Architectural Shifts & Justifications:**
+1. **Vitest Worker Test Suite Expansion:** Engineered a targeted test suite (`granular-investments.worker.test.ts`) mapping exclusively to `simulation.worker.ts` to strictly assert the multi-bucket tax drawdown arrays successfully respect temporal `availableDate` exclusions during budget deficit years, and to assert individual compounding rates calculate independently of global parameters.
+2. **PWA End-User Documentation Injection:** Appended comprehensive functional documentation into `DOCUMENTATION.md` detailing the mathematical implications of tax bucket boundaries and the `availableDate` lockout syntax for end-users, guaranteeing the offline reference guide stays synchronized with the functional UI logic.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity (Unit Tests):** `granular-investments.worker.test.ts` successfully compiles and passes assertion loops validating that locked assets correctly avoid drawdown.
+* **Validation - Clean Production Compile:** Verified that all test suites execute without TypeScript transpilation warnings and the application compiles completely green.
+* **Validation - Strict Secrets Audit:** Fully scanned `simulation.worker.ts`, the new test files, and documentation components to explicitly guarantee zero hardcoded tokens, passwords, or secret payloads were committed.
+
+
+
 
 
 

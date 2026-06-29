@@ -47,7 +47,11 @@ service cloud.firestore {
     }
 
     function isValidAsset(data) {
-      return true;
+      let typeOk = data.assetType == 'CASH' || data.assetType == 'TAXABLE' || data.assetType == 'PRE_TAX' || data.assetType == 'ROTH';
+      let growthOk = isNumeric(data.expectedGrowthRate) && data.expectedGrowthRate >= -1.0 && data.expectedGrowthRate <= 1.0;
+      let dividendOk = isNumeric(data.expectedDividendYield) && data.expectedDividendYield >= -1.0 && data.expectedDividendYield <= 1.0;
+      
+      return typeOk && growthOk && dividendOk;
     }
 
     function isValidCategory(data) {
@@ -97,7 +101,9 @@ service cloud.firestore {
 
     // Allow nested collections under users
     match /users/{userId}/{collectionName}/{docId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId && 
+        (collectionName != 'assets' || isValidAsset(request.resource.data));
     }
 
     match /households/{householdId} {

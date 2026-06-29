@@ -25,7 +25,7 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
         endYear: 2126, // 100-year duration (1200 months)
         currentAge: 35,
         assets: [
-          { id: 'asset1', name: 'Brokerage', value: 500000, type: 'taxable_brokerage', growthRate: 0.07 }
+          { id: 'asset1', name: 'Brokerage', value: 500000, type: 'taxable_brokerage', assetType: 'TAXABLE', expectedGrowthRate: 0.07, expectedDividendYield: 0.02 }
         ],
         liabilities: [],
         rrt1AmountAt67: 2000,
@@ -55,7 +55,7 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
         endYear: 2031, // 5 years
         currentAge: 60,
         assets: [
-          { id: 'tira', name: 'Trad IRA', value: 1000000, type: 'traditional_ira', growthRate: 0.05 }
+          { id: 'tira', name: 'Trad IRA', value: 1000000, type: 'traditional_ira', assetType: 'PRE_TAX', expectedGrowthRate: 0.05, expectedDividendYield: 0.02 }
         ],
         liabilities: [],
         rrt1AmountAt67: 36000, // Railroad Retirement Tier 1
@@ -453,7 +453,7 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
       startYear: 2026,
       endYear: 2028,
       currentAge: 64,
-      assets: [{ id: 'a1', value: 100000, type: 'taxable_brokerage' }],
+      assets: [{ id: 'a1', name: 'asset1', value: 100000, type: 'taxable_brokerage', assetType: 'TAXABLE', expectedGrowthRate: 0.05, expectedDividendYield: 0.0 }],
       stages: [{ id: 'stg1', targetAnnualBudget: 50000, fundingPriorities: [] }],
       milestones: [],
       uprrDivestmentAnnualAmount: 0,

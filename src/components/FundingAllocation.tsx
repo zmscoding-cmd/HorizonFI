@@ -73,6 +73,17 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
     ].filter(d => d.value > 0);
   }, [buckets]);
 
+  const taxOutput = useMemo(() => {
+    if (!buckets) return null;
+    return evaluateMultiBucketTax({
+      targetNetExpense,
+      allocationMode,
+      buckets,
+      blendedCostBasisPercentage: basis || 60.0,
+      preExistingOrdinaryIncome: 0
+    });
+  }, [targetNetExpense, allocationMode, buckets, basis]);
+
   // Custom label rendering for persistent slices without hover
   const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, name, value }: any) => {
     const RADIAN = Math.PI / 180;
@@ -265,6 +276,116 @@ export default function FundingAllocation({ plan, activeScenario, db, handleRunS
           )}
         </div>
       </div>
+
+      {/* Gross-Up Projection Section */}
+      {taxOutput && (
+        <div className="border-t border-zinc-200/80 dark:border-zinc-800/80 p-5 bg-zinc-50/30 dark:bg-zinc-950/20 transition-colors">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-5">
+            <div>
+              <h4 className="font-bold text-xs text-zinc-900 dark:text-zinc-100 uppercase tracking-wider font-mono">
+                Calculated Pre-Tax Gross-Up & Tax Projections (Current Year)
+              </h4>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
+                Solves the multi-variable convergence loop to cover tax drag on Traditional & Brokerage pools.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 self-stretch md:self-auto">
+              <div className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl px-4 py-2 text-center shadow-sm">
+                <span className="block text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest leading-tight">Total Taxes Owed</span>
+                <span className="text-sm font-black text-red-600 dark:text-red-400 font-mono">
+                  ${taxOutput.totalTaxOwed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              <div className="flex-1 bg-blue-500/5 dark:bg-blue-500/10 border border-blue-200/50 dark:border-blue-900/30 rounded-xl px-4 py-2 text-center">
+                <span className="block text-[10px] font-bold text-blue-500 dark:text-blue-450 uppercase tracking-widest leading-tight">Gross Withdrawal</span>
+                <span className="text-sm font-black text-blue-600 dark:text-blue-400 font-mono">
+                  ${taxOutput.grossWithdrawalTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+            <GrossUpBucketCard
+              name="Traditional 401k/IRA"
+              badge="Ordinary Income (10-12% Bracket)"
+              net={taxOutput.netBreakdown.traditional401kIraNet}
+              gross={taxOutput.bucketBreakdown.traditional401kIraGross}
+              tax={Math.max(0, taxOutput.bucketBreakdown.traditional401kIraGross - taxOutput.netBreakdown.traditional401kIraNet)}
+              color="border-blue-500/25 dark:border-blue-500/15"
+              textColor="text-blue-600 dark:text-blue-400"
+            />
+            <GrossUpBucketCard
+              name="Taxable Brokerage"
+              badge={`Capital Gains (${100 - (basis || 60)}% gains ratio)`}
+              net={taxOutput.netBreakdown.taxableBrokerageNet}
+              gross={taxOutput.bucketBreakdown.taxableBrokerageGross}
+              tax={Math.max(0, taxOutput.bucketBreakdown.taxableBrokerageGross - taxOutput.netBreakdown.taxableBrokerageNet)}
+              color="border-violet-500/25 dark:border-violet-500/15"
+              textColor="text-violet-600 dark:text-violet-400"
+            />
+            <GrossUpBucketCard
+              name="Qualified Dividends"
+              badge="Tax-Stacked 0% Bracket"
+              net={taxOutput.netBreakdown.qualifiedDividendsNet}
+              gross={taxOutput.bucketBreakdown.qualifiedDividendsGross}
+              tax={Math.max(0, taxOutput.bucketBreakdown.qualifiedDividendsGross - taxOutput.netBreakdown.qualifiedDividendsNet)}
+              color="border-amber-500/25 dark:border-amber-500/15"
+              textColor="text-amber-600 dark:text-amber-400"
+            />
+            <GrossUpBucketCard
+              name="Roth IRA"
+              badge="Tax-Free Source"
+              net={taxOutput.netBreakdown.rothIraNet}
+              gross={taxOutput.bucketBreakdown.rothIraGross}
+              tax={0}
+              color="border-emerald-500/25 dark:border-emerald-500/15"
+              textColor="text-emerald-600 dark:text-emerald-400"
+              isTaxFree
+            />
+            <GrossUpBucketCard
+              name="Gifts / Liquid Cash"
+              badge="Non-Taxable Source"
+              net={taxOutput.netBreakdown.nonTaxableGiftNet}
+              gross={taxOutput.bucketBreakdown.nonTaxableGiftGross}
+              tax={0}
+              color="border-zinc-500/25 dark:border-zinc-500/15"
+              textColor="text-zinc-600 dark:text-zinc-400"
+              isTaxFree
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GrossUpBucketCard({ name, badge, net, gross, tax, color, textColor, isTaxFree }: any) {
+  return (
+    <div className={`bg-white dark:bg-zinc-900 border ${color} rounded-xl p-3 shadow-sm flex flex-col justify-between transition-colors`}>
+      <div>
+        <h5 className="font-bold text-[11px] text-zinc-800 dark:text-zinc-200 leading-tight">{name}</h5>
+        <span className="inline-block text-[8px] font-black tracking-widest uppercase text-zinc-400 dark:text-zinc-500 mt-1 leading-none">
+          {badge}
+        </span>
+      </div>
+      
+      <div className="mt-4 space-y-1">
+        <div className="flex justify-between items-center text-[10px]">
+          <span className="text-zinc-400 uppercase font-bold">Net Outflow</span>
+          <span className="font-semibold text-zinc-800 dark:text-zinc-200 font-mono">${Math.round(net).toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between items-center text-[10px]">
+          <span className="text-zinc-400 uppercase font-bold">Gross Outflow</span>
+          <span className={`${textColor} font-bold font-mono`}>${Math.round(gross).toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between items-center text-[10px] border-t border-zinc-100 dark:border-zinc-800/80 pt-1 mt-1">
+          <span className="text-zinc-400 uppercase font-bold">Tax Charge</span>
+          <span className={`font-mono font-black ${isTaxFree ? 'text-emerald-500' : 'text-red-500'}`}>
+            {isTaxFree ? 'Tax-Free' : `$${Math.round(tax).toLocaleString()}`}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -286,4 +407,153 @@ function BucketInput({ label, field, value, mode, onChange }: any) {
       </div>
     </div>
   );
+}
+
+// Progressive Tax math engine logic replicated client-side for immediate visual gross-up metrics
+interface TaxBracket {
+  limit: number;
+  rate: number;
+}
+
+function computeProgressiveTax(amount: number, base: number, brackets: TaxBracket[]): number {
+  let tax = 0;
+  let remaining = amount;
+  let currentBase = base;
+
+  for (const b of brackets) {
+    if (currentBase < b.limit) {
+      const chunk = Math.min(remaining, b.limit - currentBase);
+      if (chunk > 0) {
+        tax += chunk * b.rate;
+        remaining -= chunk;
+        currentBase += chunk;
+      }
+    }
+    if (remaining <= 0) break;
+  }
+  return tax;
+}
+
+function computeStackedLtcgTax(gains: number, ordinaryBase: number, brackets: TaxBracket[]): number {
+  let tax = 0;
+  let remainingGains = gains;
+  let currentBase = ordinaryBase;
+
+  for (const b of brackets) {
+    if (currentBase < b.limit) {
+      const chunk = Math.min(remainingGains, b.limit - currentBase);
+      if (chunk > 0) {
+        tax += chunk * b.rate;
+        remainingGains -= chunk;
+        currentBase += chunk;
+      }
+    }
+    if (remainingGains <= 0) break;
+  }
+  return tax;
+}
+
+function evaluateMultiBucketTax(input: {
+  targetNetExpense: number;
+  allocationMode: 'PERCENTAGE' | 'DOLLARS';
+  buckets: {
+    traditional401kIra: number;
+    taxableBrokerage: number;
+    qualifiedDividends: number;
+    rothIra: number;
+    nonTaxableGift: number;
+  };
+  blendedCostBasisPercentage: number;
+  preExistingOrdinaryIncome: number;
+}) {
+  const { targetNetExpense, allocationMode, buckets, blendedCostBasisPercentage, preExistingOrdinaryIncome } = input;
+
+  let netTargets = { ...buckets };
+
+  if (allocationMode === 'PERCENTAGE') {
+    const totalPct = Object.values(buckets).reduce((a, b) => a + b, 0) || 100;
+    netTargets = {
+      qualifiedDividends: (buckets.qualifiedDividends / totalPct) * targetNetExpense,
+      taxableBrokerage: (buckets.taxableBrokerage / totalPct) * targetNetExpense,
+      traditional401kIra: (buckets.traditional401kIra / totalPct) * targetNetExpense,
+      rothIra: (buckets.rothIra / totalPct) * targetNetExpense,
+      nonTaxableGift: (buckets.nonTaxableGift / totalPct) * targetNetExpense,
+    };
+  } else {
+    const sumNet = Object.values(buckets).reduce((a, b) => a + b, 0);
+    if (sumNet < targetNetExpense) {
+      netTargets.nonTaxableGift += (targetNetExpense - sumNet);
+    }
+  }
+
+  const ordinaryBrackets: TaxBracket[] = [
+    { limit: 23200, rate: 0.10 },
+    { limit: 94300, rate: 0.12 },
+    { limit: 201050, rate: 0.22 },
+    { limit: Infinity, rate: 0.24 }
+  ];
+
+  const ltcgBrackets: TaxBracket[] = [
+    { limit: 98900, rate: 0.0 },
+    { limit: 613700, rate: 0.15 },
+    { limit: Infinity, rate: 0.20 }
+  ];
+
+  const brokerageGainRatio = Math.max(0, Math.min(1, 1.0 - (blendedCostBasisPercentage / 100)));
+
+  let traditionalGross = netTargets.traditional401kIra;
+  let brokerageGross = netTargets.taxableBrokerage;
+  let dividendGross = netTargets.qualifiedDividends;
+
+  const TOLERANCE = 0.01;
+  const MAX_ITERATIONS = 25;
+  let iteration = 0;
+
+  while (iteration < MAX_ITERATIONS) {
+    iteration++;
+
+    const ordinaryTaxableBase = preExistingOrdinaryIncome + traditionalGross;
+    const ltcgTaxableGains = dividendGross + (brokerageGross * brokerageGainRatio);
+
+    const ordTax = computeProgressiveTax(traditionalGross, preExistingOrdinaryIncome, ordinaryBrackets);
+    const ltcgTax = computeStackedLtcgTax(ltcgTaxableGains, ordinaryTaxableBase, ltcgBrackets);
+    const totalCalculatedTax = ordTax + ltcgTax;
+
+    const totalTaxBearingNet = netTargets.traditional401kIra + netTargets.taxableBrokerage + netTargets.qualifiedDividends;
+    
+    if (totalTaxBearingNet <= 0) break;
+
+    const actualNetAchieved = (traditionalGross + brokerageGross + dividendGross) - totalCalculatedTax;
+    const missingNetShortfall = totalTaxBearingNet - actualNetAchieved;
+
+    if (Math.abs(missingNetShortfall) < TOLERANCE) {
+      break;
+    }
+
+    traditionalGross += missingNetShortfall * (netTargets.traditional401kIra / totalTaxBearingNet);
+    brokerageGross += missingNetShortfall * (netTargets.taxableBrokerage / totalTaxBearingNet);
+    dividendGross += missingNetShortfall * (netTargets.qualifiedDividends / totalTaxBearingNet);
+  }
+
+  const computedTaxTotal = (traditionalGross + brokerageGross + dividendGross) - 
+                           (netTargets.traditional401kIra + netTargets.taxableBrokerage + netTargets.qualifiedDividends);
+
+  return {
+    grossWithdrawalTotal: Math.round((traditionalGross + brokerageGross + dividendGross + netTargets.rothIra + netTargets.nonTaxableGift) * 100) / 100,
+    totalTaxOwed: Math.round(computedTaxTotal * 100) / 100,
+    bucketBreakdown: {
+      qualifiedDividendsGross: Math.round(dividendGross * 100) / 100,
+      taxableBrokerageGross: Math.round(brokerageGross * 100) / 100,
+      traditional401kIraGross: Math.round(traditionalGross * 100) / 100,
+      rothIraGross: Math.round(netTargets.rothIra * 100) / 100,
+      nonTaxableGiftGross: Math.round(netTargets.nonTaxableGift * 100) / 100,
+    },
+    netBreakdown: {
+      qualifiedDividendsNet: Math.round(netTargets.qualifiedDividends * 100) / 100,
+      taxableBrokerageNet: Math.round(netTargets.taxableBrokerage * 100) / 100,
+      traditional401kIraNet: Math.round(netTargets.traditional401kIra * 100) / 100,
+      rothIraNet: Math.round(netTargets.rothIra * 100) / 100,
+      nonTaxableGiftNet: Math.round(netTargets.nonTaxableGift * 100) / 100,
+    }
+  };
 }

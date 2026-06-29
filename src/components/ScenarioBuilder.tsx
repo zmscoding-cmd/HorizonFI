@@ -11,6 +11,10 @@ import { MultiStageChart } from './MultiStageChart';
 import { StageConfigurator } from './StageConfigurator';
 import { FundedRatioTracker } from './FundedRatioTracker';
 import { WealthVelocityChart } from './WealthVelocityChart';
+import { InvestmentForm } from './InvestmentForm';
+import { InvestmentList } from './InvestmentList';
+import { NetWorthProjectionChart } from './NetWorthProjectionChart';
+import { AssetModel } from '../lib/db';
 
 export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType, db: any, onClose: () => void }) {
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(plan.scenarios?.[0]?.id || null);
@@ -28,6 +32,8 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
 
   const [showBaselineSettings, setShowBaselineSettings] = useState(false);
   const [showGKSettings, setShowGKSettings] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<AssetModel | null>(null);
+  const [showAssetForm, setShowAssetForm] = useState(false);
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
@@ -566,6 +572,18 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
           <div className="lg:col-span-2 flex flex-col gap-6 lg:overflow-y-auto pb-6">
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
               <div>
+                 <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">Long-Term Portfolio Projection</h3>
+                 <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">Tracking projected net worth based on tax bucket and availability.</p>
+              </div>
+              <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 flex-1 min-h-[400px] flex flex-col">
+                <NetWorthProjectionChart 
+                  data={multiStageResults[activeScenarioId || ''] || []} 
+                  assets={activeScenario?.assets || []} 
+                />
+              </div>
+            </div>
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
+              <div>
                  <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">Income Shift Visualization</h3>
                  <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">Tracking UPRR divestments and dynamic funding priority shifts.</p>
               </div>
@@ -1083,18 +1101,21 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                             <div className="flex justify-between items-center gap-2">
                               <input
                                 type="text"
-                                value={m.name || ''}
-                                onChange={async (e) => {
+                                defaultValue={m.name || ''}
+                                key={`milestone-name-${milestoneId}`}
+                                onBlur={async (e) => {
+                                  const newVal = e.target.value;
+                                  if (newVal === m.name) return;
                                   const doc = await db.plans.findOne(plan.id).exec();
                                   const updatedMilestones = (activeScenario.milestones || []).map((ms: any) =>
-                                    (ms.id === m.id || (!ms.id && activeScenario.milestones.indexOf(ms) === mIdx)) ? { ...ms, name: e.target.value } : ms
+                                    (ms.id === m.id || (!ms.id && activeScenario.milestones.indexOf(ms) === mIdx)) ? { ...ms, name: newVal } : ms
                                   );
                                   const updatedScenarios = plan.scenarios.map((s: any) =>
                                     s.id === activeScenario.id ? { ...s, milestones: updatedMilestones } : s
                                   );
                                   await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                                  handleRunSimulation();
                                 }}
-                                onBlur={() => handleRunSimulation()}
                                 className="text-xs font-bold bg-transparent border-b border-dashed border-zinc-300 dark:border-zinc-700/80 hover:border-zinc-400 dark:hover:border-zinc-650 text-zinc-850 dark:text-zinc-150 outline-none w-full"
                                 placeholder="Milestone Name"
                               />
@@ -1146,9 +1167,11 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                 <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">Amount ($ / yr)</label>
                                 <input
                                   type="number"
-                                  value={amtVal}
-                                  onChange={async (e) => {
+                                  defaultValue={amtVal}
+                                  key={`milestone-amt-${milestoneId}`}
+                                  onBlur={async (e) => {
                                     const val = Number(e.target.value);
+                                    if (val === amtVal) return;
                                     const doc = await db.plans.findOne(plan.id).exec();
                                     const updatedMilestones = (activeScenario.milestones || []).map((ms: any) =>
                                       (ms.id === m.id || (!ms.id && activeScenario.milestones.indexOf(ms) === mIdx)) ? { ...ms, amount: val, targetAmount: val } : ms
@@ -1157,8 +1180,8 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                       s.id === activeScenario.id ? { ...s, milestones: updatedMilestones } : s
                                     );
                                     await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                                    handleRunSimulation();
                                   }}
-                                  onBlur={() => handleRunSimulation()}
                                   className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
                                   placeholder="0"
                                 />
@@ -1195,9 +1218,11 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                 </label>
                                 <input
                                   type="number"
-                                  value={isTriggerByAgeVal ? trigAge : trigYear}
-                                  onChange={async (e) => {
+                                  defaultValue={isTriggerByAgeVal ? trigAge : trigYear}
+                                  key={`milestone-trigger-${milestoneId}`}
+                                  onBlur={async (e) => {
                                     const val = Number(e.target.value);
+                                    if (val === (isTriggerByAgeVal ? trigAge : trigYear)) return;
                                     const doc = await db.plans.findOne(plan.id).exec();
                                     const updatedMilestones = (activeScenario.milestones || []).map((ms: any) => {
                                       if (ms.id === m.id || (!ms.id && activeScenario.milestones.indexOf(ms) === mIdx)) {
@@ -1211,8 +1236,8 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                       s.id === activeScenario.id ? { ...s, milestones: updatedMilestones } : s
                                     );
                                     await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                                    handleRunSimulation();
                                   }}
-                                  onBlur={() => handleRunSimulation()}
                                   className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
                                   placeholder="2030 / 65"
                                 />
@@ -1268,25 +1293,33 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                         {!(activeScenario.nonTaxableGifts && activeScenario.nonTaxableGifts.length > 0) ? (
                           <p className="text-xs text-zinc-400 dark:text-zinc-500 italic py-2 text-center">No auxiliary tax-free incomes specified.</p>
                         ) : (activeScenario.nonTaxableGifts || []).map((gift: any, gIdx: number) => {
-                          const giftId = gift.id || generateUUID();
+                          const giftId = gift.id || `gift-idx-${gIdx}`;
                           const isTriggerByAge = gift.startAge !== undefined || gift.endAge !== undefined;
                           return (
                             <div key={giftId} className="bg-zinc-50 dark:bg-zinc-950/45 border border-zinc-200 dark:border-zinc-850 rounded-xl p-3 space-y-2.5">
                               <div className="flex justify-between items-center gap-2">
                                 <input
                                   type="text"
-                                  value={gift.name || ''}
-                                  onChange={async (e) => {
+                                  defaultValue={gift.name || ''}
+                                  key={`gift-name-${giftId}`}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.currentTarget.blur();
+                                    }
+                                  }}
+                                  onBlur={async (e) => {
+                                    const newVal = e.target.value;
+                                    if (newVal === gift.name) return;
                                     const doc = await db.plans.findOne(plan.id).exec();
                                     const updatedGifts = (activeScenario.nonTaxableGifts || []).map((g: any, idx: number) =>
-                                      (g.id === gift.id || idx === gIdx) ? { ...g, name: e.target.value } : g
+                                      (g.id === gift.id || idx === gIdx) ? { ...g, name: newVal } : g
                                     );
                                     const updatedScenarios = plan.scenarios.map((s: any) =>
                                       s.id === activeScenario.id ? { ...s, nonTaxableGifts: updatedGifts } : s
                                     );
                                     await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                                    handleRunSimulation();
                                   }}
-                                  onBlur={() => handleRunSimulation()}
                                   className="text-xs font-bold bg-transparent border-b border-dashed border-zinc-300 dark:border-zinc-700/80 hover:border-zinc-400 dark:hover:border-zinc-650 text-zinc-850 dark:text-zinc-150 outline-none w-full"
                                   placeholder="Auxiliary Gift Name"
                                 />
@@ -1314,9 +1347,16 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                   <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">Annual Amount ($)</label>
                                   <input
                                     type="number"
-                                    value={gift.annualAmount ?? 0}
-                                    onChange={async (e) => {
+                                    defaultValue={gift.annualAmount ?? 0}
+                                    key={`gift-amount-${giftId}`}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.currentTarget.blur();
+                                      }
+                                    }}
+                                    onBlur={async (e) => {
                                       const amount = Number(e.target.value);
+                                      if (amount === (gift.annualAmount ?? 0)) return;
                                       const doc = await db.plans.findOne(plan.id).exec();
                                       const updatedGifts = (activeScenario.nonTaxableGifts || []).map((g: any, idx: number) =>
                                         (g.id === gift.id || idx === gIdx) ? { ...g, annualAmount: amount } : g
@@ -1325,8 +1365,8 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                         s.id === activeScenario.id ? { ...s, nonTaxableGifts: updatedGifts } : s
                                       );
                                       await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                                      handleRunSimulation();
                                     }}
-                                    onBlur={() => handleRunSimulation()}
                                     className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
                                   />
                                 </div>
@@ -1403,9 +1443,17 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                     <label className="text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase block mb-0.5">Start</label>
                                     <input
                                       type="number"
-                                      value={isTriggerByAge ? (gift.startAge ?? '') : (gift.startYear ?? '')}
-                                      onChange={async (e) => {
+                                      defaultValue={isTriggerByAge ? (gift.startAge ?? '') : (gift.startYear ?? '')}
+                                      key={`gift-start-${giftId}`}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.currentTarget.blur();
+                                        }
+                                      }}
+                                      onBlur={async (e) => {
                                         const numVal = e.target.value === '' ? undefined : Number(e.target.value);
+                                        const currentVal = isTriggerByAge ? gift.startAge : gift.startYear;
+                                        if (numVal === currentVal) return;
                                         const doc = await db.plans.findOne(plan.id).exec();
                                         const updatedGifts = (activeScenario.nonTaxableGifts || []).map((g: any, idx: number) => {
                                           if (g.id === gift.id || idx === gIdx) {
@@ -1419,8 +1467,8 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                           s.id === activeScenario.id ? { ...s, nonTaxableGifts: updatedGifts } : s
                                         );
                                         await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                                        handleRunSimulation();
                                       }}
-                                      onBlur={() => handleRunSimulation()}
                                       className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none"
                                       placeholder="Start"
                                     />
@@ -1429,9 +1477,17 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                     <label className="text-[9px] font-bold text-zinc-400 dark:text-zinc-400 uppercase block mb-0.5">End</label>
                                     <input
                                       type="number"
-                                      value={isTriggerByAge ? (gift.endAge ?? '') : (gift.endYear ?? '')}
-                                      onChange={async (e) => {
+                                      defaultValue={isTriggerByAge ? (gift.endAge ?? '') : (gift.endYear ?? '')}
+                                      key={`gift-end-${giftId}`}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.currentTarget.blur();
+                                        }
+                                      }}
+                                      onBlur={async (e) => {
                                         const numVal = e.target.value === '' ? undefined : Number(e.target.value);
+                                        const currentVal = isTriggerByAge ? gift.endAge : gift.endYear;
+                                        if (numVal === currentVal) return;
                                         const doc = await db.plans.findOne(plan.id).exec();
                                         const updatedGifts = (activeScenario.nonTaxableGifts || []).map((g: any, idx: number) => {
                                           if (g.id === gift.id || idx === gIdx) {
@@ -1445,8 +1501,8 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                           s.id === activeScenario.id ? { ...s, nonTaxableGifts: updatedGifts } : s
                                         );
                                         await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                                        handleRunSimulation();
                                       }}
-                                      onBlur={() => handleRunSimulation()}
                                       className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none"
                                       placeholder="End"
                                     />
@@ -1494,27 +1550,13 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                </div>
 
               {/* Target Asset Characteristics (Growth/Depreciation) */}
-              <div className="space-y-3.5 pt-4 border-t border-zinc-200/50 dark:border-zinc-800">
+              <div className="space-y-4 pt-4 border-t border-zinc-200/50 dark:border-zinc-800">
                 <div className="flex justify-between items-center">
                   <h5 className="font-bold text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Target Asset Characteristics</h5>
                   <button
-                    onClick={async () => {
-                      const doc = await db.plans.findOne(plan.id).exec();
-                      const currentAssets = activeScenario.assets || [];
-                      const updatedScenarios = plan.scenarios.map((s: any) => {
-                        if (s.id === activeScenario.id) {
-                          return {
-                            ...s,
-                            assets: [
-                              ...currentAssets,
-                              { id: generateUUID(), name: 'New Asset', type: 'investment', value: 100000, growthRate: 6.0, dividendYield: 0.0, dividendReinvestment: 'reinvest' }
-                            ]
-                          };
-                        }
-                        return s;
-                      });
-                      await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
-                      handleRunSimulation();
+                    onClick={() => {
+                      setEditingAsset(null);
+                      setShowAssetForm(true);
                     }}
                     className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline cursor-pointer focus:outline-none focus:ring-0"
                   >
@@ -1522,170 +1564,27 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                   </button>
                 </div>
 
-                <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
-                  {(activeScenario.assets || []).map((ast: any, astIdx: number) => (
-                    <div key={ast.id || astIdx} className="bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200/65 dark:border-zinc-800/80 rounded-xl p-3 space-y-2.5">
-                      <div className="flex justify-between items-center gap-2">
-                        <input
-                          type="text"
-                          key={`ast-name-${ast.id}`}
-                          defaultValue={ast.name}
-                          onBlur={async (e) => {
-                            const val = e.target.value.trim();
-                            if (!val || val === ast.name) return;
-                            const doc = await db.plans.findOne(plan.id).exec();
-                            const updatedAssets = (activeScenario.assets || []).map((a: any) =>
-                              a.id === ast.id ? { ...a, name: val } : a
-                            );
-                            const updatedScenarios = plan.scenarios.map((s: any) =>
-                              s.id === activeScenario.id ? { ...s, assets: updatedAssets } : s
-                            );
-                            await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
-                            handleRunSimulation();
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.currentTarget.blur();
-                            }
-                          }}
-                          className="font-bold text-xs bg-transparent border-0 border-b border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 outline-none text-zinc-900 dark:text-zinc-100 flex-1 py-0.5 min-h-[24px]"
-                          placeholder="Asset Name"
-                        />
-                        <button
-                          onClick={async () => {
-                            if ((activeScenario.assets || []).length <= 1) {
-                              alert("A scenario must have at least one asset to model trajectories.");
-                              return;
-                            }
-                            const doc = await db.plans.findOne(plan.id).exec();
-                            const updatedAssets = (activeScenario.assets || []).filter((a: any) => a.id !== ast.id);
-                            const updatedScenarios = plan.scenarios.map((s: any) =>
-                              s.id === activeScenario.id ? { ...s, assets: updatedAssets } : s
-                            );
-                            await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
-                            handleRunSimulation();
-                          }}
-                          className="text-zinc-400 hover:text-red-500 hover:bg-zinc-150 dark:hover:bg-zinc-800 p-1.5 rounded-lg transition-colors cursor-pointer"
-                          title="Remove asset"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">Type</label>
-                          <select
-                            value={ast.type || 'investment'}
-                            onChange={async (e) => {
-                              const doc = await db.plans.findOne(plan.id).exec();
-                              const updatedAssets = (activeScenario.assets || []).map((a: any) =>
-                                a.id === ast.id ? { ...a, type: e.target.value } : a
-                              );
-                              const updatedScenarios = plan.scenarios.map((s: any) =>
-                                s.id === activeScenario.id ? { ...s, assets: updatedAssets } : s
-                              );
-                              await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
-                              handleRunSimulation();
-                            }}
-                            className="w-full text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-700 dark:text-zinc-300 outline-none min-h-[28px]"
-                          >
-                            <option value="investment">Taxable</option>
-                            <option value="traditional_ira">Pre-Tax</option>
-                            <option value="roth_ira">Roth</option>
-                            <option value="cash">Cash/Buffer</option>
-                            <option value="other_asset">Other Asset</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">Balance ($)</label>
-                          <input
-                            type="number"
-                            defaultValue={ast.value}
-                            onBlur={async (e) => {
-                              const doc = await db.plans.findOne(plan.id).exec();
-                              const updatedAssets = (activeScenario.assets || []).map((a: any) =>
-                                a.id === ast.id ? { ...a, value: Math.max(0, Number(e.target.value)) } : a
-                              );
-                              const updatedScenarios = plan.scenarios.map((s: any) =>
-                                s.id === activeScenario.id ? { ...s, assets: updatedAssets } : s
-                              );
-                              await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
-                              handleRunSimulation();
-                            }}
-                            className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1" title="Positive = Appreciation / Negative = Depreciation">Growth (%)</label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            defaultValue={ast.growthRate !== undefined ? ast.growthRate : 6.0}
-                            onBlur={async (e) => {
-                              const doc = await db.plans.findOne(plan.id).exec();
-                              const updatedAssets = (activeScenario.assets || []).map((a: any) =>
-                                a.id === ast.id ? { ...a, growthRate: Number(e.target.value) } : a
-                              );
-                              const updatedScenarios = plan.scenarios.map((s: any) =>
-                                s.id === activeScenario.id ? { ...s, assets: updatedAssets } : s
-                              );
-                              await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
-                              handleRunSimulation();
-                            }}
-                            className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
-                            title="Positive = appreciation. Negative = depreciation."
-                            placeholder="6.0"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-zinc-200/50 dark:border-zinc-800/40">
-                        <div>
-                          <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">Div Yield (%)</label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            defaultValue={ast.dividendYield !== undefined ? ast.dividendYield : 0.0}
-                            onBlur={async (e) => {
-                              const doc = await db.plans.findOne(plan.id).exec();
-                              const updatedAssets = (activeScenario.assets || []).map((a: any) =>
-                                a.id === ast.id ? { ...a, dividendYield: Math.max(0, Number(e.target.value)) } : a
-                              );
-                              const updatedScenarios = plan.scenarios.map((s: any) =>
-                                s.id === activeScenario.id ? { ...s, assets: updatedAssets } : s
-                              );
-                              await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
-                              handleRunSimulation();
-                            }}
-                            className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
-                            placeholder="0.0"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">Reinvestment</label>
-                          <select
-                            value={ast.dividendReinvestment || 'reinvest'}
-                            onChange={async (e) => {
-                              const doc = await db.plans.findOne(plan.id).exec();
-                              const updatedAssets = (activeScenario.assets || []).map((a: any) =>
-                                a.id === ast.id ? { ...a, dividendReinvestment: e.target.value } : a
-                              );
-                              const updatedScenarios = plan.scenarios.map((s: any) =>
-                                s.id === activeScenario.id ? { ...s, assets: updatedAssets } : s
-                              );
-                              await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
-                              handleRunSimulation();
-                            }}
-                            className="w-full text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-700 dark:text-zinc-300 outline-none min-h-[28px]"
-                          >
-                            <option value="reinvest">Reinvest (DRIP)</option>
-                            <option value="payout">Payout (Cash Flow)</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="max-h-[350px] overflow-y-auto">
+                  <InvestmentList 
+                    assets={activeScenario.assets || []}
+                    onEdit={(asset) => {
+                      setEditingAsset(asset);
+                      setShowAssetForm(true);
+                    }}
+                    onDelete={async (assetId) => {
+                      if ((activeScenario.assets || []).length <= 1) {
+                        alert("A scenario must have at least one asset to model trajectories.");
+                        return;
+                      }
+                      const doc = await db.plans.findOne(plan.id).exec();
+                      const updatedAssets = (activeScenario.assets || []).filter((a: any) => a.id !== assetId);
+                      const updatedScenarios = plan.scenarios.map((s: any) =>
+                        s.id === activeScenario.id ? { ...s, assets: updatedAssets } : s
+                      );
+                      await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                      handleRunSimulation();
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -1836,6 +1735,37 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
               />
             </div>
           )}
+        </div>
+      )}
+      {/* Asset Form Modal */}
+      {showAssetForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-transparent w-full max-w-lg my-auto relative">
+            <InvestmentForm 
+              initialAsset={editingAsset}
+              onCancel={() => {
+                setShowAssetForm(false);
+                setEditingAsset(null);
+              }}
+              onSave={async (asset) => {
+                const doc = await db.plans.findOne(plan.id).exec();
+                const currentAssets = activeScenario.assets || [];
+                let updatedAssets;
+                if (editingAsset) {
+                  updatedAssets = currentAssets.map((a: any) => a.id === asset.id ? asset : a);
+                } else {
+                  updatedAssets = [...currentAssets, asset];
+                }
+                const updatedScenarios = plan.scenarios.map((s: any) =>
+                  s.id === activeScenario.id ? { ...s, assets: updatedAssets } : s
+                );
+                await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                setShowAssetForm(false);
+                setEditingAsset(null);
+                handleRunSimulation();
+              }}
+            />
+          </div>
         </div>
       )}
     </div>

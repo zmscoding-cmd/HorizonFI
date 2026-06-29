@@ -76,6 +76,21 @@ export type BudgetPhase = {
   lifestyleAdjustmentRate: number;
 };
 
+export type AssetModel = {
+  id: string;
+  name: string;
+  value: number;
+  assetType: 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH';
+  expectedGrowthRate: number;
+  expectedDividendYield: number;
+  availableDate?: string;
+  // Legacy fields
+  type?: string;
+  growthRate?: number;
+  dividendYield?: number;
+  dividendReinvestment?: string;
+};
+
 export type SubScenario = {
   id: string;
   name: string;
@@ -100,7 +115,7 @@ export type SubScenario = {
   };
   stages?: Stage[];
   milestones: any[];
-  assets: any[];
+  assets: AssetModel[];
   futureIncomeStreams?: FutureIncomeStream[];
   futureLiabilities?: FutureLiability[];
   nonTaxableGifts?: NonTaxableType[];
@@ -150,7 +165,7 @@ export type HistoricalDatapointType = {
 };
 
 const planSchema = {
-  version: 4,
+  version: 5,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -220,7 +235,26 @@ const planSchema = {
             }
           },
           milestones: { type: 'array' },
-          assets: { type: 'array' },
+          assets: { 
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                name: { type: 'string' },
+                value: { type: 'number' },
+                assetType: { type: 'string', enum: ['CASH', 'TAXABLE', 'PRE_TAX', 'ROTH'] },
+                expectedGrowthRate: { type: 'number', minimum: -1.0, maximum: 1.0 },
+                expectedDividendYield: { type: 'number', minimum: -1.0, maximum: 1.0 },
+                availableDate: { type: 'string' },
+                type: { type: 'string' },
+                growthRate: { type: 'number' },
+                dividendYield: { type: 'number' },
+                dividendReinvestment: { type: 'string' }
+              },
+              required: ['id', 'name', 'value', 'assetType', 'expectedGrowthRate', 'expectedDividendYield']
+            }
+          },
           futureIncomeStreams: {
             type: 'array',
             items: {
@@ -395,7 +429,11 @@ export type AssetType = {
   userId: string;
   name: string;
   value: number;
-  type: string;
+  assetType: 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH';
+  expectedGrowthRate: number;
+  expectedDividendYield: number;
+  availableDate?: string;
+  type?: string;
   createdAt: number;
   updatedAt?: number;
 };
@@ -439,7 +477,7 @@ const budgetSchema = {
 };
 
 const plannedExpenseSchema = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -453,6 +491,7 @@ const plannedExpenseSchema = {
     relationalTargetId: { type: 'string' },
     relationalPercent: { type: 'string' },
     notes: { type: 'string' },
+    excluded: { type: 'boolean' },
     urls: {
       type: 'array',
       items: {
@@ -472,7 +511,7 @@ const plannedExpenseSchema = {
 };
 
 const assetSchema = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -480,11 +519,15 @@ const assetSchema = {
     userId: { type: 'string', maxLength: 100 },
     name: { type: 'string' },
     value: { type: 'number' },
+    assetType: { type: 'string', enum: ['CASH', 'TAXABLE', 'PRE_TAX', 'ROTH'] },
+    expectedGrowthRate: { type: 'number', minimum: -1.0, maximum: 1.0 },
+    expectedDividendYield: { type: 'number', minimum: -1.0, maximum: 1.0 },
+    availableDate: { type: 'string' },
     type: { type: 'string' },
     createdAt: { type: 'integer' },
     updatedAt: { type: 'integer' }
   },
-  required: ['id', 'userId', 'name', 'value', 'type']
+  required: ['id', 'userId', 'name', 'value', 'assetType', 'expectedGrowthRate', 'expectedDividendYield']
 };
 
 const categorySchema = {
@@ -689,6 +732,38 @@ export async function getDatabase() {
                 return sc;
               });
               return oldDoc;
+            },
+            5: function (oldDoc: any) {
+              // Migrate assets to granular individual investment tracking
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                if (sc.assets) {
+                  sc.assets = sc.assets.map((asset: any) => {
+                    let newType = 'TAXABLE';
+                    if (asset.type === 'traditional_ira' || asset.type === 'PRE_TAX') {
+                       newType = 'PRE_TAX';
+                    } else if (asset.type === 'roth_ira' || asset.type === 'ROTH') {
+                       newType = 'ROTH';
+                    } else if (asset.type === 'cash' || asset.type === 'CASH') {
+                       newType = 'CASH';
+                    }
+                    
+                    const migratedAsset = {
+                      ...asset,
+                      assetType: asset.assetType || newType,
+                      expectedGrowthRate: asset.expectedGrowthRate ?? (asset.growthRate != null ? (asset.growthRate / 100) : 0.05),
+                      expectedDividendYield: asset.expectedDividendYield ?? (asset.dividendYield != null ? (asset.dividendYield / 100) : 0.02)
+                    };
+                    
+                    if (asset.availableDate) {
+                       migratedAsset.availableDate = asset.availableDate;
+                    }
+                    
+                    return migratedAsset;
+                  });
+                }
+                return sc;
+              });
+              return oldDoc;
             }
           }
         };
@@ -717,11 +792,36 @@ export async function getDatabase() {
             1: function (oldDoc: any) {
               // Gracefully migrate existing records to version 1 schema with renewalDate
               return oldDoc;
+            },
+            2: function (oldDoc: any) {
+              // Gracefully migrate existing records to version 2 schema with excluded
+              oldDoc.excluded = false;
+              return oldDoc;
             }
           }
         };
       }
-      if (!rxdb.collections.assets) collectionsToCreate.assets = { schema: assetSchema };
+      if (!rxdb.collections.assets) collectionsToCreate.assets = { 
+        schema: assetSchema,
+        migrationStrategies: {
+          1: function (oldDoc: any) {
+            let newType = 'TAXABLE';
+            if (oldDoc.type === 'traditional_ira' || oldDoc.type === 'PRE_TAX') {
+               newType = 'PRE_TAX';
+            } else if (oldDoc.type === 'roth_ira' || oldDoc.type === 'ROTH') {
+               newType = 'ROTH';
+            } else if (oldDoc.type === 'cash' || oldDoc.type === 'CASH') {
+               newType = 'CASH';
+            }
+            
+            oldDoc.assetType = newType;
+            oldDoc.expectedGrowthRate = 0.05; // Default global growth rate
+            oldDoc.expectedDividendYield = 0.02; // Default global dividend yield
+            
+            return oldDoc;
+          }
+        }
+      };
       if (!rxdb.collections.categories) collectionsToCreate.categories = { schema: categorySchema };
       if (!rxdb.collections.links) collectionsToCreate.links = { schema: linkSchema };
 

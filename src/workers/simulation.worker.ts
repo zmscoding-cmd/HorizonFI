@@ -229,15 +229,32 @@ function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
   const globalDiscountRate = req.globalDiscountRate !== undefined ? Math.max(0, Math.min(1.0, Number(req.globalDiscountRate))) : undefined;
 
   const assets: NetWorthAssetInput[] = Array.isArray(req.assets)
-    ? req.assets.slice(0, 100).map((a: any) => ({
-        id: String(a?.id || '').substring(0, 128),
-        name: String(a?.name || 'Asset').substring(0, 120),
-        value: Math.max(0, Math.min(1e12, Number(a?.value) || 0)),
-        type: ['taxable_brokerage', 'traditional_ira', 'roth_ira', 'cash', 'other_asset'].includes(a?.type) ? a.type : 'other_asset',
-        growthRate: Math.max(-0.5, Math.min(2.0, Number(a?.growthRate) || 0)),
-        dividendYield: a?.dividendYield !== undefined ? Math.max(0, Math.min(1.0, Number(a?.dividendYield) || 0)) : undefined,
-        dividendReinvestment: ['reinvest', 'payout'].includes(a?.dividendReinvestment) ? a.dividendReinvestment : undefined
-      }))
+    ? req.assets.slice(0, 100).map((a: any) => {
+        let newType = 'TAXABLE';
+        if (a?.assetType) {
+          if (['CASH', 'TAXABLE', 'PRE_TAX', 'ROTH'].includes(a.assetType)) {
+             newType = a.assetType;
+          }
+        } else if (a?.type) {
+          if (a.type === 'traditional_ira' || a.type === 'PRE_TAX') newType = 'PRE_TAX';
+          else if (a.type === 'roth_ira' || a.type === 'ROTH') newType = 'ROTH';
+          else if (a.type === 'cash' || a.type === 'CASH') newType = 'CASH';
+        }
+        
+        return {
+          id: String(a?.id || '').substring(0, 128),
+          name: String(a?.name || 'Asset').substring(0, 120),
+          value: Math.max(0, Math.min(1e12, Number(a?.value) || 0)),
+          assetType: newType as 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH',
+          expectedGrowthRate: Math.max(-1.0, Math.min(1.0, a?.expectedGrowthRate !== undefined ? Number(a.expectedGrowthRate) : (Number(a?.growthRate) || 0.05))),
+          expectedDividendYield: Math.max(-1.0, Math.min(1.0, a?.expectedDividendYield !== undefined ? Number(a.expectedDividendYield) : (Number(a?.dividendYield) || 0.02))),
+          availableDate: a?.availableDate ? String(a.availableDate).substring(0, 64) : undefined,
+          type: a?.type,
+          growthRate: a?.growthRate !== undefined ? Number(a.growthRate) : undefined,
+          dividendYield: a?.dividendYield !== undefined ? Number(a.dividendYield) : undefined,
+          dividendReinvestment: ['reinvest', 'payout'].includes(a?.dividendReinvestment) ? a.dividendReinvestment : undefined
+        };
+      })
     : [];
 
   const stages: Stage[] = Array.isArray(req.stages)
@@ -340,7 +357,18 @@ function sanitizeBudgetPayload(req: any): BudgetSimulationPayload {
         relationalTargetId: e?.relationalTargetId ? String(e.relationalTargetId).substring(0, 128) : undefined,
         relationalPercent: e?.relationalPercent !== undefined ? Math.max(0, Math.min(100, Number(e.relationalPercent) || 0)) : undefined,
         notes: e?.notes ? String(e.notes).substring(0, 1000) : undefined,
-        urls: Array.isArray(e?.urls) ? e.urls.slice(0, 10).map((u: any) => String(u).substring(0, 500)) : undefined,
+        excluded: e?.excluded !== undefined ? !!e.excluded : undefined,
+        urls: Array.isArray(e?.urls)
+          ? e.urls.slice(0, 10).map((u: any) => {
+              if (typeof u === 'string') {
+                return { url: String(u).substring(0, 500), name: '' };
+              }
+              return {
+                url: String(u?.url || '').substring(0, 500),
+                name: String(u?.name || '').substring(0, 120)
+              };
+            })
+          : undefined,
         renewalDate: e?.renewalDate ? String(e.renewalDate).substring(0, 100) : undefined,
         createdAt: Number(e?.createdAt) || undefined,
         updatedAt: Number(e?.updatedAt) || undefined
@@ -367,10 +395,14 @@ export type NetWorthAssetInput = {
   id: string;
   name: string;
   value: number;
-  type: 'taxable_brokerage' | 'traditional_ira' | 'roth_ira' | 'cash' | 'other_asset';
-  growthRate: number;
+  assetType: 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH';
+  expectedGrowthRate: number;
+  expectedDividendYield: number;
+  availableDate?: string;
+  type?: string;
+  growthRate?: number;
   dividendYield?: number;
-  dividendReinvestment?: 'reinvest' | 'payout';
+  dividendReinvestment?: string;
 };
 
 export type FutureIncomeStreamInput = {
@@ -651,7 +683,8 @@ export type PlannedExpenseModel = {
   relationalTargetId?: string;
   relationalPercent?: number;
   notes?: string;
-  urls?: string[];
+  excluded?: boolean;
+  urls?: { url: string; name?: string }[];
   renewalDate?: string;
   createdAt?: number;
   updatedAt?: number;
@@ -789,7 +822,10 @@ export function computeBudgetSimulation(
   sortedOrder.forEach(uId => {
     const u = nodesById.get(uId)!;
 
-    if (u.valuationType === 'Static') {
+    if (u.excluded) {
+      u.monthlyValue = 0;
+      u.annualValue = 0;
+    } else if (u.valuationType === 'Static') {
       const amt = u.staticAmount || 0;
       if (u.frequency === 'Monthly') {
         u.monthlyValue = amt;
@@ -1443,15 +1479,6 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       }
     }
     
-    // 4. Calculate total dividens paid out vs reinvested
-    let availableDividendsCash = 0;
-    currentAssets.forEach(a => {
-      const yieldRate = a.dividendYield || 0;
-      if (a.dividendReinvestment === 'payout' && yieldRate > 0) {
-        availableDividendsCash += a.value * yieldRate;
-      }
-    });
-    
     // 5. Income gaps and Drawdown logic
     let activeGiftAmount = 0;
     if (payload.nonTaxableGifts) {
@@ -1509,77 +1536,177 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       actualNominalWithdrawal = actuallyGathered;
     }
     
-    let withdrawnDividends = 0;
-    let withdrawnTaxable = 0;
-    let withdrawnTaxAdvantaged = 0;
-    
-    // Deduct from pure cash/dividends first
-    if (remainingBudgetTarget > 0 && availableDividendsCash > 0) {
-      if (availableDividendsCash >= remainingBudgetTarget) {
-        withdrawnDividends += remainingBudgetTarget;
-        availableDividendsCash -= remainingBudgetTarget;
-        remainingBudgetTarget = 0;
-      } else {
-        withdrawnDividends += availableDividendsCash;
-        remainingBudgetTarget -= availableDividendsCash;
-        availableDividendsCash = 0;
+    const eligibleDrawdownAssets = currentAssets.filter(a => {
+      if (a.value <= 0) return false;
+      if (a.availableDate) {
+        if (a.availableDate.includes('-')) {
+          const availableYear = parseInt(a.availableDate.split('-')[0]);
+          if (currentYear < availableYear) return false;
+        } else if (a.availableDate.toLowerCase().startsWith('age:')) {
+           const triggerAge = parseFloat(a.availableDate.split(':')[1]);
+           if (currentAge < triggerAge) return false;
+        } else {
+           const availableYear = parseInt(a.availableDate);
+           if (!isNaN(availableYear) && currentYear < availableYear) return false;
+        }
       }
+      return true;
+    });
+
+    let availableDividendsCash = 0;
+    eligibleDrawdownAssets.forEach(a => {
+      const yieldRate = a.expectedDividendYield !== undefined ? a.expectedDividendYield : (a.dividendYield || 0);
+      if (a.dividendReinvestment === 'payout' && yieldRate > 0) {
+        availableDividendsCash += a.value * yieldRate;
+      }
+    });
+
+    let remainingNetNeed = remainingBudgetTarget;
+    let netDrawn = {
+      traditional401kIra: 0,
+      taxableBrokerage: 0,
+      qualifiedDividends: 0,
+      rothIra: 0,
+      nonTaxableGift: giftAmountUsed
+    };
+
+    if (remainingNetNeed > 0 && availableDividendsCash > 0) {
+      const take = Math.min(availableDividendsCash, remainingNetNeed);
+      netDrawn.qualifiedDividends += take;
+      remainingNetNeed -= take;
     }
-    
-    // Reinvest leftover dividends
-    if (availableDividendsCash > 0 && schdAsset) {
-      schdAsset.value += availableDividendsCash;
-    }
-    
-    // If still need money, pull from assets following fundingPriorities
-    if (remainingBudgetTarget > 0 && activeStage?.fundingPriorities) {
+
+    if (remainingNetNeed > 0 && activeStage?.fundingPriorities) {
       for (const pType of activeStage.fundingPriorities) {
-        if (remainingBudgetTarget <= 0) break;
+        if (remainingNetNeed <= 0) break;
         
-        const eligibleAssets = currentAssets.filter(a => a.type === pType && a.value > 0);
-        const poolValue = eligibleAssets.reduce((sum, a) => sum + a.value, 0);
+        let mappedType: 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH' | 'ALL' = 'ALL';
+        if (pType === 'taxable_brokerage' || pType === 'TAXABLE') mappedType = 'TAXABLE';
+        else if (pType === 'tax_advantaged_401k' || pType === 'traditional_ira' || pType === 'PRE_TAX') mappedType = 'PRE_TAX';
+        else if (pType === 'roth_ira' || pType === 'ROTH') mappedType = 'ROTH';
+        else if (pType === 'cash' || pType === 'CASH') mappedType = 'CASH';
+
+        const pool = eligibleDrawdownAssets.filter(a => (mappedType === 'ALL' || a.assetType === mappedType) && a.value > 0);
+        const poolValue = pool.reduce((sum, a) => sum + a.value, 0);
         
         if (poolValue > 0) {
-           const withdrawFromPool = Math.min(poolValue, remainingBudgetTarget);
-           const pullFactor = withdrawFromPool / poolValue;
+           const takeNet = Math.min(poolValue, remainingNetNeed);
+           if (mappedType === 'PRE_TAX') netDrawn.traditional401kIra += takeNet;
+           else if (mappedType === 'TAXABLE') netDrawn.taxableBrokerage += takeNet;
+           else if (mappedType === 'ROTH') netDrawn.rothIra += takeNet;
+           else if (mappedType === 'CASH') netDrawn.nonTaxableGift += takeNet; 
+           else netDrawn.taxableBrokerage += takeNet;
            
-           eligibleAssets.forEach(a => {
-             a.value -= (a.value * pullFactor);
-           });
-           
-           if (pType === 'taxable_brokerage' || pType === 'investment') withdrawnTaxable += withdrawFromPool;
-           if (pType === 'tax_advantaged_401k' || pType === 'traditional_ira' || pType === 'roth_ira') withdrawnTaxAdvantaged += withdrawFromPool;
-           
-           remainingBudgetTarget -= withdrawFromPool;
+           remainingNetNeed -= takeNet;
         }
       }
       
-      // If STILL short, fallback to any available liquid assets
-      if (remainingBudgetTarget > 0) {
-        const liquidAssets = currentAssets.filter(a => a.value > 0);
-        const totalLiq = liquidAssets.reduce((sum, a) => sum + a.value, 0);
-        if (totalLiq > 0) {
-           const withdrawFromLiq = Math.min(totalLiq, remainingBudgetTarget);
-           const pullFactor = withdrawFromLiq / totalLiq;
-           liquidAssets.forEach(a => {
-             a.value -= (a.value * pullFactor);
-           });
-           withdrawnTaxable += withdrawFromLiq; // Fallback mapping
-           remainingBudgetTarget -= withdrawFromLiq;
+      if (remainingNetNeed > 0) {
+        const pool = eligibleDrawdownAssets.filter(a => a.value > 0);
+        const poolValue = pool.reduce((sum, a) => sum + a.value, 0);
+        if (poolValue > 0) {
+           const takeNet = Math.min(poolValue, remainingNetNeed);
+           netDrawn.taxableBrokerage += takeNet; // Fallback
+           remainingNetNeed -= takeNet;
         }
       }
     }
+
+    const taxOutput = evaluateMultiBucketTax({
+       targetNetExpense: actualNominalWithdrawal,
+       allocationMode: 'DOLLARS',
+       buckets: netDrawn,
+       blendedCostBasisPercentage: 60,
+       preExistingOrdinaryIncome: pensionIncome + rrbIncome
+    });
+
+    let withdrawnDividends = 0;
+    let withdrawnTaxable = 0;
+    let withdrawnTaxAdvantaged = 0;
+
+    let remainingGrossNeed = {
+      PRE_TAX: taxOutput.bucketBreakdown.traditional401kIraGross,
+      TAXABLE: taxOutput.bucketBreakdown.taxableBrokerageGross,
+      ROTH: taxOutput.bucketBreakdown.rothIraGross,
+      CASH: Math.max(0, taxOutput.bucketBreakdown.nonTaxableGiftGross - giftAmountUsed),
+      DIVIDENDS: taxOutput.bucketBreakdown.qualifiedDividendsGross
+    };
+
+    if (remainingGrossNeed.DIVIDENDS > 0 && availableDividendsCash > 0) {
+       const takeGross = Math.min(availableDividendsCash, remainingGrossNeed.DIVIDENDS);
+       withdrawnDividends += takeGross;
+       availableDividendsCash -= takeGross;
+       remainingGrossNeed.DIVIDENDS -= takeGross;
+    }
     
+    if (availableDividendsCash > 0 && schdAsset) {
+      schdAsset.value += availableDividendsCash;
+    }
+
+    if (activeStage?.fundingPriorities) {
+      for (const pType of activeStage.fundingPriorities) {
+        let mappedType: 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH' | 'ALL' = 'ALL';
+        if (pType === 'taxable_brokerage' || pType === 'TAXABLE') mappedType = 'TAXABLE';
+        else if (pType === 'tax_advantaged_401k' || pType === 'traditional_ira' || pType === 'PRE_TAX') mappedType = 'PRE_TAX';
+        else if (pType === 'roth_ira' || pType === 'ROTH') mappedType = 'ROTH';
+        else if (pType === 'cash' || pType === 'CASH') mappedType = 'CASH';
+
+        const pool = eligibleDrawdownAssets.filter(a => (mappedType === 'ALL' || a.assetType === mappedType) && a.value > 0);
+        const poolValue = pool.reduce((sum, a) => sum + a.value, 0);
+        
+        let amountToDrawGross = 0;
+        if (mappedType === 'PRE_TAX') amountToDrawGross = remainingGrossNeed.PRE_TAX;
+        else if (mappedType === 'TAXABLE') amountToDrawGross = remainingGrossNeed.TAXABLE;
+        else if (mappedType === 'ROTH') amountToDrawGross = remainingGrossNeed.ROTH;
+        else if (mappedType === 'CASH') amountToDrawGross = remainingGrossNeed.CASH;
+        else amountToDrawGross = remainingGrossNeed.TAXABLE + remainingGrossNeed.PRE_TAX + remainingGrossNeed.ROTH + remainingGrossNeed.CASH;
+
+        if (poolValue > 0 && amountToDrawGross > 0) {
+           const withdrawFromPool = Math.min(poolValue, amountToDrawGross);
+           const pullFactor = withdrawFromPool / poolValue;
+           
+           pool.forEach(a => {
+             a.value -= (a.value * pullFactor);
+           });
+           
+           if (mappedType === 'TAXABLE' || mappedType === 'CASH' || mappedType === 'ALL') withdrawnTaxable += withdrawFromPool;
+           if (mappedType === 'PRE_TAX' || mappedType === 'ROTH') withdrawnTaxAdvantaged += withdrawFromPool;
+           
+           if (mappedType === 'PRE_TAX') remainingGrossNeed.PRE_TAX -= withdrawFromPool;
+           else if (mappedType === 'TAXABLE') remainingGrossNeed.TAXABLE -= withdrawFromPool;
+           else if (mappedType === 'ROTH') remainingGrossNeed.ROTH -= withdrawFromPool;
+           else if (mappedType === 'CASH') remainingGrossNeed.CASH -= withdrawFromPool;
+           else {
+              remainingGrossNeed.TAXABLE = 0; remainingGrossNeed.PRE_TAX = 0; remainingGrossNeed.ROTH = 0; remainingGrossNeed.CASH = 0;
+           }
+        }
+      }
+      
+      const totalRemainingGross = remainingGrossNeed.PRE_TAX + remainingGrossNeed.TAXABLE + remainingGrossNeed.ROTH + remainingGrossNeed.CASH;
+      if (totalRemainingGross > 0) {
+        const pool = eligibleDrawdownAssets.filter(a => a.value > 0);
+        const poolValue = pool.reduce((sum, a) => sum + a.value, 0);
+        if (poolValue > 0) {
+           const withdrawFromLiq = Math.min(poolValue, totalRemainingGross);
+           const pullFactor = withdrawFromLiq / poolValue;
+           pool.forEach(a => {
+             a.value -= (a.value * pullFactor);
+           });
+           withdrawnTaxable += withdrawFromLiq; 
+        }
+      }
+    }
+
     // 6. Grow / Appreciate Assets for remainder of year
     currentAssets.forEach(a => {
-      const growth = a.growthRate || 0;
+      const growth = a.expectedGrowthRate !== undefined ? a.expectedGrowthRate : (a.growthRate || 0);
       const isReinvest = a.dividendReinvestment === 'reinvest';
-      const yieldRate = isReinvest ? (a.dividendYield || 0) : 0;
+      const yieldRate = isReinvest ? (a.expectedDividendYield !== undefined ? a.expectedDividendYield : (a.dividendYield || 0)) : 0;
       a.value = Math.max(0, a.value * (1 + growth + yieldRate));
     });
     
     const balanceAfterGrowth = currentAssets.reduce((sum, a) => sum + a.value, 0);
-    const estimatedTaxDrag = (pensionIncome + rrbIncome) * 0.15;
+    const estimatedTaxDrag = taxOutput.totalTaxOwed + ((pensionIncome + rrbIncome) * 0.15);
     
     // Deduct tax drag
     if (balanceAfterGrowth > 0 && estimatedTaxDrag > 0) {

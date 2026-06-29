@@ -11,7 +11,7 @@ describe('Web Worker - 3-Bucket Mathematical Integrity', () => {
       endYear: 2026,
       currentAge: 60,
       assets: [
-        { id: 'cash', name: 'Cash Reserve', value: 1000000, type: 'cash', growthRate: 0.05 }
+        { id: 'cash', name: 'Cash Reserve', value: 1000000, type: 'cash', assetType: 'CASH', expectedGrowthRate: 0.05, expectedDividendYield: 0.0 }
       ],
       stages: [
         { id: 'retirement', name: 'Retirement Phase', targetAnnualBudget: 100000, fundingPriorities: ['cash'] }
@@ -63,7 +63,7 @@ describe('Web Worker - 3-Bucket Mathematical Integrity', () => {
       endYear: 2026,
       currentAge: 60,
       assets: [
-        { id: 'equities', name: 'Equities Portfolio', value: 300000, type: 'taxable_brokerage', growthRate: -0.15 } // -15% market shock
+        { id: 'equities', name: 'Equities Portfolio', value: 300000, type: 'taxable_brokerage', assetType: 'TAXABLE', expectedGrowthRate: -0.15, expectedDividendYield: 0.0 } // -15% market shock
       ],
       stages: [
         { id: 'retirement', name: 'Retirement Phase', targetAnnualBudget: 100000, fundingPriorities: ['taxable_brokerage'] }
@@ -133,7 +133,7 @@ describe('Web Worker - 3-Bucket Mathematical Integrity', () => {
     expect(() => {
       simulateMultiStageDrawdownWorker({
         ...defaultPayload,
-        assets: new Array(201).fill({ id: 'x', name: 'Limit Test', value: 100, type: 'cash', growthRate: 0.0 })
+        assets: new Array(201).fill({ id: 'x', name: 'Limit Test', value: 100, type: 'cash', assetType: 'CASH', expectedGrowthRate: 0.0, expectedDividendYield: 0.0 })
       });
     }).toThrow(/Asset count exceeds computational limits/);
 

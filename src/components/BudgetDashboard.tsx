@@ -238,6 +238,7 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
   const [editingExpenseNotes, setEditingExpenseNotes] = useState('');
   const [editingExpenseUrlsText, setEditingExpenseUrlsText] = useState('');
   const [editingExpenseRenewalDate, setEditingExpenseRenewalDate] = useState('');
+  const [editingExpenseExcluded, setEditingExpenseExcluded] = useState(false);
 
   // Expense Supporting Named Links
   const [newExpenseLinks, setNewExpenseLinks] = useState<{ url: string; name: string }[]>([]);
@@ -327,6 +328,7 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
       relationalTargetId: exp.relationalTargetId || '',
       relationalPercent: exp.relationalPercent ? parseFloat(exp.relationalPercent) : 0,
       notes: exp.notes || '',
+      excluded: !!exp.excluded,
       urls: exp.urls || []
     }));
 
@@ -496,6 +498,7 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
         name: newExpense.name.trim(),
         frequency: newExpense.frequency,
         valuationType: newExpense.valuationType,
+        excluded: false,
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
@@ -507,7 +510,23 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
         payload.relationalPercent = String(newExpense.relationalPercent);
       }
       if (newExpense.notes.trim()) payload.notes = newExpense.notes.trim();
-      if (newExpenseLinks.length > 0) payload.urls = newExpenseLinks;
+      
+      let finalLinks = [...newExpenseLinks];
+      if (newLinkUrl.trim()) {
+        let targetUrl = newLinkUrl.trim();
+        if (!/^https?:\/\//i.test(targetUrl)) {
+          targetUrl = 'https://' + targetUrl;
+        }
+        if (activeIndexNewExpenseLinkEdit !== null) {
+          finalLinks[activeIndexNewExpenseLinkEdit] = { name: newLinkName.trim(), url: targetUrl };
+        } else {
+          if (!finalLinks.some(link => link.url === targetUrl)) {
+            finalLinks.push({ name: newLinkName.trim(), url: targetUrl });
+          }
+        }
+      }
+      payload.urls = finalLinks;
+
       if (newExpense.renewalDate) payload.renewalDate = newExpense.renewalDate;
 
       await db.planned_expenses.insert(payload);
@@ -544,6 +563,18 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
     }
   };
 
+  const handleToggleExclude = async (id: string, currentlyExcluded: boolean) => {
+    setValidationError(null);
+    try {
+      const doc = await db.planned_expenses.findOne(id).exec();
+      if (doc) {
+        await doc.patch({ excluded: !currentlyExcluded });
+      }
+    } catch (err: any) {
+      setValidationError(err.message || 'Failed to toggle expense exclusion.');
+    }
+  };
+
   const handleUpdateExpense = async (id: string) => {
     if (!editingExpenseName.trim()) return;
     setValidationError(null);
@@ -571,7 +602,24 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
           payload.relationalPercent = String(editingExpenseRelationalPercent);
         }
         if (editingExpenseNotes.trim()) payload.notes = editingExpenseNotes.trim();
-        if (editingExpenseLinks.length > 0) payload.urls = editingExpenseLinks;
+        payload.excluded = editingExpenseExcluded;
+        
+        let finalLinks = [...editingExpenseLinks];
+        if (editLinkUrl.trim()) {
+          let targetUrl = editLinkUrl.trim();
+          if (!/^https?:\/\//i.test(targetUrl)) {
+            targetUrl = 'https://' + targetUrl;
+          }
+          if (activeIndexEditExpenseLinkEdit !== null) {
+            finalLinks[activeIndexEditExpenseLinkEdit] = { name: editLinkName.trim(), url: targetUrl };
+          } else {
+            if (!finalLinks.some(link => link.url === targetUrl)) {
+              finalLinks.push({ name: editLinkName.trim(), url: targetUrl });
+            }
+          }
+        }
+        payload.urls = finalLinks;
+
         payload.renewalDate = editingExpenseRenewalDate || '';
 
         await doc.patch(payload);
@@ -1789,6 +1837,19 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                                 />
                               </div>
 
+                              {/* Included / Active checkbox */}
+                              <div className="space-y-1 flex items-center h-full pt-4 pl-1">
+                                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={!editingExpenseExcluded}
+                                    onChange={e => setEditingExpenseExcluded(!e.target.checked)}
+                                    className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-750 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                                  />
+                                  <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase">Included in calculations</span>
+                                </label>
+                              </div>
+
                               {/* Notes */}
                               <div className="sm:col-span-2 space-y-1">
                                 <label className="text-[10px] font-bold text-zinc-400 uppercase">Notes & Documentation</label>
@@ -1947,12 +2008,24 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                       return (
                         <div
                           key={exp.id}
-                          className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl p-2.5 sm:py-3 sm:px-5 hover:shadow-sm transition-all"
+                          className={`bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl p-2.5 sm:py-3 sm:px-5 hover:shadow-sm transition-all ${exp.excluded ? 'opacity-65 grayscale-[30%] bg-zinc-50/50 dark:bg-zinc-950/20' : ''}`}
                         >
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 items-center w-full">
                                {/* Column 1: name, notes, links */}
                             <div className="col-span-1 md:col-span-3 space-y-1">
-                              <h5 className="font-bold text-zinc-900 dark:text-zinc-100 break-words text-sm sm:text-base leading-snug">{exp.name}</h5>
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  id={`chk-exclude-${exp.id}`}
+                                  checked={!exp.excluded}
+                                  onChange={() => handleToggleExclude(exp.id, !!exp.excluded)}
+                                  className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-750 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600 shrink-0"
+                                  title={exp.excluded ? "Include in budget calculations" : "Exclude from budget calculations"}
+                                />
+                                <h5 className={`font-bold text-zinc-900 dark:text-zinc-100 break-words text-sm sm:text-base leading-snug ${exp.excluded ? 'line-through text-zinc-400 dark:text-zinc-550' : ''}`}>
+                                  {exp.name}
+                                </h5>
+                              </div>
                               {exp.notes && (
                                 <p className="text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-950 p-2 rounded-lg border border-zinc-100 dark:border-zinc-800 font-medium italic break-words leading-relaxed">
                                   {exp.notes}

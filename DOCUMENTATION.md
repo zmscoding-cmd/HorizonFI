@@ -45,11 +45,32 @@ Navigate to the **Target Assets** tab inside the **Budget Dashboard** to registe
 *   **Cash Reserves / Capital Buffers:** Non-volatile cash assets used as a market shock absorber.
 *   **Depreciating Assets (Physical Vessel / Vehicles):** You can input your physical cruising sailboat or yacht, assigning custom *negative appreciation rates* (e.g., `-5%` to `-10%` annually) to accurately simulate asset decay and boat maintenance expenditures over time.
 
-### Step 3: Configure Your Baseline Budget
-Input your projected baseline cost of living:
+### Step 3: Configure Your Baseline Budget & Economics
+Input your projected baseline cost of living and global plan parameters:
 1.  Enter your target monthly or annual baseline living expenditures (e.g., *"Marina dues, provisions, sails, and fuel"*).
 2.  Set the baseline **Compounding Inflation Rate** (e.g., `3.0%`).
 3.  Add any active passive income streams (e.g., rental properties, royalties, or part-time marine writing) that offset required nominal asset drawdowns.
+
+#### Current Dollars vs. Future Nominal Dollars (Inflation Extrapolation)
+When structuring your HorizonFI model, you must adhere to the **Current Dollars Mandate**:
+*   **Today's Purchasing Power:** All monetary values you enter in the user interface—including the Baseline Budget, Future Budget Phase baseline amounts, Milestone costs, and Auxiliary Income streams—**MUST be entered in current dollars** (today's purchasing power).
+*   **Compounding Inflation Extrapolation:** The mathematical simulation engine automatically handles the task of compounding-inflating these values over your multi-decade timeline. 
+    *   *For Example:* If you configure a future budget phase starting in year 10 with a baseline amount of $60,000, and your specified compounding inflation rate is `3.0%`, the simulation engine does not treat that phase as a flat $60,000 in the year 10 projection. It compounds $60,000 by 3.0% annually for 10 years, extrapolating it to a nominal value of **$80,635** in that future year.
+    *   *Lifestyle Adjustments:* If you apply a **Lifestyle Adjustment Rate** (e.g., `-2.0%` for slower-go years), it compounds alongside general inflation, allowing the simulation to realistically model how your personal spending changes relative to the macroeconomic purchasing power of the dollar.
+
+#### Target Asset Growth Rates & Annual Returns (Nominal vs. Real)
+All **Target Asset Growth Rates & Annual Returns** entered inside your asset ledger fields (such as individual stock/bond appreciation rates or dividend yields) **MUST be entered as NOMINAL annual returns (before inflation is taken into account).**
+*   **The Math Engine Separation:** The simulation engine calculates asset growth and inflation independently. In each yearly loop, assets are grown by their nominal rates (e.g., $\text{Value}_{t+1} = \text{Value}_t \times (1 + \text{Nominal Growth Rate} + \text{Nominal Yield})$), while living expenditures and liabilities are independently compounded by your global **Compounding Inflation Rate**.
+*   **Modeling Real Growth:** If your goal is to simulate a `5.0%` real (inflation-adjusted) return in a `3.0%` inflation environment, you must enter a nominal return rate of **`8.0%`** in the asset field ($\text{Nominal Return} = \text{Real Return} + \text{Inflation}$). Entering a growth rate of `5.0%` directly means the real growth rate simulated will be approximately `2.0%` after accounting for the global `3.0%` compounding inflation of your living expenses.
+
+#### The Global Discount Rate Defined
+The **Global Discount Rate** (configured in your active scenario settings, defaulting to `2.0%`) is a fundamental pillar of the HorizonFI longevity math:
+*   **Definition:** The discount rate is the annual percentage rate used to discount future cash flows (all expected future pension incomes, Railroad Retirement benefits, future budget phase expenses, and milestone liabilities) back to their equivalent value in today's money—known as the **Present Value (PV)**.
+*   **The Funded Ratio Equation:** This rate is the core parameter used by the simulation engine to evaluate your plan's mathematical viability via the **Funded Ratio**:
+    $$\text{Funded Ratio} = \frac{\text{Current Asset Ledger Balance} + \text{Present Value of Future Income Streams}}{\text{Present Value of Future Liabilities \& Milestone Capex}}$$
+*   **Strategic Interpretation:**
+    *   *Higher Discount Rate:* Assumes a more optimistic real, risk-free, or inflation-adjusted return on capital. This reduces the present value of future liabilities, raising your Funded Ratio and suggesting you need less starting capital.
+    *   *Lower Discount Rate (Conservative):* Assumes a lower real rate of growth. This increases the present value of future liabilities, lowering your Funded Ratio and demanding a more substantial current asset buffer to ensure long-term retirement safety.
 
 ### Step 4: Calibrate the Liquid Cash Buffer
 Specify your desired **Cash Buffer Duration** inside the active sidebar (default is *2 to 3 years*).
@@ -116,7 +137,7 @@ The **Granular Budget & Variance** workspace allows you to model exactly how you
     *   **Qualified Dividends** (taxed at lower capital gains brackets).
     *   **Roth IRAs** (completely tax-free drawdowns).
     *   **Cash / Gift accounts** (non-taxable capital drawdowns).
-3.  **Gross-Up Conversion Math:** To guarantee your actual cost of living is completely funded, the calculation engine runs a **multi-variable numerical convergence loop** (supporting up to 25 loops or a precision limit of `< $0.01` tolerance). It calculates progressive ordinary income taxes and stacked long-term capital gains (LTCG) taxes based on 2026 statutory rates, automatically "grossing up" your pre-tax allocations. This tax liability is distributed proportionally only across active, tax-bearing funding sources (such as Traditional accounts, taxable brokerage, and dividends), while completely exempting non-taxable pools like Roth IRAs and cash gifts, guaranteeing your post-tax net payout perfectly hits your net target spend.
+3.  **Gross-Up Conversion Math:** To guarantee your actual cost of living is completely funded, the calculation engine runs a **multi-variable numerical convergence loop** (supporting up to 25 loops or a precision limit of `< $0.01` tolerance). It calculates progressive ordinary income taxes and stacked long-term capital gains (LTCG) taxes based on 2026 statutory rates, automatically "grossing up" your pre-tax allocations. This tax liability is distributed proportionally only across active, tax-bearing funding sources (such as Traditional accounts, taxable brokerage, and dividends), while completely exempting non-taxable pools like Roth IRAs and cash gifts, guaranteeing your post-tax net payout perfectly hits your net target spend. You can view these dynamic, real-time calculations directly under the **Calculated Pre-Tax Gross-Up & Tax Projections** section in the **Budget & Funding** tab, which displays exact net outflows, pre-tax gross outflows, and estimated tax charges for each bucket.
 
 ### Auxiliary Income (Tax-Free)
 Users can configure non-taxable capital inflows (such as private annual family gifts, tax-free windfalls, or structured inheritances) directly in the active Scenario settings panel:
@@ -130,6 +151,7 @@ To ensure your retirement plan remains structurally coherent, your monthly budge
 *   **Relational Safety Locks (Kahn's Sort Middleware):** If you attempt to delete a physical asset or category that is actively referenced by an active budget or planned expense line-item, the database's internal middleware blocks the transaction locally, popping up an intuitive error banner. This prevents breaking mathematical calculations or leaving orphan records behind in your offline database.
 *   **Supporting Named Links Lifecycle:** When creating a new planned expense or editing an existing one, you can attach direct hyperlinked references (such as contracts, insurance quotes, or marina agreements). These links can be added, custom labeled, updated (edited) in place, or removed completely at any stage of planning. Select the edit (pencil) icon next to any active link to update its details instantly without losing progress.
 *   **Planned Expense Renewal Dates:** To track recurring service contracts or time-bounded quotes (e.g. marine insurance premium renewals, lease expiries, annual dockage agreements), you can configure an optional **Renewal Date** using the inline datepicker. This value is securely encrypted at rest within local IndexedDB storage and synced seamlessly to Firestore. A dedicated indicator tag is displayed within the Simulated Master Ledger list view to keep critical operational deadlines visible at a glance.
+*   **Planned Expense Exclusion (Check/Uncheck Toggle):** To support scenarios where a budget item is tentative or no longer active but should be retained for historical reference or personal note-taking, HorizonFI provides an interactive checkmark toggle directly within the Master Ledger row. Unchecking a planned expense immediately mutes its appearance, applies a visual strike-through, and strips its values from all budget aggregates, category totals, and downstream multi-stage calculations. The expense remains safely persisted inside the database as a static reference note, allowing you to reactivate it with a single click at any time without having to re-key notes or supporting hyperlinks.
 *   **Simulated Master Ledger Sorting Operations:** Group and rank planned expenses effortlessly. Dynamic controls allow you to sort your master ledger by **Category (alphabetically) followed by Expense Name**, strictly by **Expense Name (alphabetical ascending A-Z or descending Z-A)**, as well as resort dynamically by its computed **Annual Expense** in both **ascending (increasing)** or **descending (decreasing)** order. You can trigger these sorts instantly using the sleek sorting buttons located adjacent to the master ledger title, or by clicking directly on the corresponding table headers ("Expense Name & Info", "Category", or "Annual"). This allows real-time offline-first visual ranking of major cash flow drivers.
 
 ---
@@ -217,6 +239,19 @@ Turning on the **Night-Watch Theme** turns background elements entirely pitch bl
 *   **ITP Iframe Authentication Failsafe:** Some environments (such as iPadOS Safari) block third-party cookies and auth popups inside web applications. HorizonFI bypasses Safari Intelligent Tracking Prevention (ITP) issues by providing a **Secure Password Fallback** option on the login menu. Registered user accounts can bypass popups and log in directly via secure POST tunnels.
 *   **Diagnostic Safety Banner:** Standard offline browsers frequently suppress storage exceptions. HorizonFI intercepts all indexing, write, or authentication errors and presents them in a detailed, user-dismissible red diagnostic banner, ensuring complete technical transparency.
 *   **Technical Hard Reset:** If local browser storage or browser cache files ever suffer structural corruption (e.g., IndexDB schema drift error DB9), select the **Hard Reset** icon in the dashboard settings footer. After confirming the prompt, the application will wipe corrupted IndexedDB instances, flush stale cache files, and pull your encrypted, validated plan data fresh and intact from the secure Firebase database.
+
+---
+
+### V. Granular Investments & Temporal Lockouts
+To accurately model tax drag, required minimum distributions, and complex early retirement penalty avoidance, HorizonFI supports granular asset tracking and temporal lockouts.
+
+*   **Granular Asset Classifications:** When defining your investments inside the **Target Assets** panel, you must categorize each pool into one of four distinct tax buckets (`TAXABLE`, `PRE_TAX`, `ROTH`, `CASH`). 
+    *   *TAXABLE:* Standard brokerage accounts. Subject to dividend drag and capital gains on withdrawal.
+    *   *PRE_TAX:* Traditional 401ks, IRAs, and Pensions. Subject to ordinary income tax (gross-ups) and RMDs upon distribution.
+    *   *ROTH:* Completely tax-free compounding and tax-free drawdowns.
+    *   *CASH:* Non-volatile, zero-tax liquid buffers.
+*   **Per-Asset Growth & Yield:** Unlike legacy tools that apply a global average return, HorizonFI allows you to assign specific expected growth rates and dividend yields to every individual asset, allowing the simulation to compound your high-risk tech stocks independently from your stable bond reserves.
+*   **Temporal Availability Lockout:** For assets that cannot be legally drawn without severe penalties (e.g., standard 401ks before age 59.5, or a trust fund maturing in 2035), you can specify an **Availability Lockout Date** (e.g. `age:59.5` or `2035`). The simulation engine strictly blocks the 3-Bucket waterfall or multi-stage drawdown algorithms from liquidating these protected assets during any deficit year prior to their unlock trigger.
 
 ---
 
