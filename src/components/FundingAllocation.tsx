@@ -86,16 +86,6 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
 
   const isValid = allocationMode === 'PERCENTAGE' ? currentTotal === 100 : currentTotal >= 0;
 
-  const chartData = useMemo(() => {
-    return [
-      { name: 'Traditional 401k/IRA', value: Number(buckets.traditional401kIra || 0), color: '#3b82f6' },
-      { name: 'Taxable Brokerage', value: Number(buckets.taxableBrokerage || 0), color: '#8b5cf6' },
-      { name: 'Qualified Dividends', value: Number(buckets.qualifiedDividends || 0), color: '#f59e0b' },
-      { name: 'Roth IRA', value: Number(buckets.rothIra || 0), color: '#10b981' },
-      { name: 'Gifts/Cash', value: Number(buckets.nonTaxableGift || 0), color: '#6b7280' }
-    ].filter(d => d.value > 0);
-  }, [buckets]);
-
   const taxOutput = useMemo(() => {
     if (!buckets) return null;
     return evaluateMultiBucketTax({
@@ -110,6 +100,18 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
     });
   }, [targetNetExpense, allocationMode, buckets, basis, taxEvents]);
 
+  const chartData = useMemo(() => {
+    if (!taxOutput) return [];
+    return [
+      { name: 'Traditional 401k/IRA', value: Number(taxOutput.netBreakdown.traditional401kIraNet || 0), color: '#3b82f6' },
+      { name: 'Taxable Brokerage', value: Number(taxOutput.netBreakdown.taxableBrokerageNet || 0), color: '#8b5cf6' },
+      { name: 'Qualified Dividends', value: Number(taxOutput.netBreakdown.qualifiedDividendsNet || 0), color: '#f59e0b' },
+      { name: 'Roth IRA', value: Number(taxOutput.netBreakdown.rothIraNet || 0), color: '#10b981' },
+      { name: 'Gifts/Cash', value: Number(taxOutput.netBreakdown.nonTaxableGiftNet || 0), color: '#6b7280' },
+      { name: 'Est. Taxes', value: Number(taxOutput.totalTaxOwed || 0), color: '#ef4444' }
+    ].filter(d => d.value > 0);
+  }, [taxOutput]);
+
   // Custom label rendering for persistent slices without hover
   const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, name, value }: any) => {
     const RADIAN = Math.PI / 180;
@@ -120,16 +122,9 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
     const textAnchor = x > cx ? 'start' : 'end';
 
     let displayValue = '';
-    if (allocationMode === 'PERCENTAGE') {
-      if (targetNetExpense > 0) {
-        const extrapolatedDollars = (value / 100) * targetNetExpense;
-        displayValue = `${value}% ($${Math.round(extrapolatedDollars).toLocaleString()})`;
-      } else {
-        displayValue = `${value}%`;
-      }
-    } else {
-      displayValue = `$${value.toLocaleString()}`;
-    }
+    const totalValue = chartData.reduce((sum, d) => sum + d.value, 0);
+    const percentage = totalValue > 0 ? Math.round((value / totalValue) * 100) : 0;
+    displayValue = `${percentage}% ($${Math.round(value).toLocaleString()})`;
 
     // Elegant short alias labels
     let shortName = name;
@@ -137,6 +132,7 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
     if (shortName === 'Taxable Brokerage') shortName = 'Brokerage';
     if (shortName === 'Qualified Dividends') shortName = 'Dividends';
     if (shortName === 'Gifts/Cash') shortName = 'Gifts';
+    if (shortName === 'Est. Taxes') shortName = 'Taxes';
 
     return (
       <text
@@ -349,6 +345,12 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
             </div>
             <div className="flex items-center gap-3 self-stretch md:self-auto">
               <div className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl px-4 py-2 text-center shadow-sm">
+                <span className="block text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest leading-tight">Effective Rate</span>
+                <span className="text-sm font-black text-amber-600 dark:text-amber-400 font-mono">
+                  {taxOutput.grossWithdrawalTotal > 0 ? ((taxOutput.totalTaxOwed / taxOutput.grossWithdrawalTotal) * 100).toFixed(1) : '0.0'}%
+                </span>
+              </div>
+              <div className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl px-4 py-2 text-center shadow-sm">
                 <span className="block text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest leading-tight">Total Taxes Owed</span>
                 <span className="text-sm font-black text-red-600 dark:text-red-400 font-mono">
                   ${taxOutput.totalTaxOwed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -363,7 +365,7 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-5">
             <GrossUpBucketCard
               name="Traditional 401k/IRA"
               badge="Ordinary Income (10-12% Bracket)"
@@ -411,6 +413,24 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
               textColor="text-zinc-600 dark:text-zinc-400"
               isTaxFree
             />
+          </div>
+
+          <div className="p-4 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-900/30 text-sm">
+            <h5 className="text-[11px] font-bold uppercase tracking-widest mb-2.5 text-zinc-700 dark:text-zinc-300">How the Tax Engine works</h5>
+            <ul className="text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
+              <li className="flex gap-2">
+                <span className="text-blue-500 dark:text-blue-400 font-bold">•</span>
+                <span><strong>Ordinary Income:</strong> Traditional 401k/IRA distributions (and strategic Roth Conversions) are stacked first, filling the standard deduction ($29,200 MFJ) and lower tax brackets sequentially.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-blue-500 dark:text-blue-400 font-bold">•</span>
+                <span><strong>Capital Gains:</strong> Taxable Brokerage sales are split into cost basis and capital gains (currently modeled at a {100 - (basis || 60)}% gains ratio). Only the gains portion is stacked on top of your ordinary income to determine if it falls in the 0% or 15% Long-Term Capital Gains (LTCG) bracket.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-blue-500 dark:text-blue-400 font-bold">•</span>
+                <span><strong>Gross-Up Convergence:</strong> If taxes are owed on the net targets you set above, the engine iteratively "grosses-up" your Traditional and Brokerage withdrawals, calculating the recursive tax drag until the exact net target is reached.</span>
+              </li>
+            </ul>
           </div>
         </div>
       )}

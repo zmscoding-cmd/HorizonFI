@@ -1004,3 +1004,14 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Thread Isolation:** The Web Worker logic remains safely decoupled; UI dimensional stability is managed strictly via Tailwind CSS rather than JS boundary sniffing.
 * **Validation - Strict Secrets Audit:** No hardcoded secrets were introduced. Local indexing boundaries remain intact.
 
+### Checkpoint - Budget Configuration & Extrapolation UI Enhancement: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Gross-Up Extrapolation Charting:** Upgraded the `Recharts` Donut Chart in `FundingAllocation.tsx` to structurally integrate data from the isolated `evaluateMultiBucketTax` Web Worker logic. The chart now maps absolute deterministic Net targets (e.g. `$25,000` instead of a static `25%`) and explicitly injects a new `Est. Taxes` slice, giving users immediate visual feedback regarding the tax drag required to hit their net spend goal.
+2. **Tax Engine Transparent Breakdown:** Introduced a new persistent, static text block inside the Gross-Up Projection module explaining the underlying engine mechanics (Ordinary Income, Capital Gains ratios, and Gross-Up Convergence algorithms). 
+3. **Effective Tax Rate Computed Output:** Explicitly calculated the blended average output via `(totalTaxOwed / grossWithdrawalTotal) * 100` and attached it as a primary metric block, giving users high-level algorithmic visibility without needing to export the raw engine arrays.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Safely bypassed `NaN` errors for zero-withdrawal states by conditionally projecting `(value / totalValue) * 100` instead of relying on native Recharts interpolation.
+* **Validation - Tax Engine Accuracy:** Accurate propagation of the `Est. Taxes` calculation confirms that the underlying Web Worker logic correctly cascades to UI visualization components.
+* **Validation - Strict Secrets Audit:** No hardcoded secrets were introduced. All mathematical evaluations remain locked inside the local zero-trust IndexedDB boundary.
+
