@@ -279,52 +279,54 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
             </div>
           )}
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-                <Pie
-                  data={chartData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={35}
-                  outerRadius={55}
-                  paddingAngle={2}
-                  stroke="none"
-                  label={renderCustomLabel}
-                  labelLine={{
-                    stroke: isDark ? '#52525b' : '#d4d4d8',
-                    strokeWidth: 1,
-                    strokeDasharray: '2 2'
-                  }}
-                >
-                  {chartData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number) => {
-                    if (allocationMode === 'PERCENTAGE') {
-                      if (targetNetExpense > 0) {
-                        const extrapolatedDollars = (value / 100) * targetNetExpense;
-                        return `${value}% ($${Math.round(extrapolatedDollars).toLocaleString()})`;
+            <div className="flex-1 w-full min-h-0 min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={35}
+                    outerRadius={55}
+                    paddingAngle={2}
+                    stroke="none"
+                    label={renderCustomLabel}
+                    labelLine={{
+                      stroke: isDark ? '#52525b' : '#d4d4d8',
+                      strokeWidth: 1,
+                      strokeDasharray: '2 2'
+                    }}
+                  >
+                    {chartData.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => {
+                      if (allocationMode === 'PERCENTAGE') {
+                        if (targetNetExpense > 0) {
+                          const extrapolatedDollars = (value / 100) * targetNetExpense;
+                          return `${value}% ($${Math.round(extrapolatedDollars).toLocaleString()})`;
+                        }
+                        return `${value}%`;
                       }
-                      return `${value}%`;
-                    }
-                    return `$${value.toLocaleString()}`;
-                  }}
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: `1px solid ${tooltipBorder}`,
-                    backgroundColor: tooltipBg,
-                    color: tooltipTexColor,
-                    fontSize: '12px',
-                    boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.08)'
-                  }}
-                  itemStyle={{ color: tooltipTexColor, fontWeight: 'bold' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+                      return `$${value.toLocaleString()}`;
+                    }}
+                    contentStyle={{
+                      borderRadius: '12px',
+                      border: `1px solid ${tooltipBorder}`,
+                      backgroundColor: tooltipBg,
+                      color: tooltipTexColor,
+                      fontSize: '12px',
+                      boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.08)'
+                    }}
+                    itemStyle={{ color: tooltipTexColor, fontWeight: 'bold' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <div className="h-full w-full flex items-center justify-center">
               <p className="text-xs text-zinc-400">Awaiting funding inputs...</p>

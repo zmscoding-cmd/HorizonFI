@@ -994,3 +994,13 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Architecture Alignment:** Tying the simulation's `TemporalConfig` directly to the RxDB document ensures total offline synchronization across UI views without requiring a global context provider overhaul.
 * **Validation - Strict Secrets Audit:** No API keys or external dependencies introduced. All local mapping resolves synchronously inside the browser sandbox.
 
+### Checkpoint - Tax Engine Data Contract Resiliency: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Tax Output Interface Expansion:** Resolved a runtime crash in the `FundingAllocation.tsx` visualization dashboard (`Uncaught TypeError: Cannot read properties of undefined (reading 'traditional401kIraNet')`). Expanded the `TaxEngineOutput` interface inside the Web Worker logic to explicitly compute and export the `netBreakdown` mapping, closing the data gap introduced during the DRY migration of `evaluateMultiBucketTax`.
+2. **Recharts Container Dimensional Stability:** Resolved a `Recharts` layout calculation error (`The width(-1) and height(-1) of chart should be greater than 0`) by explicitly forcing a `flex-1 w-full min-h-0 min-w-0` strict boundary on the wrapper `div` of the `ResponsiveContainer`. This forces flexbox to compute non-negative, definite inner boundaries before the DOM mounts the canvas.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Validated that `netTargets` cleanly bypasses tax logic interpolation to output direct deterministic net values back to the UI.
+* **Validation - Thread Isolation:** The Web Worker logic remains safely decoupled; UI dimensional stability is managed strictly via Tailwind CSS rather than JS boundary sniffing.
+* **Validation - Strict Secrets Audit:** No hardcoded secrets were introduced. Local indexing boundaries remain intact.
+

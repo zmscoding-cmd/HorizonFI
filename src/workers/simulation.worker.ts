@@ -572,6 +572,13 @@ export interface TaxEngineOutput {
     rothIraGross: number;
     nonTaxableGiftGross: number;
   };
+  netBreakdown: {
+    qualifiedDividendsNet: number;
+    taxableBrokerageNet: number;
+    traditional401kIraNet: number;
+    rothIraNet: number;
+    nonTaxableGiftNet: number;
+  };
 }
 
 interface TaxBracket {
@@ -691,6 +698,13 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
       traditional401kIraGross: Math.round(traditionalGross * 100) / 100,
       rothIraGross: Math.round(rothGross * 100) / 100,
       nonTaxableGiftGross: Math.round(cashGross * 100) / 100,
+    },
+    netBreakdown: {
+      qualifiedDividendsNet: Math.round(netTargets.qualifiedDividends * 100) / 100,
+      taxableBrokerageNet: Math.round(netTargets.taxableBrokerage * 100) / 100,
+      traditional401kIraNet: Math.round(netTargets.traditional401kIra * 100) / 100,
+      rothIraNet: Math.round(netTargets.rothIra * 100) / 100,
+      nonTaxableGiftNet: Math.round(netTargets.nonTaxableGift * 100) / 100,
     }
   };
 }
