@@ -22,6 +22,16 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
   const [multiStageResults, setMultiStageResults] = useState<Record<string, any[]>>({});
   const [subModule, setSubModule] = useState<'simulation' | 'budget' | 'stages' | 'velocity'>('simulation');
   
+  const [budgetDoc, setBudgetDoc] = useState<any>(null);
+
+  useEffect(() => {
+    if (!db || !auth.currentUser?.uid) return;
+    const subscription = db.budgets.findOne({ selector: { userId: auth.currentUser.uid } }).$.subscribe((doc: any) => {
+      setBudgetDoc(doc);
+    });
+    return () => subscription.unsubscribe();
+  }, [db]);
+
   const [editingPlanName, setEditingPlanName] = useState(false);
   const [planName, setPlanName] = useState(plan.name);
   const [showDeletePlanConfirm, setShowDeletePlanConfirm] = useState(false);
@@ -193,7 +203,7 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
         initialPortfolioValue: scenario.assets?.reduce((a: any, b: any) => a + Number(b.value || 0), 0) || 1200000,
         targetConstantMarketReturn,
         inflationRate: (scenario.budget?.inflationRate || 3.0) / 100,
-        budgetPhases: scenario.budget?.budgetPhases || [{ phaseId: 'default', startYear: new Date().getFullYear(), endYear: 2100, baselineAmount: 5000 * 12, applyLifestyleAdjustment: true, lifestyleAdjustmentRate: 0.02 }],
+        budgetPhases: scenario.budget?.budgetPhases ? scenario.budget.budgetPhases.map((p: any, i: number) => i === 0 && !!budgetDoc?.totalPlaintextAnnual ? { ...p, baselineAmount: budgetDoc.totalPlaintextAnnual } : p) : [{ phaseId: 'default', startYear: new Date().getFullYear(), endYear: 2100, baselineAmount: budgetDoc?.totalPlaintextAnnual || 5000 * 12, applyLifestyleAdjustment: true, lifestyleAdjustmentRate: 0.02 }],
         maxRealWithdrawal,
         privatePensionAmountAt65: 20000,
         rrTier1AmountAt67: 35000,
@@ -225,7 +235,10 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
         upperGuardrailMultiplier,
         lowerGuardrailMultiplier,
         guardrailUpwardFactor,
-        guardrailDownwardFactor
+        guardrailDownwardFactor,
+        targetRothConversionAmount: budgetDoc?.targetRothConversionAmount || 0,
+        taxableRebalancingSaleAmount: budgetDoc?.taxableRebalancingSaleAmount || 0,
+        rebalancingCapitalGainPercentage: budgetDoc?.rebalancingCapitalGainPercentage || 0
       };
 
       const results = runMultiDecadeSimulation(config);
@@ -251,9 +264,9 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
           maxRealWithdrawal: config.maxRealWithdrawal,
           liquidBufferYears: config.liquidBufferYears,
           nonTaxableGifts: scenario.nonTaxableGifts || [],
-          targetRothConversionAmount: scenario.budget?.targetRothConversionAmount || 0,
-          taxableRebalancingSaleAmount: scenario.budget?.taxableRebalancingSaleAmount || 0,
-          rebalancingCapitalGainPercentage: scenario.budget?.rebalancingCapitalGainPercentage || 0
+          targetRothConversionAmount: budgetDoc?.targetRothConversionAmount || 0,
+          taxableRebalancingSaleAmount: budgetDoc?.taxableRebalancingSaleAmount || 0,
+          rebalancingCapitalGainPercentage: budgetDoc?.rebalancingCapitalGainPercentage || 0
         });
       }
     });
@@ -262,7 +275,7 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
 
   useEffect(() => {
     handleRunSimulation();
-  }, [plan.scenarios]);
+  }, [plan.scenarios, budgetDoc]);
 
   const addScenario = async () => {
     const doc = await db.plans.findOne(plan.id).exec();
@@ -558,6 +571,7 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                 plan={plan} 
                 activeScenario={activeScenario} 
                 db={db} 
+                userId={auth.currentUser?.uid || ''}
                 handleRunSimulation={handleRunSimulation} 
               />
               <BudgetDashboard db={db} userId={auth.currentUser?.uid || ''} />
@@ -803,7 +817,7 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                   await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
                                   handleRunSimulation();
                                }}
-                               className="w-full text-xs border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 outline-none transition-all min-h-[44px]"
+                               className={`w-full text-xs border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border outline-none min-h-[44px] ${index === 0 && !!budgetDoc?.totalPlaintextAnnual ? "opacity-70 cursor-not-allowed bg-zinc-50 dark:bg-zinc-900" : "bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 transition-all"}`}
                              />
                            </div>
                            <div>
@@ -832,11 +846,14 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                          
                          <div className="grid grid-cols-2 gap-3">
                            <div>
-                             <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">Baseline Budget ($)</label>
+                             <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">Baseline Budget ($) {index === 0 && !!budgetDoc?.totalPlaintextAnnual && <span className="text-blue-500 normal-case italic ml-1">(Linked to Planned Expenses)</span>}</label>
                              <input
                                type="number"
-                               defaultValue={phase.baselineAmount}
+                               value={index === 0 && !!budgetDoc?.totalPlaintextAnnual ? budgetDoc.totalPlaintextAnnual : phase.baselineAmount}
+                               readOnly={index === 0 && !!budgetDoc?.totalPlaintextAnnual}
+                               onChange={() => {}}
                                onBlur={async (e) => {
+                                  if (index === 0 && !!budgetDoc?.totalPlaintextAnnual) return;
                                   const doc = await db.plans.findOne(plan.id).exec();
                                   const updatedScenarios = plan.scenarios.map((s: any) => {
                                      if (s.id === activeScenario.id) {
@@ -1163,14 +1180,19 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                   <option value="rrt1">Railroad Ret. Tier 1</option>
                                   <option value="rrt2">Railroad Ret. Tier 2</option>
                                   <option value="other_income">Other Taxable Income</option>
+                                  <option value="pretax_avail_jesse">Jesse Pre-Tax Availability</option>
+                                  <option value="pretax_avail_corrie">Corrie Pre-Tax Availability</option>
                                 </select>
                               </div>
                               
                               <div>
-                                <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">Amount ($ / yr)</label>
+                                <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
+                                  {(mType === 'pretax_avail_jesse' || mType === 'pretax_avail_corrie') ? 'Amount (N/A)' : 'Amount ($ / yr)'}
+                                </label>
                                 <input
                                   type="number"
                                   defaultValue={amtVal}
+                                  disabled={mType === 'pretax_avail_jesse' || mType === 'pretax_avail_corrie'}
                                   key={`milestone-amt-${milestoneId}`}
                                   onBlur={async (e) => {
                                     const val = Number(e.target.value);
@@ -1185,8 +1207,8 @@ export default function ScenarioBuilder({ plan, db, onClose }: { plan: PlanType,
                                     await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
                                     handleRunSimulation();
                                   }}
-                                  className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
-                                  placeholder="0"
+                                  className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px] disabled:opacity-50 disabled:bg-zinc-100 dark:disabled:bg-zinc-950"
+                                  placeholder={(mType === 'pretax_avail_jesse' || mType === 'pretax_avail_corrie') ? 'N/A' : '0'}
                                 />
                               </div>
                             </div>

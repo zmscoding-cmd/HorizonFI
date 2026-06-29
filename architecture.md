@@ -916,3 +916,81 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Fluid Responsive Design:** Verified that the custom chart and tooltip scale gracefully without inducing DOM reflow or exceeding mobile viewport bounds.
 * **Validation - Strict Secrets Audit:** Fully scanned `simulation.worker.ts` and `NetWorthProjectionChart.tsx` to confirm zero credentials, keys, or private endpoints are exposed. The application remains 100% offline-first and secure.
 
+### Checkpoint - Pre-Tax Availability Milestones for Jesse and Corrie: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Dynamic Pre-Tax Account Lockouts:** Introduced configurable milestone types (`pretax_avail_jesse` and `pretax_avail_corrie`) to govern the exact year or age at which pre-tax retirement accounts become available for drawdown. If configured, the simulation restricts drawdown of these assets until their respective milestone dates are reached.
+2. **Implicit Asset Ownership Mapping:** The simulation engine dynamically partitions pre-tax accounts by evaluating asset nomenclature. Assets containing the term "corrie" are mapped to Corrie's availability timeline, while other pre-tax assets (including those containing "jesse" or general unnamed 401ks) default to Jesse's timeline. This eliminates the need for redundant DB fields and respects the local-first philosophy.
+3. **UI Integration & Adaptive Fields:** Updated `ScenarioBuilder.tsx` to include dedicated "Jesse Pre-Tax Availability" and "Corrie Pre-Tax Availability" options within the temporal milestones dropdown. Amount inputs are dynamically disabled for these milestones to reinforce their role as pure scheduling gates.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Confirmed that pre-tax accounts are securely locked out from drawdown lists during years prior to their respective milestone dates.
+* **Validation - Strict Secrets Audit:** Verified that all simulation variables and component states resolve cleanly without hardcoding any keys or endpoints. The application remains 100% secure and offline-resilient.
+* **Validation - Database & Thread Isolation:** Changes align with existing RxDB local schemas and execute entirely in `simulation.worker.ts`, maintaining zero main-thread lag.
+
+### Checkpoint - Multi-Stage Modeling RxDB Schema Migration: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Dynamic Temporal Boundaries (Stages):** Extended the `Stage` schema definition in RxDB (`planSchema`) to include `startYearType` (`absolute` or `milestone`), `startMilestoneId`, and `startAbsoluteYear`. This decouples stages from strictly rigid sequential dependencies, granting users explicit temporal control while retaining RxDB’s secure, offline-first structure.
+2. **Global Income Stream Integration:** Added `includeGlobalIncomeStreams` and `includeAuxiliaryTaxFreeIncome` boolean properties directly onto the stage configuration. This empowers individual drawdown stages to optionally absorb external income sources.
+3. **Data Up-Migration Protocol:** Executed an explicit version increment (`version: 5` to `version: 6`) alongside a robust RxDB `migrationStrategies` block. Legacy records gracefully hydrate these new attributes with default fallbacks (`absolute` year types and falsy flags), guaranteeing zero data corruption across legacy sessions.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Strict Secrets Audit:** Validated that no external keys or endpoints were introduced during the schema modifications. Database persists fully offline and encrypted via Dexie.
+* **Validation - Schema Integrity:** Ensured exact property enforcement against the local RxDB NoSQL JSON schema format with backwards-compatibility checks verified.
+* **Validation - Thread Execution:** The migration logic is entirely client-side and computationally bounded, executed natively through RxDB’s upgrade hook.
+
+### Checkpoint - Multi-Stage Modeling Web Worker Loop Refactor: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Dynamic Stage Resolution:** Refactored `simulation.worker.ts` to implement `resolveStageStartYear`. Stages are now sorted chronologically based on their computed `startYear` (derived from absolute years or relative milestone ages/years), decoupling the engine from strictly serialized trigger arrays.
+2. **Global Income Buffering:** Re-engineered the gross-up requirement waterfall to conditionally absorb `pensionIncome`, `rrbIncome`, `otherIncome`, and `futureIncomeStreams`. When `includeGlobalIncomeStreams` is enabled for the active stage, these inflows mathematically reduce the drawdown demand against the asset buckets.
+3. **Auxiliary Tax-Free Toggles:** Added conditional guards for `includeAuxiliaryTaxFreeIncome`. Gift allowances now strictly offset the target budget only when toggled on by the user within the stage constraints.
+4. **Tax Integrity & Double-Counting Avoidance:** Integrated `otherIncome` and future income streams seamlessly into the `preExistingOrdinaryIncome` input for `evaluateMultiBucketTax` to ensure brackets stack accurately.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Strict Secrets Audit:** Verified zero external service dependencies or hardcoded APIs exist within the Web Worker or data schema.
+* **Validation - Thread Isolation:** The Guyton-Klinger algorithm mathematically accommodates conditional global income without requiring main-thread recomputations.
+* **Validation - Mathematical Integrity:** Confirmed accurate scaling and bracket progression against 2026 statutory limits within `evaluateMultiBucketTax`.
+
+### Checkpoint - Multi-Stage Modeling Frontend Configuration UI: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Adaptive Temporal Controls:** Refactored `StageConfigurator.tsx` to include a segmented control, allowing users to intuitively toggle stage triggers between "Absolute Year" and "Milestone". This respects the updated `startYearType` RxDB schema without overcrowding the layout.
+2. **Accessible Toggle Architecture:** Implemented a custom, Tailwind-driven `ToggleSwitch` component to handle `includeGlobalIncomeStreams` and `includeAuxiliaryTaxFreeIncome` boolean fields. These toggles replace standard checkboxes, providing immediate visual feedback while complying strictly with the 44x44px mobile touch-target mandates.
+3. **Responsive Dark Mode Resilience:** Ensured all newly introduced structural panels, segmented tabs, and toggle states include explicit high-contrast Tailwind dark mode fallbacks (e.g., `dark:bg-zinc-800`, `dark:text-blue-400`), aligning seamlessly with the overarching HorizonFI sensory preservation protocol.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Touch Target Compliance:** Verified that all interactive UI elements within the `StageConfigurator` (buttons, selects, toggles) possess a minimum height of `44px`, passing mobile-first accessibility standards.
+* **Validation - Strict Secrets Audit:** Confirmed no API endpoints or hardcoded credentials were leaked during the frontend restructure.
+* **Validation - Visual Rhythm:** Verified consistent padding and spacing boundaries within nested dropdown mappings to prevent DOM reflow issues.
+
+### Checkpoint - QA Validation & Documentation Sync: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Mathematical Assertions (Vitest):** Created test suites within `simulation.worker.test.ts` validating the precise temporal boundaries linked to dynamic milestones (`startYearType = 'milestone'`), ensuring accurate algorithmic parsing across decades.
+2. **Tax Integrity Verification:** Enforced tests to verify that `includeAuxiliaryTaxFreeIncome` properly offsets required drawdowns dollar-for-dollar without erroneously inflating ordinary income tax brackets or triggering gross-up loops.
+3. **Documentation Sync:** Embedded the exact UX and mathematical ramifications of global/auxiliary income toggling and temporal milestones into `DOCUMENTATION.md`, maintaining 100% strict sync between offline capabilities and user reference materials.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity (Unit Tests):** Vitest test execution fully passes, certifying that tax drag generation scales perfectly according to the newly routed auxiliary and global streams.
+* **Validation - Strict Secrets Audit:** Verified no credentials or hardcoded keys were introduced. Test data remains fully abstracted.
+* **Validation - Security Rules:** Read/write paradigms and IndexedDB schemas align exactly with prior definitions, enforcing zero-trust compliance.
+
+### Checkpoint - Strategic Tax Events Resolution: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Tax Event Data Hydration:** Resolved a data hydration disconnect where the frontend `FundingAllocation` visualization lacked awareness of the `targetRothConversionAmount`, `taxableRebalancingSaleAmount`, and `rebalancingCapitalGainPercentage` properties stored in the `db.budgets` RxDB document. Added RxDB subscription inside the component.
+2. **Worker Payload Alignment:** Re-routed the simulation configuration payload inside `ScenarioBuilder.tsx` to pull strategic tax events directly from the live `budgetDoc` observable rather than the isolated scenario cache, guaranteeing that user input in the Dashboard immediately passes to the `simulation.worker.ts` web worker.
+3. **DRY Architecture (Evaluate Tax):** Eliminated the redundant client-side replica of `evaluateMultiBucketTax` inside `FundingAllocation.tsx`, migrating the dependency to import the single source of truth from `simulation.worker.ts`, strictly preventing future drift between UI projections and offline algorithmic outputs.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Confirmed that entering a Target Roth Conversion correctly inflates the ordinary income tax bracket within the Pre-Tax Gross-Up view, eliminating the phantom $0 tax calculation.
+* **Validation - Thread Isolation:** Offloading the tax evaluation single source of truth to the shared function maintains correct multi-decade mapping bounds.
+* **Validation - Strict Secrets Audit:** Verified no credentials or hardcoded keys were exposed. All state persists within the encrypted offline IndexedDB bounds.
+
+### Checkpoint - Algorithmic Budget Linking: 2026-06-29
+**Architectural Shifts & Justifications:**
+1. **Planned Expenses Sync:** Eliminated the legacy behavior where the multi-decade simulation was artificially extrapolating withdrawal targets using a generic, disconnected $70,000 parameter in `budgetPhases[0].baselineAmount`.
+2. **Deterministic UI State:** Dynamically mapped `budgetDoc.totalPlaintextAnnual` from the `db.budgets` RxDB document into both the `FundingAllocation.tsx` visualization and the `ScenarioBuilder.tsx` simulation payload generator. This structurally guarantees that the `grossWithdrawalTotal`—inclusive of all algorithmically generated tax liabilities—is natively derived from the user's actual Planned Expenses.
+3. **Immutability of the Primary Phase:** Adjusted the Configuration UI within `ScenarioBuilder` to display the primary simulation budget phase as a read-only parameter whenever Planned Expenses exist, safeguarding data integrity and preventing mathematical desynchronization.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Confirmed that the tax engine `evaluateMultiBucketTax` inside the simulation natively inherits the correct starting `actualNominalWithdrawal`, rendering precise Target Net Annual vs. Gross Up logic.
+* **Validation - Architecture Alignment:** Tying the simulation's `TemporalConfig` directly to the RxDB document ensures total offline synchronization across UI views without requiring a global context provider overhaul.
+* **Validation - Strict Secrets Audit:** No API keys or external dependencies introduced. All local mapping resolves synchronously inside the browser sandbox.
+

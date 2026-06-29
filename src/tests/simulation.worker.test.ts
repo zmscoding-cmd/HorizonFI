@@ -94,7 +94,7 @@ describe('Web Worker - Non-Taxable Gift Drawdown Integrations', () => {
         { id: 'ast1', value: 500000, type: 'taxable_brokerage', basisRatio: 0.5, currentAnnualDividends: 0 }
       ],
       stages: [
-        { id: 'stg1', targetAnnualBudget: 50000, fundingPriorities: [] }
+        { id: 'stg1', targetAnnualBudget: 50000, fundingPriorities: [], includeAuxiliaryTaxFreeIncome: true }
       ],
       milestones: [],
       uprrDivestmentAnnualAmount: 0,
@@ -330,5 +330,135 @@ describe('Web Worker - Phased Budget Implementation', () => {
     // Because applyLifestyleAdjustment is false, the 5% is ignored.
     expect(results[1].targetBudgetNominal).toBeCloseTo(103000, 0);
     expect(results[1].lifestyleShrinking).toBe(false);
+  });
+});
+
+describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {
+  it('should correctly resolve dynamic stage boundaries linked to milestones', () => {
+    // Stage 1 linked to milestone (Age 65) -> Start Year: 2031
+    // Stage 2 absolute year -> Start Year: 2035
+    // Current Year: 2026, Age: 60
+    
+    const payload: any = {
+      type: 'MULTI_STAGE_DRAWDOWN',
+      startYear: 2026,
+      endYear: 2036,
+      currentAge: 60,
+      assets: [
+        { id: 'ast1', value: 1000000, type: 'cash', growthRate: 0.0 }
+      ],
+      stages: [
+        { 
+          id: 'stg1', 
+          name: 'Stage 1',
+          targetAnnualBudget: 50000, 
+          fundingPriorities: [],
+          startYearType: 'milestone',
+          startMilestoneId: 'ms1'
+        },
+        { 
+          id: 'stg2', 
+          name: 'Stage 2',
+          targetAnnualBudget: 80000, 
+          fundingPriorities: [],
+          startYearType: 'absolute',
+          startAbsoluteYear: 2035
+        }
+      ],
+      milestones: [
+        { id: 'ms1', name: 'Retirement', isTriggerByAge: true, triggerAge: 65, type: 'other', amount: 0 }
+      ],
+      targetConstantMarketReturn: 0.0, 
+      inflationRate: 0.0,
+      budgetPhases: [], // fallback to stage budgets
+      maxRealWithdrawal: 1000000,
+      liquidBufferYears: 0,
+      futureIncomeStreams: [],
+      futureLiabilities: [],
+      nonTaxableGifts: []
+    };
+
+    const results = simulateMultiStageDrawdownWorker(payload);
+    
+    expect(results).toHaveLength(11);
+    
+    const year2026 = results.find(r => r.year === 2026);
+    expect(year2026?.activeStageId).toBe('stg1');
+    expect(year2026?.targetBudgetNominal).toBe(50000);
+    
+    const year2031 = results.find(r => r.year === 2031);
+    expect(year2031?.activeStageId).toBe('stg1');
+    expect(year2031?.targetBudgetNominal).toBe(50000);
+    
+    const year2035 = results.find(r => r.year === 2035);
+    expect(year2035?.activeStageId).toBe('stg2');
+    expect(year2035?.targetBudgetNominal).toBe(80000);
+  });
+
+  it('should reduce withdrawal demand by auxiliary tax-free income only when includeAuxiliaryTaxFreeIncome is true', () => {
+    // 1. Target budget: $100,000
+    // 2. Gift: $30,000
+    // 3. Stage 1 has includeAuxiliaryTaxFreeIncome = true -> withdrawal = 70k
+    // 4. Stage 2 has includeAuxiliaryTaxFreeIncome = false -> withdrawal = 100k
+    
+    const payload: any = {
+      type: 'MULTI_STAGE_DRAWDOWN',
+      startYear: 2026,
+      endYear: 2027,
+      currentAge: 60,
+      assets: [
+        { id: 'ast1', value: 1000000, type: 'cash', growthRate: 0.0 }
+      ],
+      stages: [
+        { 
+          id: 'stg_true', 
+          targetAnnualBudget: 100000, 
+          fundingPriorities: [],
+          startYearType: 'absolute',
+          startAbsoluteYear: 2026,
+          includeAuxiliaryTaxFreeIncome: true
+        },
+        { 
+          id: 'stg_false', 
+          targetAnnualBudget: 100000, 
+          fundingPriorities: [],
+          startYearType: 'absolute',
+          startAbsoluteYear: 2027,
+          includeAuxiliaryTaxFreeIncome: false
+        }
+      ],
+      milestones: [],
+      targetConstantMarketReturn: 0.0, 
+      inflationRate: 0.0,
+      budgetPhases: [],
+      maxRealWithdrawal: 1000000,
+      liquidBufferYears: 0,
+      futureIncomeStreams: [],
+      futureLiabilities: [],
+      nonTaxableGifts: [
+        {
+          id: 'gift1',
+          name: 'Gift',
+          annualAmount: 30000,
+          inflationAdjusted: false,
+          startYear: 2026,
+          endYear: 2100
+        }
+      ]
+    };
+
+    const results = simulateMultiStageDrawdownWorker(payload);
+    
+    expect(results).toHaveLength(2);
+    
+    const year1 = results[0];
+    expect(year1.activeStageId).toBe('stg_true');
+    expect(year1.giftAmountUsed).toBe(30000);
+    expect(year1.nominalWithdrawal).toBe(70000);
+    
+    const year2 = results[1];
+    expect(year2.activeStageId).toBe('stg_false');
+    expect(year2.giftAmountUsed).toBe(0);
+    expect(year2.nominalWithdrawal).toBe(100000);
   });
 });

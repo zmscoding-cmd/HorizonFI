@@ -14,7 +14,7 @@ export type TemporalAssetInput = {
 export type SimulationMilestone = {
   id: string;
   name: string;
-  type: 'capex' | 'pension' | 'rrt1' | 'rrt2' | 'other_income';
+  type: 'capex' | 'pension' | 'rrt1' | 'rrt2' | 'other_income' | 'pretax_avail_jesse' | 'pretax_avail_corrie';
   amount: number;
   isTriggerByAge: boolean;
   triggerAge?: number;
@@ -46,6 +46,11 @@ export type TemporalConfig = {
   lowerGuardrailMultiplier?: number;
   guardrailUpwardFactor?: number;
   guardrailDownwardFactor?: number;
+  
+  // Strategic Tax Events
+  targetRothConversionAmount?: number;
+  taxableRebalancingSaleAmount?: number;
+  rebalancingCapitalGainPercentage?: number;
 };
 
 export type YearlySimResult = SimulationResult & {

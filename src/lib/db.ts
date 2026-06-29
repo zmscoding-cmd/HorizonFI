@@ -18,8 +18,13 @@ export type Stage = {
   id: string;
   name: string;
   triggerMilestoneId?: string;
+  startYearType?: 'absolute' | 'milestone';
+  startMilestoneId?: string;
+  startAbsoluteYear?: number;
   targetAnnualBudget: number;
   fundingPriorities: string[];
+  includeGlobalIncomeStreams?: boolean;
+  includeAuxiliaryTaxFreeIncome?: boolean;
 };
 
 export type FutureIncomeStream = {
@@ -168,7 +173,7 @@ export type HistoricalDatapointType = {
 };
 
 const planSchema = {
-  version: 5,
+  version: 6,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -232,8 +237,13 @@ const planSchema = {
                 id: { type: 'string' },
                 name: { type: 'string' },
                 triggerMilestoneId: { type: 'string' },
+                startYearType: { type: 'string', enum: ['absolute', 'milestone'], default: 'absolute' },
+                startMilestoneId: { type: 'string' },
+                startAbsoluteYear: { type: 'number' },
                 targetAnnualBudget: { type: 'number' },
-                fundingPriorities: { type: 'array', items: { type: 'string' } }
+                fundingPriorities: { type: 'array', items: { type: 'string' } },
+                includeGlobalIncomeStreams: { type: 'boolean', default: false },
+                includeAuxiliaryTaxFreeIncome: { type: 'boolean', default: false }
               }
             }
           },
@@ -768,6 +778,25 @@ export async function getDatabase() {
                     }
                     
                     return migratedAsset;
+                  });
+                }
+                return sc;
+              });
+              return oldDoc;
+            },
+            6: function (oldDoc: any) {
+              // Migrate Multi-Stage modeling configurations to support absolute/milestone temporal bounds and global income streams
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                if (sc.stages) {
+                  sc.stages = sc.stages.map((stage: any) => {
+                    return {
+                      ...stage,
+                      startYearType: stage.startYearType || 'absolute',
+                      startMilestoneId: stage.startMilestoneId || stage.triggerMilestoneId || '',
+                      startAbsoluteYear: stage.startAbsoluteYear ?? new Date().getFullYear(),
+                      includeGlobalIncomeStreams: stage.includeGlobalIncomeStreams ?? false,
+                      includeAuxiliaryTaxFreeIncome: stage.includeAuxiliaryTaxFreeIncome ?? false
+                    };
                   });
                 }
                 return sc;

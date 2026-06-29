@@ -438,9 +438,42 @@ export type Stage = {
   id: string;
   name: string;
   triggerMilestoneId?: string;
+  startYearType?: 'absolute' | 'milestone';
+  startMilestoneId?: string;
+  startAbsoluteYear?: number;
   targetAnnualBudget: number;
   fundingPriorities: string[];
+  includeGlobalIncomeStreams?: boolean;
+  includeAuxiliaryTaxFreeIncome?: boolean;
 };
+
+function resolveStageStartYear(stage: Stage, payload: MultiStageSimPayload): number {
+  if (stage.startYearType === 'milestone') {
+    const msId = stage.startMilestoneId || stage.triggerMilestoneId;
+    if (msId && payload.milestones) {
+      const ms = payload.milestones.find(m => m.id === msId);
+      if (ms) {
+        return ms.isTriggerByAge 
+          ? payload.startYear + ((ms.triggerAge ?? 65) - payload.currentAge)
+          : (ms.triggerYear ?? 2030);
+      }
+    }
+  } else if (stage.startYearType === 'absolute') {
+    return stage.startAbsoluteYear ?? payload.startYear;
+  }
+  
+  // Legacy fallback
+  if (stage.triggerMilestoneId && payload.milestones) {
+    const ms = payload.milestones.find(m => m.id === stage.triggerMilestoneId);
+    if (ms) {
+      return ms.isTriggerByAge 
+        ? payload.startYear + ((ms.triggerAge ?? 65) - payload.currentAge)
+        : (ms.triggerYear ?? 2030);
+    }
+  }
+  
+  return payload.startYear;
+}
 
 export interface ThreeBucketConfig {
   bucket1LiquiditySecuredYears: number;
@@ -1354,6 +1387,24 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     bucket3Balance = Math.max(0, totalAssets - bucket1Balance - bucket2Balance);
   }
   
+  // Pre-tax retirement accounts availability milestones
+  let jessePreTaxTriggerYear = -1;
+  let corriePreTaxTriggerYear = -1;
+  if (payload.milestones) {
+    const jesseM = payload.milestones.find((m: any) => m.type === 'pretax_avail_jesse');
+    if (jesseM) {
+      jessePreTaxTriggerYear = jesseM.isTriggerByAge
+        ? payload.startYear + ((jesseM.triggerAge ?? 65) - payload.currentAge)
+        : (jesseM.triggerYear ?? 2030);
+    }
+    const corrieM = payload.milestones.find((m: any) => m.type === 'pretax_avail_corrie');
+    if (corrieM) {
+      corriePreTaxTriggerYear = corrieM.isTriggerByAge
+        ? payload.startYear + ((corrieM.triggerAge ?? 65) - payload.currentAge)
+        : (corrieM.triggerYear ?? 2030);
+    }
+  }
+  
   for (let step = 0; step <= totalYears; step++) {
     const currentYear = payload.startYear + step;
     const currentAge = payload.currentAge + step;
@@ -1433,6 +1484,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     let activeStage: Stage | null = null;
     let pensionIncome = 0;
     let rrbIncome = 0;
+    let otherIncome = 0;
     
     // Evaluate milestones up to current year
     if (payload.milestones) {
@@ -1444,27 +1496,31 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
         if (currentYear >= triggerY) {
           if (m.type === 'pension') pensionIncome += m.amount;
           if (m.type === 'rrt1' || m.type === 'rrt2') rrbIncome += m.amount;
+          if (m.type === 'other_income') otherIncome += m.amount;
         }
       });
     }
 
+    let currentFutureIncome = 0;
+    if (payload.futureIncomeStreams) {
+      for (const stream of payload.futureIncomeStreams) {
+        if (currentAge >= stream.activationAge) {
+          currentFutureIncome += (stream.monthlyAmount * 12);
+        }
+      }
+    }
+
     // Determine Stage
-    // Iterate to find the latest valid stage based on chronological milestones
+    // Iterate to find the latest valid stage based on chronological resolution
     if (payload.stages) {
-      for (const stage of payload.stages) {
-        if (!stage.triggerMilestoneId) {
-          if (!activeStage) activeStage = stage; // fallback default
-        } else {
-          const ms = payload.milestones?.find(m => m.id === stage.triggerMilestoneId);
-          if (ms) {
-            const triggerY = ms.isTriggerByAge 
-              ? payload.startYear + ((ms.triggerAge ?? 65) - payload.currentAge)
-              : (ms.triggerYear ?? 2030);
-              
-            if (currentYear >= triggerY) {
-              activeStage = stage; // latest passing stage overrides
-            }
-          }
+      const resolvedStages = payload.stages.map(s => ({
+        stage: s,
+        startYear: resolveStageStartYear(s, payload)
+      })).sort((a, b) => a.startYear - b.startYear);
+      
+      for (const rs of resolvedStages) {
+        if (currentYear >= rs.startYear) {
+          activeStage = rs.stage;
         }
       }
     }
@@ -1528,10 +1584,15 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       });
     }
 
-    const giftAmountUsed = Math.min(stageTargetBudgetNominal, activeGiftAmount);
-    const remainingFundingNeed = Math.max(0, stageTargetBudgetNominal - activeGiftAmount);
+    const includeAuxiliary = activeStage?.includeAuxiliaryTaxFreeIncome ?? false;
+    const giftAmountUsed = includeAuxiliary ? Math.min(stageTargetBudgetNominal, activeGiftAmount) : 0;
+    const remainingFundingNeed = Math.max(0, stageTargetBudgetNominal - giftAmountUsed);
 
-    let remainingBudgetTarget = Math.max(0, remainingFundingNeed - pensionIncome - rrbIncome);
+    const includeGlobal = activeStage?.includeGlobalIncomeStreams ?? false;
+    const totalGlobalIncome = pensionIncome + rrbIncome + otherIncome + currentFutureIncome;
+    const appliedGlobalIncome = includeGlobal ? totalGlobalIncome : 0;
+
+    let remainingBudgetTarget = Math.max(0, remainingFundingNeed - appliedGlobalIncome);
     let actualNominalWithdrawal = remainingBudgetTarget;
     
     // --- 3-Bucket Strategy Waterfall & Guardrails ---
@@ -1570,6 +1631,21 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     
     const eligibleDrawdownAssets = currentAssets.filter(a => {
       if (a.value <= 0) return false;
+      
+      // Handle Jesse & Corrie pre-tax availability milestones
+      if (a.assetType === 'PRE_TAX') {
+        const assetNameLower = (a.name || '').toLowerCase();
+        const isCorrie = assetNameLower.includes('corrie');
+        const isJesse = assetNameLower.includes('jesse') || !isCorrie; // Default to Jesse if not Corrie
+        
+        if (isJesse && jessePreTaxTriggerYear !== -1 && currentYear < jessePreTaxTriggerYear) {
+          return false;
+        }
+        if (isCorrie && corriePreTaxTriggerYear !== -1 && currentYear < corriePreTaxTriggerYear) {
+          return false;
+        }
+      }
+
       if (a.availableDate) {
         if (a.availableDate.includes('-')) {
           const availableYear = parseInt(a.availableDate.split('-')[0]);
@@ -1650,7 +1726,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
        allocationMode: 'DOLLARS',
        buckets: netDrawn,
        blendedCostBasisPercentage: 60,
-       preExistingOrdinaryIncome: pensionIncome + rrbIncome,
+       preExistingOrdinaryIncome: pensionIncome + rrbIncome + otherIncome + currentFutureIncome,
        targetRothConversionAmount: payload.targetRothConversionAmount,
        taxableRebalancingSaleAmount: payload.taxableRebalancingSaleAmount,
        rebalancingCapitalGainPercentage: payload.rebalancingCapitalGainPercentage
@@ -1748,7 +1824,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     });
     
     const balanceAfterGrowth = currentAssets.reduce((sum, a) => sum + a.value, 0);
-    const estimatedTaxDrag = taxOutput.totalTaxOwed + ((pensionIncome + rrbIncome) * 0.15);
+    const estimatedTaxDrag = taxOutput.totalTaxOwed + ((pensionIncome + rrbIncome + otherIncome + currentFutureIncome) * 0.15);
     
     // Deduct tax drag
     if (balanceAfterGrowth > 0 && estimatedTaxDrag > 0) {

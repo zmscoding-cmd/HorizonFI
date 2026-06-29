@@ -359,4 +359,20 @@ To determine this exact figure, the Web Worker executes a **multi-variable numer
     This ensures that tax-free buckets (like Roth IRAs or Cash Gifts) only grow by their proportional net share to cover the global deficit, while taxable buckets expand dynamically to absorb their tax-on-tax drag.
 6.  **Loop Termination:** Once the absolute difference in `Shortfall` shrinks below **$0.01**, the loop terminates and passes the exact gross outputs down to your scenario ledger. This prevents cash flow deficits from compounding over 30+ year projection timelines.
 
+---
+
+## 8. Dynamic Multi-Stage Integration
+
+To accurately model complex timeline shifts, HorizonFI supports **Dynamic Temporal Logic** within the Multi-Stage Configurator. You no longer need to rely on static absolute calendar years to structure your phase transitions.
+
+### Linking Stages to Global Milestones
+Instead of hardcoding a stage to start in "2035", you can toggle the stage boundary to **Link to Milestone**. 
+*   **Dynamic Resolution:** If you link a "Slow-Go" budget stage to your "Age 65 Medicare" milestone, the mathematical engine will automatically resolve the exact calendar year that stage begins based on your birth year.
+*   **Ripple Effects:** If you clone your scenario and shift the milestone trigger from Age 65 to Age 67, all linked stages will automatically dynamically shift forward in time across the 40-year simulation timeline without requiring any manual reconfiguration.
+
+### Funneling Auxiliary & Global Income Streams
+In early retirement, certain phases may benefit from external income (like a part-time consulting gig or family gift), while other phases rely 100% on portfolio drawdowns. HorizonFI now allows you to funnel external income explicitly at the **Stage Level**:
+*   **Include Global Income Streams:** Toggling this flag forces the simulation engine to absorb any active Social Security, pensions, or other fixed income streams and apply them directly against that specific stage's target budget, mathematically reducing the drawdown demand against your core asset buckets.
+*   **Include Auxiliary Tax-Free Income:** Toggling this flag allows you to funnel tax-free capital (like scheduled inheritance or family gifts) into a specific phase. The engine safely deducts this exact amount from the required portfolio withdrawal without triggering any income tax drag gross-up, preserving your capital efficiency.
+
 
