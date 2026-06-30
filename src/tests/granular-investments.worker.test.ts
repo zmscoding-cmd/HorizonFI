@@ -11,9 +11,9 @@ describe('Web Worker - Granular Investments & Temporal Lockouts', () => {
     stages: [{
       id: 'default',
       name: 'Default',
-      targetAnnualBudget: 100000,
       fundingPriorities: ['TAXABLE', 'PRE_TAX']
     }],
+    budgetPhases: [{ phaseId: 'phase1', startYear: 2026, endYear: 2100, baselineAmount: 100000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }],
     milestones: [],
     uprrDivestmentAnnualAmount: 0,
     dividendEtfId: 'div',

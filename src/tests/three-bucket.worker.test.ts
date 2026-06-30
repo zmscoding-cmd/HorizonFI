@@ -14,7 +14,7 @@ describe('Web Worker - 3-Bucket Mathematical Integrity', () => {
         { id: 'cash', name: 'Cash Reserve', value: 1000000, type: 'cash', assetType: 'CASH', expectedGrowthRate: 0.05, expectedDividendYield: 0.0 }
       ],
       stages: [
-        { id: 'retirement', name: 'Retirement Phase', targetAnnualBudget: 100000, fundingPriorities: ['cash'] }
+        { id: 'retirement', name: 'Retirement Phase', fundingPriorities: ['cash'] }
       ],
       milestones: [],
       uprrDivestmentAnnualAmount: 0,
@@ -66,7 +66,7 @@ describe('Web Worker - 3-Bucket Mathematical Integrity', () => {
         { id: 'equities', name: 'Equities Portfolio', value: 300000, type: 'taxable_brokerage', assetType: 'TAXABLE', expectedGrowthRate: -0.15, expectedDividendYield: 0.0 } // -15% market shock
       ],
       stages: [
-        { id: 'retirement', name: 'Retirement Phase', targetAnnualBudget: 100000, fundingPriorities: ['taxable_brokerage'] }
+        { id: 'retirement', name: 'Retirement Phase', fundingPriorities: ['taxable_brokerage'] }
       ],
       milestones: [],
       uprrDivestmentAnnualAmount: 0,

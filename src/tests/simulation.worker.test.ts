@@ -94,7 +94,7 @@ describe('Web Worker - Non-Taxable Gift Drawdown Integrations', () => {
         { id: 'ast1', value: 500000, type: 'taxable_brokerage', basisRatio: 0.5, currentAnnualDividends: 0 }
       ],
       stages: [
-        { id: 'stg1', targetAnnualBudget: 50000, fundingPriorities: [], includeAuxiliaryTaxFreeIncome: true }
+        { id: 'stg1', fundingPriorities: [], includeAuxiliaryTaxFreeIncome: true }
       ],
       milestones: [],
       uprrDivestmentAnnualAmount: 0,
@@ -147,7 +147,7 @@ describe('Web Worker - 3-Bucket Waterfall Implementation', () => {
         { id: 'ast1', value: 1000000, type: 'cash', growthRate: 0.05 }
       ],
       stages: [
-        { id: 'stg1', targetAnnualBudget: 100000, fundingPriorities: [] }
+        { id: 'stg1', fundingPriorities: [] }
       ],
       milestones: [],
       uprrDivestmentAnnualAmount: 0,
@@ -210,7 +210,7 @@ describe('Web Worker - 3-Bucket Waterfall Implementation', () => {
         { id: 'ast1', value: 300000, type: 'cash', growthRate: -0.10 } // -10% market year!
       ],
       stages: [
-        { id: 'stg1', targetAnnualBudget: 100000, fundingPriorities: [] }
+        { id: 'stg1', fundingPriorities: [] }
       ],
       targetConstantMarketReturn: -0.10, 
       inflationRate: 0.0,
@@ -261,13 +261,13 @@ describe('Web Worker - Phased Budget Implementation', () => {
         { id: 'ast1', value: 2000000, type: 'cash', growthRate: 0.0 }
       ],
       stages: [
-        { id: 'stg1', targetAnnualBudget: 100000, fundingPriorities: [] }
+        { id: 'stg1', fundingPriorities: [] }
       ],
       targetConstantMarketReturn: 0.0, 
       inflationRate: 0.0,
       budgetPhases: [
-        { phaseId: 'p1', startYear: 2026, endYear: 2026, baselineAmount: 100000, applyLifestyleAdjustment: true, lifestyleAdjustmentRate: 0.02 },
-        { phaseId: 'p2', startYear: 2027, endYear: 2100, baselineAmount: 100000, applyLifestyleAdjustment: true, lifestyleAdjustmentRate: -0.02 }
+        { phaseId: 'p1', startYear: 2026, endYear: 2026, baselineAmount: 100000, applyLifestyleAdjustment: true, lifestyleAdjustmentRate: 2.0 },
+        { phaseId: 'p2', startYear: 2027, endYear: 2100, baselineAmount: 100000, applyLifestyleAdjustment: true, lifestyleAdjustmentRate: -2.0 }
       ],
       maxRealWithdrawal: 1000000,
       liquidBufferYears: 0,
@@ -306,13 +306,13 @@ describe('Web Worker - Phased Budget Implementation', () => {
       assets: [
         { id: 'ast1', value: 2000000, type: 'cash', growthRate: 0.0 }
       ],
-      stages: [ // Keep stages backward compatible
-        { id: 'stg1', targetAnnualBudget: 100000, fundingPriorities: [] }
+      stages: [
+        { id: 'stg1', fundingPriorities: [] }
       ],
       targetConstantMarketReturn: 0.0, 
       inflationRate: 0.03, // 3%
       budgetPhases: [
-        { phaseId: 'p1', startYear: 2026, endYear: 2100, baselineAmount: 100000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0.05 }
+        { phaseId: 'p1', startYear: 2026, endYear: 2100, baselineAmount: 100000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 5.0 }
       ],
       maxRealWithdrawal: 1000000,
       liquidBufferYears: 0,
@@ -351,7 +351,6 @@ describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {
         { 
           id: 'stg1', 
           name: 'Stage 1',
-          targetAnnualBudget: 50000, 
           fundingPriorities: [],
           startYearType: 'milestone',
           startMilestoneId: 'ms1'
@@ -359,7 +358,6 @@ describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {
         { 
           id: 'stg2', 
           name: 'Stage 2',
-          targetAnnualBudget: 80000, 
           fundingPriorities: [],
           startYearType: 'absolute',
           startAbsoluteYear: 2035
@@ -370,7 +368,10 @@ describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {
       ],
       targetConstantMarketReturn: 0.0, 
       inflationRate: 0.0,
-      budgetPhases: [], // fallback to stage budgets
+      budgetPhases: [
+        { phaseId: 'p1', startYear: 2026, endYear: 2034, baselineAmount: 50000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 },
+        { phaseId: 'p2', startYear: 2035, endYear: 2100, baselineAmount: 80000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }
+      ],
       maxRealWithdrawal: 1000000,
       liquidBufferYears: 0,
       futureIncomeStreams: [],
@@ -412,7 +413,6 @@ describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {
       stages: [
         { 
           id: 'stg_true', 
-          targetAnnualBudget: 100000, 
           fundingPriorities: [],
           startYearType: 'absolute',
           startAbsoluteYear: 2026,
@@ -420,7 +420,6 @@ describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {
         },
         { 
           id: 'stg_false', 
-          targetAnnualBudget: 100000, 
           fundingPriorities: [],
           startYearType: 'absolute',
           startAbsoluteYear: 2027,
@@ -430,7 +429,9 @@ describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {
       milestones: [],
       targetConstantMarketReturn: 0.0, 
       inflationRate: 0.0,
-      budgetPhases: [],
+      budgetPhases: [
+        { phaseId: 'test', startYear: 2026, endYear: 2100, baselineAmount: 100000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }
+      ],
       maxRealWithdrawal: 1000000,
       liquidBufferYears: 0,
       futureIncomeStreams: [],

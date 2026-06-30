@@ -30,7 +30,8 @@ import {
   Info,
   Edit2,
   Check,
-  X
+  X,
+  Download
 } from 'lucide-react';
 
 export default function BudgetDashboard({ db, userId }: { db: any; userId: string }) {
@@ -807,6 +808,97 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
     );
   };
 
+  const exportExpensesToCSV = () => {
+    if (!calculatedExpenses || calculatedExpenses.length === 0) return;
+
+    const headers = [
+      'Expense Name',
+      'Category',
+      'Frequency',
+      'Valuation Type',
+      'Monthly Value ($)',
+      'Annual Value ($)'
+    ];
+
+    const rows = sortedCalculatedExpenses.map(exp => {
+      const categoryName = categories.find(c => c.id === exp.categoryId)?.name || 'Uncategorized';
+      return [
+        `"${(exp.name || '').replace(/"/g, '""')}"`,
+        `"${categoryName.replace(/"/g, '""')}"`,
+        `"${exp.frequency || 'Monthly'}"`,
+        `"${exp.valuationType || 'Static'}"`,
+        (exp.monthlyValue || 0).toFixed(2),
+        (exp.annualValue || 0).toFixed(2)
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `planned_expenses_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportActualsToCSV = () => {
+    const ledgerKey = `${selectedLedgerMonth} ${selectedLedgerYear}`;
+    const items = actualLineItems[ledgerKey] || actualLineItems[selectedLedgerMonth] || [];
+    
+    // Include both raw inputs (actualExpenses state mapping) and logged individual items (actualLineItems)
+    const headers = [
+      'Type',
+      'Date',
+      'Category',
+      'Description',
+      'Amount ($)'
+    ];
+
+    const rows: string[] = [];
+    
+    // First: the individual line items
+    items.forEach(item => {
+      const categoryName = categories.find(c => c.id === item.categoryId)?.name || 'Uncategorized';
+      rows.push([
+        '"Line Item"',
+        `"${item.date || ''}"`,
+        `"${categoryName.replace(/"/g, '""')}"`,
+        `"${(item.description || '').replace(/"/g, '""')}"`,
+        (item.amount || 0).toFixed(2)
+      ].join(','));
+    });
+
+    // Second: the manually entered categorical actuals without line items backing them
+    categories.forEach(cat => {
+      const manualVal = actualExpenses[ledgerKey]?.[cat.id] ?? actualExpenses[selectedLedgerMonth]?.[cat.id] ?? 0;
+      if (manualVal > 0) {
+        rows.push([
+          '"Manual Entry"',
+          '""',
+          `"${cat.name.replace(/"/g, '""')}"`,
+          '"Manual Category Total"',
+          manualVal.toFixed(2)
+        ].join(','));
+      }
+    });
+
+    if (rows.length === 0) return;
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `actual_expenses_${selectedLedgerMonth}_${selectedLedgerYear}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="w-full space-y-6">
       {/* Header Info Block */}
@@ -1049,6 +1141,14 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                     <p className="text-xs text-zinc-500">Record and review real expenditures below to balance your simulation boundaries.</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
+                    <button 
+                      onClick={exportActualsToCSV}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shrink-0"
+                      title={`Export ${selectedLedgerMonth} ${selectedLedgerYear} Actuals to CSV`}
+                    >
+                      <Download size={14} />
+                      Export
+                    </button>
                     <div className="flex items-center gap-2">
                       <label className="text-xs font-bold text-zinc-400 uppercase">Month:</label>
                       <select
@@ -1305,7 +1405,16 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4 lg:gap-8">
                   <div className="flex-1 w-full flex flex-col">
-                    <h4 className="font-bold text-zinc-950 dark:text-zinc-50 mb-1">Planned Expenses Analytics</h4>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-1">
+                      <h4 className="font-bold text-zinc-950 dark:text-zinc-50">Planned Expenses Analytics</h4>
+                      <button 
+                        onClick={exportExpensesToCSV}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors shrink-0"
+                      >
+                        <Download size={14} />
+                        Export to CSV
+                      </button>
+                    </div>
                     <p className="text-xs text-zinc-500 mb-4">Total simulated costs aggregated from static bases and relational percent links.</p>
                     <div className="flex flex-wrap gap-4 mb-6">
                       <div className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 min-w-[140px] flex-1">

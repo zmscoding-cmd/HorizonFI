@@ -55,7 +55,7 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
         endYear: 2031, // 5 years
         currentAge: 60,
         assets: [
-          { id: 'tira', name: 'Trad IRA', value: 1000000, type: 'traditional_ira', assetType: 'PRE_TAX', expectedGrowthRate: 0.05, expectedDividendYield: 0.02 }
+          { id: 'tira', name: 'Trad IRA', value: 1000000, type: 'traditional_ira', assetType: 'PRE_TAX', growthRate: 0.05, dividendYield: 0.02 }
         ],
         liabilities: [],
         rrt1AmountAt67: 36000, // Railroad Retirement Tier 1
@@ -265,12 +265,12 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
     it('should validate stage interface assignment and logical continuity', () => {
       // Mocking Stage validation without pulling in RxDB memory engines
       const stage1 = { 
-        id: 'stg1', name: 'Early Retire', targetAnnualBudget: 90000, 
+        id: 'stg1', name: 'Early Retire', 
         fundingPriorities: ['taxable_brokerage'] 
       };
       const stage2 = { 
         id: 'stg2', name: 'IRA Unlocking Phase', triggerMilestoneId: 'ms_595', 
-        targetAnnualBudget: 85000, fundingPriorities: ['tax_advantaged_401k'] 
+        fundingPriorities: ['tax_advantaged_401k'] 
       };
       expect(stage1.fundingPriorities).toContain('taxable_brokerage');
       expect(stage2.triggerMilestoneId).toBe('ms_595');
@@ -454,7 +454,8 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
       endYear: 2028,
       currentAge: 64,
       assets: [{ id: 'a1', name: 'asset1', value: 100000, type: 'taxable_brokerage', assetType: 'TAXABLE', expectedGrowthRate: 0.05, expectedDividendYield: 0.0 }],
-      stages: [{ id: 'stg1', targetAnnualBudget: 50000, fundingPriorities: [] }],
+      stages: [{ id: 'stg1', fundingPriorities: [] }],
+      budgetPhases: [{ phaseId: 'phase1', startYear: 2026, endYear: 2100, baselineAmount: 50000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }],
       milestones: [],
       uprrDivestmentAnnualAmount: 0,
       dividendEtfId: '',

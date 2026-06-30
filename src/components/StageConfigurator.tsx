@@ -7,12 +7,12 @@ function ToggleSwitch({ checked, onChange, label, description }: any) {
     <label className="flex items-start gap-3 cursor-pointer group min-h-[44px] py-2">
       <div className="relative flex items-center shrink-0">
         <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-        <div className={`block w-10 h-6 rounded-full transition-colors ${checked ? 'bg-blue-500 dark:bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-700'}`}></div>
-        <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`}></div>
+        <div className={`block w-10 h-6 rounded-full transition-colors ${checked ? 'bg-blue-500 dark:bg-blue-600 night-watch:bg-red-700' : 'bg-zinc-300 dark:bg-zinc-700 night-watch:bg-red-950/50'}`}></div>
+        <div className={`absolute left-1 top-1 bg-white night-watch:bg-red-200 w-4 h-4 rounded-full transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`}></div>
       </div>
       <div className="flex-1">
-        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{label}</div>
-        {description && <div className="text-xs text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">{description}</div>}
+        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 night-watch:text-red-100">{label}</div>
+        {description && <div className="text-xs text-zinc-500 dark:text-zinc-400 night-watch:text-red-500/70 leading-tight mt-0.5">{description}</div>}
       </div>
     </label>
   );
@@ -35,7 +35,6 @@ export function StageConfigurator({ activeScenario, plan, db, handleRunSimulatio
     saveStages([...stages, {
       id: generateUUID(),
       name: `Stage ${stages.length + 1}`,
-      targetAnnualBudget: 90000,
       fundingPriorities: ['taxable_brokerage'],
       startYearType: 'absolute',
       startAbsoluteYear: new Date().getFullYear(),
@@ -113,21 +112,21 @@ export function StageConfigurator({ activeScenario, plan, db, handleRunSimulatio
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-bold text-zinc-500 block">Start Boundary</label>
+                  <label className="text-[10px] uppercase font-bold text-zinc-500 night-watch:text-red-400 block">Start Boundary</label>
                   
                   {/* Segmented Control for Boundary Type */}
-                  <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-lg">
+                  <div className="flex bg-zinc-100 dark:bg-zinc-900 night-watch:bg-red-950/50 p-1 rounded-lg">
                     <button
                       type="button"
                       onClick={() => updateStage(stage.id, 'startYearType', 'absolute')}
-                      className={`flex-1 flex items-center justify-center gap-2 text-xs font-semibold py-2 rounded-md transition-all ${type === 'absolute' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+                      className={`flex-1 flex items-center justify-center gap-2 text-xs font-semibold py-2 rounded-md transition-all ${type === 'absolute' ? 'bg-white dark:bg-zinc-800 night-watch:bg-red-900 shadow text-zinc-900 dark:text-white night-watch:text-red-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 night-watch:text-red-400 night-watch:hover:text-red-300'}`}
                     >
                       <Calendar size={14} /> Absolute
                     </button>
                     <button
                       type="button"
                       onClick={() => updateStage(stage.id, 'startYearType', 'milestone')}
-                      className={`flex-1 flex items-center justify-center gap-2 text-xs font-semibold py-2 rounded-md transition-all ${type === 'milestone' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+                      className={`flex-1 flex items-center justify-center gap-2 text-xs font-semibold py-2 rounded-md transition-all ${type === 'milestone' ? 'bg-white dark:bg-zinc-800 night-watch:bg-red-900 shadow text-zinc-900 dark:text-white night-watch:text-red-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 night-watch:text-red-400 night-watch:hover:text-red-300'}`}
                     >
                       <LinkIcon size={14} /> Milestone
                     </button>
@@ -138,7 +137,7 @@ export function StageConfigurator({ activeScenario, plan, db, handleRunSimulatio
                     <select 
                       value={stage.startMilestoneId || stage.triggerMilestoneId || ''} 
                       onChange={(e) => updateStage(stage.id, 'startMilestoneId', e.target.value)}
-                      className="w-full text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 min-h-[44px] text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-sm bg-zinc-50 dark:bg-zinc-900 night-watch:bg-black border border-zinc-200 dark:border-zinc-800 night-watch:border-red-900 rounded-lg px-3 min-h-[44px] text-zinc-900 dark:text-zinc-100 night-watch:text-red-100 outline-none focus:ring-2 focus:ring-blue-500 night-watch:focus:ring-red-700"
                     >
                       <option value="">Start (Stage 1 Default)</option>
                       {milestones.map((m: any) => (
@@ -150,36 +149,32 @@ export function StageConfigurator({ activeScenario, plan, db, handleRunSimulatio
                       type="number" 
                       value={stage.startAbsoluteYear ?? new Date().getFullYear()} 
                       onChange={(e) => updateStage(stage.id, 'startAbsoluteYear', Number(e.target.value))}
-                      className="w-full text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 min-h-[44px] text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-sm bg-zinc-50 dark:bg-zinc-900 night-watch:bg-black border border-zinc-200 dark:border-zinc-800 night-watch:border-red-900 rounded-lg px-3 min-h-[44px] text-zinc-900 dark:text-zinc-100 night-watch:text-red-100 outline-none focus:ring-2 focus:ring-blue-500 night-watch:focus:ring-red-700"
                       placeholder="e.g. 2030"
                     />
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-bold text-zinc-500 block">Target Annual Budget</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-medium">$</span>
-                    <input 
-                      type="number" 
-                      value={stage.targetAnnualBudget} 
-                      onChange={(e) => updateStage(stage.id, 'targetAnnualBudget', Number(e.target.value))}
-                      className="w-full text-sm text-right bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 pl-8 min-h-[44px] text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                <div className="space-y-2 flex flex-col justify-end">
+                  <label className="text-[10px] uppercase font-bold text-zinc-500 night-watch:text-red-400 block">Target Annual Budget</label>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 night-watch:bg-red-950/20 border border-blue-100 dark:border-blue-900/40 night-watch:border-red-900/40 rounded-lg p-3 min-h-[44px] flex items-center">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 night-watch:text-red-300 leading-snug">
+                      Target budget is dynamically inherited from the active Phased Budget configuration.
+                    </p>
                   </div>
                 </div>
               </div>
               
-              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/50">
-                <label className="text-[10px] uppercase font-bold text-zinc-500 block mb-2">Funding Priorities (Sequential Pull)</label>
+              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/50 night-watch:border-red-950/50">
+                <label className="text-[10px] uppercase font-bold text-zinc-500 night-watch:text-red-400 block mb-2">Funding Priorities (Sequential Pull)</label>
                 <div className="space-y-2">
                   {(stage.fundingPriorities || []).map((priority: string, pIdx: number) => (
                     <div key={pIdx} className="flex gap-2 items-center">
-                      <span className="text-xs font-mono text-zinc-400 font-bold w-5">{pIdx + 1}.</span>
+                      <span className="text-xs font-mono text-zinc-400 night-watch:text-red-500 font-bold w-5">{pIdx + 1}.</span>
                       <select 
                         value={priority}
                         onChange={(e) => updatePriorities(stage.id, pIdx, e.target.value)}
-                        className="flex-1 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2 min-h-[44px] text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 text-sm bg-zinc-50 dark:bg-zinc-900 night-watch:bg-black border border-zinc-200 dark:border-zinc-800 night-watch:border-red-900 rounded-lg px-2 min-h-[44px] text-zinc-900 dark:text-zinc-100 night-watch:text-red-100 outline-none focus:ring-2 focus:ring-blue-500 night-watch:focus:ring-red-700"
                       >
                         <option value="taxable_brokerage">Taxable Brokerage</option>
                         <option value="tax_advantaged_401k">Tax-Advantaged (401k/IRA)</option>
@@ -187,7 +182,7 @@ export function StageConfigurator({ activeScenario, plan, db, handleRunSimulatio
                       </select>
                       <button 
                         onClick={() => removePriority(stage.id, pIdx)} 
-                        className="text-zinc-400 hover:text-red-500 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                        className="text-zinc-400 night-watch:text-red-500/70 hover:text-red-500 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 night-watch:hover:bg-red-950 transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -196,14 +191,14 @@ export function StageConfigurator({ activeScenario, plan, db, handleRunSimulatio
                 </div>
                 <button 
                   onClick={() => addPriority(stage.id)}
-                  className="mt-3 text-xs font-semibold text-blue-600 dark:text-blue-400 min-h-[44px] px-3 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border border-transparent border-dashed hover:border-blue-200 dark:hover:border-blue-800"
+                  className="mt-3 text-xs font-semibold text-blue-600 dark:text-blue-400 night-watch:text-red-400 min-h-[44px] px-3 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 night-watch:hover:bg-red-950/30 transition-colors border border-transparent border-dashed hover:border-blue-200 dark:hover:border-blue-800 night-watch:hover:border-red-800"
                 >
                   + Add Source
                 </button>
               </div>
 
-              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/50 space-y-1">
-                <label className="text-[10px] uppercase font-bold text-zinc-500 block mb-2">Income Stream Inclusions</label>
+              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/50 night-watch:border-red-950/50 space-y-1">
+                <label className="text-[10px] uppercase font-bold text-zinc-500 night-watch:text-red-400 block mb-2">Income Stream Inclusions</label>
                 <ToggleSwitch
                   checked={stage.includeGlobalIncomeStreams ?? false}
                   onChange={(val: boolean) => updateStage(stage.id, 'includeGlobalIncomeStreams', val)}

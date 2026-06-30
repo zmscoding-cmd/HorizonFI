@@ -1033,5 +1033,53 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 **Continuous Validation & Functional Assertions:**
 * **Validation - Mathematical Integrity:** Bracket limit and headroom calculations strictly reflect 2026 statutory limits (including the $30,000 standard deduction MFJ ceiling).
 * **Validation - Zero-Trust Integrity:** No secrets or identifiers were hardcoded. Calculations remain isolated in standard reactive states.
+* **Validation - Responsive UI Preservation:** Verified dimensional constraints and text-scaling limits for progressive disclosure visualizers.
+
+### Checkpoint - Budget Export Functionality: 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Offline CSV Generation:** Integrated client-side CSV stringification inside `BudgetDashboard.tsx` (`exportExpensesToCSV`) to allow the user to immediately download their Kahn-sorted planned expenses. By processing data natively in-browser using `URL.createObjectURL(blob)`, we strictly bypass server roundtrips, maintaining absolute alignment with our offline-first and zero-trust security perimeters.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Threat Model Adherence:** Data exfiltration vectors are isolated strictly to local DOM `Blob` and generic anchor tag generation, preventing telemetry or unintended egress.
+* **Validation - Strict Secrets Audit:** No API keys, credentials, or tracking metrics were embedded in the export pipeline.
+
+### Checkpoint - Actual Expenses Export Functionality: 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Offline Ledger Export:** Expanded the CSV generation architecture in `BudgetDashboard.tsx` (`exportActualsToCSV`) to support downloading the Monthly Actual Expenditure Ledger. This capability concatenates both explicitly logged line items and manual categorical overrides into a single chronological `.csv` snapshot, fully generated within the local zero-trust sandbox without external API transmission.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Threat Model Adherence:** Consistent with the Planned Expenses export, `exportActualsToCSV` utilizes native `Blob` URI object creation to keep data constrained to the client environment.
+* **Validation - Strict Secrets Audit:** No hardcoded API keys or external services were integrated into the download process.
+
+### Checkpoint - Centralized Phased Budgets: 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Schema Centralization (`src/lib/db.ts`):** Removed `targetAnnualBudget` from individual `Stage` definitions. Multi-stage calculations now strictly refer to the `budgetPhases` defined within the parent `SubScenario` `budget` object. This creates a unified source of truth and prevents redundant drift.
+2. **Deterministic RxDB Migration:** Incremented the plan schema to version 7, implementing a deterministic schema migration function that smoothly scrubs the deprecated `targetAnnualBudget` from legacy `Stage` JSON blocks without compromising sync state.
+3. **Web Worker Alignment (`simulation.worker.ts`):** Offloaded calculation engines now dynamically resolve the applicable budget base amount directly from `payload.budgetPhases` based on temporal bounds rather than static stage fallback blocks.
+4. **Security Perimeter Maintenance:** `firestore.rules` continues to reject anomalous inputs, retaining its strict envelope without needing structural iteration over the migrated arrays.
+
+**Continuous Validation & Functional Assertions:**
+* **Mathematical Integrity:** Reconciled tests (`checkpoint.test.ts`, `simulation.worker.test.ts`, etc.) to mock `budgetPhases` arrays and accurately validate dynamic base tracking and temporal switching operations natively.
+* **Validation - Threat Model Adherence:** All data structural mapping occurs securely behind offline indexedDB layers and does not compromise the remote zero-trust schema definitions.
+* **Validation - Strict Secrets Audit:** No new API tokens, secrets, or tracking telemetry have been added to the application.
+
+### Checkpoint - Centralized Phased Budgets UI Alignment: 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Redundant UI Deprecation:** Removed legacy `targetAnnualBudget` numerical inputs from the `StageConfigurator.tsx` component, replacing them with a read-only informational badge that enforces user awareness of the centralized Phased Budget inheritance model. 
+2. **Adaptive Theme Resilience (Night-Watch Compliance):** All new structural badges and toggles within the StageConfigurator strictly adhere to the `night-watch` (red-scale) CSS variants. This ensures the sensory preservation mandate is maintained in dark marine environments.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - UX/UI Mandates:** All replaced input zones were verified to exceed the 44x44px minimum touch-target requirements where interaction is maintained.
+* **Validation - Strict Secrets Audit:** No hardcoded API keys, tracking scripts, or unencrypted local storage pathways were introduced in the UI layer.
+
+### Checkpoint - Continuous Validation (Centralized Budgets): 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Test Suite Expansion (`src/tests/multistage.worker.test.ts`):** Implemented targeted Vitest assertions specifically verifying the Web Worker's execution loop against temporal boundary crossings (e.g., dynamically altering the drawdown target from 100k to 80k when moving from the Go-Go to Slow-Go phase).
+2. **Documentation Alignment (`DOCUMENTATION.md`):** Appended clear user-facing guidance regarding the new Centralized Phased Budget Inheritance model to ensure operational clarity offline.
+
+**Continuous Validation & Functional Assertions:**
+* **Mathematical Integrity:** New unit tests strictly validate that chronological arrays within the worker output precisely align with dynamic phase shift temporal bounds.
+* **Validation - Strict Secrets Audit:** Zero hardcoded API keys were identified or committed within the new test suites or markdown documents.
+
 
 

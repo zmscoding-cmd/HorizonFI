@@ -262,8 +262,12 @@ function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
         id: String(s?.id || '').substring(0, 128),
         name: String(s?.name || 'Stage').substring(0, 120),
         triggerMilestoneId: s?.triggerMilestoneId ? String(s.triggerMilestoneId).substring(0, 128) : undefined,
-        targetAnnualBudget: Math.max(0, Math.min(1e9, Number(s?.targetAnnualBudget) || 0)),
-        fundingPriorities: Array.isArray(s?.fundingPriorities) ? s.fundingPriorities.slice(0, 10).map((p: any) => String(p).substring(0, 128)) : []
+        startYearType: s?.startYearType === 'milestone' ? 'milestone' : 'absolute',
+        startMilestoneId: s?.startMilestoneId ? String(s.startMilestoneId).substring(0, 128) : undefined,
+        startAbsoluteYear: s?.startAbsoluteYear !== undefined ? Number(s.startAbsoluteYear) : undefined,
+        fundingPriorities: Array.isArray(s?.fundingPriorities) ? s.fundingPriorities.slice(0, 10).map((p: any) => String(p).substring(0, 128)) : [],
+        includeGlobalIncomeStreams: Boolean(s?.includeGlobalIncomeStreams),
+        includeAuxiliaryTaxFreeIncome: Boolean(s?.includeAuxiliaryTaxFreeIncome)
       }))
     : [];
 
@@ -329,7 +333,14 @@ function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
     uprrId: String(req.uprrId || '').substring(0, 128),
     targetConstantMarketReturn,
     inflationRate,
-    budgetPhases: Array.isArray(req.budgetPhases) ? req.budgetPhases.slice(0, 20) : undefined,
+    budgetPhases: Array.isArray(req.budgetPhases) ? req.budgetPhases.slice(0, 20).map((p: any) => ({
+      phaseId: String(p.phaseId || '').substring(0, 128),
+      startYear: Number(p.startYear) || startYear,
+      endYear: Number(p.endYear) || endYear,
+      baselineAmount: Number(p.baselineAmount) || 0,
+      applyLifestyleAdjustment: Boolean(p.applyLifestyleAdjustment),
+      lifestyleAdjustmentRate: Number(p.lifestyleAdjustmentRate) || 0
+    })) : undefined,
     maxRealWithdrawal,
     liquidBufferYears,
     globalDiscountRate,
@@ -441,7 +452,6 @@ export type Stage = {
   startYearType?: 'absolute' | 'milestone';
   startMilestoneId?: string;
   startAbsoluteYear?: number;
-  targetAnnualBudget: number;
   fundingPriorities: string[];
   includeGlobalIncomeStreams?: boolean;
   includeAuxiliaryTaxFreeIncome?: boolean;
@@ -1392,7 +1402,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
   
   if (use3Bucket && payload.stages && payload.stages.length > 0) {
     const totalAssets = currentAssets.reduce((sum, a) => sum + a.value, 0);
-    const initialTargetBudget = payload.stages[0].targetAnnualBudget;
+    const initialTargetBudget = payload.budgetPhases?.[0]?.baselineAmount || 0;
     const b1Target = initialTargetBudget * (payload.threeBuckets!.bucket1LiquiditySecuredYears || 2);
     const b2Target = initialTargetBudget * (payload.threeBuckets!.bucket2IncomeSecuredYears || 5);
     
@@ -1458,8 +1468,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
           }
         }
       }
-      if (!fActiveStage && payload.stages && payload.stages.length > 0) fActiveStage = payload.stages[0];
-      futureLiabilityCashflows[f] += (fActiveStage?.targetAnnualBudget || 0);
+      const fActivePhase = payload.budgetPhases?.find(p => fYear >= p.startYear && fYear <= p.endYear) || payload.budgetPhases?.[0];
+      futureLiabilityCashflows[f] += (fActivePhase?.baselineAmount || 0);
 
       if (payload.futureLiabilities) {
         for (const liab of payload.futureLiabilities) {
@@ -1553,8 +1563,9 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       if (phaseYears < 0) phaseYears = 0;
       
       if (activePhase.applyLifestyleAdjustment) {
-        lsAdjustmentCum = Math.pow(1 + activePhase.lifestyleAdjustmentRate, phaseYears);
-        if (activePhase.lifestyleAdjustmentRate < 0) {
+        const lsRate = (activePhase.lifestyleAdjustmentRate || 0) / 100;
+        lsAdjustmentCum = Math.pow(1 + lsRate, phaseYears);
+        if (lsRate < 0) {
           lifestyleShrinking = true;
         }
       } else {
@@ -1562,7 +1573,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       }
       stageTargetBudgetNominal = activePhase.baselineAmount * cumInflation * lsAdjustmentCum;
     } else {
-      stageTargetBudgetNominal = (activeStage?.targetAnnualBudget || 0) * cumInflation;
+      stageTargetBudgetNominal = 0;
     }
     
     // 3. UPRR Divestment Logic (Convert concentrated UPRR into SCHD ETF)

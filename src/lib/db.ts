@@ -21,7 +21,6 @@ export type Stage = {
   startYearType?: 'absolute' | 'milestone';
   startMilestoneId?: string;
   startAbsoluteYear?: number;
-  targetAnnualBudget: number;
   fundingPriorities: string[];
   includeGlobalIncomeStreams?: boolean;
   includeAuxiliaryTaxFreeIncome?: boolean;
@@ -173,7 +172,7 @@ export type HistoricalDatapointType = {
 };
 
 const planSchema = {
-  version: 6,
+  version: 7,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -240,7 +239,6 @@ const planSchema = {
                 startYearType: { type: 'string', enum: ['absolute', 'milestone'], default: 'absolute' },
                 startMilestoneId: { type: 'string' },
                 startAbsoluteYear: { type: 'number' },
-                targetAnnualBudget: { type: 'number' },
                 fundingPriorities: { type: 'array', items: { type: 'string' } },
                 includeGlobalIncomeStreams: { type: 'boolean', default: false },
                 includeAuxiliaryTaxFreeIncome: { type: 'boolean', default: false }
@@ -797,6 +795,20 @@ export async function getDatabase() {
                       includeGlobalIncomeStreams: stage.includeGlobalIncomeStreams ?? false,
                       includeAuxiliaryTaxFreeIncome: stage.includeAuxiliaryTaxFreeIncome ?? false
                     };
+                  });
+                }
+                return sc;
+              });
+              return oldDoc;
+            },
+            7: function (oldDoc: any) {
+              // Remove redundant targetAnnualBudget from individual stages, as budgetPhases are now the source of truth
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                if (sc.stages) {
+                  sc.stages = sc.stages.map((stage: any) => {
+                    const migratedStage = { ...stage };
+                    delete migratedStage.targetAnnualBudget;
+                    return migratedStage;
                   });
                 }
                 return sc;
