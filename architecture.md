@@ -1015,3 +1015,23 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Tax Engine Accuracy:** Accurate propagation of the `Est. Taxes` calculation confirms that the underlying Web Worker logic correctly cascades to UI visualization components.
 * **Validation - Strict Secrets Audit:** No hardcoded secrets were introduced. All mathematical evaluations remain locked inside the local zero-trust IndexedDB boundary.
 
+### Checkpoint - Strategic Tax Events Marginal Breakdown: 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Incremental Multi-Scenario Tax Modeling:** Added isolated mathematical iterations in `FundingAllocation.tsx` to isolate the marginal tax drag created by Strategic Tax Events (Roth Conversions and Taxable Rebalancing Sales). By running baseline-subtracted scenarios inside a reactive React context, we avoid polluting the global worker space with state mutation.
+2. **Transparent Marginal Impact Visualizer:** Replaced the legacy single-column static text card with a responsive 2-column bento layout displaying real-time dollar-by-dollar marginal tax impacts. Under-the-hood bracket creep (progressive tax stacking of ordinary income and LTCG) is isolated as a distinct synergistic/interaction line item.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Subtractive marginal evaluations cleanly detect joint stacking interaction effects, guaranteeing exact mathematical parity with the master `evaluateMultiBucketTax` calculation.
+* **Validation - Strict Secrets Audit:** Zero hardcoded API keys or credentials were used; all scenarios resolve completely client-side.
+* **Validation - Responsive UI Preservation:** Validated the layout for dark/light transitions and minimum 44px tap targets.
+
+### Checkpoint - Tax Bracket Headroom & Strategic Space Visualizer: 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Dynamic Headroom Extrapolation:** Integrated a live tax bracket analysis engine into `FundingAllocation.tsx`. It maps current gross ordinary income against 2026 MFJ tax brackets (Standard Deduction, 10%, 12%, 22%) to determine exact, dollar-by-dollar strategic room before jumping tax tiers.
+2. **LTCG Stacking Room Isolation:** Modeled the combined stacking limit (Ordinary Income + Long-Term Capital Gains) against the $98,900 MFJ threshold. This isolates and highlights "bracket creep"—revealing how strategic ordinary income additions (e.g. Roth Conversions) erode the 0% capital gains shelter.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Bracket limit and headroom calculations strictly reflect 2026 statutory limits (including the $30,000 standard deduction MFJ ceiling).
+* **Validation - Zero-Trust Integrity:** No secrets or identifiers were hardcoded. Calculations remain isolated in standard reactive states.
+
+
