@@ -807,7 +807,7 @@ export default function ScenarioBuilder({
               </div>
             </div>
 
-            {(activeScenario?.threeBuckets || plan.threeBuckets || budgetDoc?.budgetPhases?.some((p: any) => p.cashBufferMultiplier !== undefined)) && (
+            {(activeScenario?.threeBuckets || plan.threeBuckets || activeScenario?.budget?.budgetPhases?.some((p: any) => p.cashBufferMultiplier !== undefined)) && (
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
                 <div>
                   <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">

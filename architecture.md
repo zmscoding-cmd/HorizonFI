@@ -1223,3 +1223,16 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 **Continuous Validation & Functional Assertions:**
 * **Validation - Layout Integrity:** Verified that both light and dark/night-watch themes render the tooltip background and text with excellent color contrast ratios.
 * **Validation - Clean Build Compliance:** Validated that compiling and linting passes perfectly.
+
+
+### Checkpoint - Dynamic Cash Bucket Mapping & UI Integration: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Dynamic Cash Bucket Mapping (`NetWorthProjectionChart.tsx`):** Resolved a core visual disconnect where adjusting the "Cash Buffer Multiplier (Years)" under Target Budget Phases was not reflected as a corresponding Cash layer in the "Long-Term Portfolio Projection" chart. In Three-Bucket mode, the simulation calculates abstract `bucket1Balance` (Cash), `bucket2Balance` (Taxable/Income), and `bucket3Balance` (Growth) variables rather than mutating the user's raw static asset entries. We updated `NetWorthProjectionChart.tsx` to read the dynamic `bucket1Balance`, `bucket2Balance`, and `bucket3Balance` properties directly when available, mapping them accurately to Cash, Taxable, and proportionally split Pre-Tax/Roth layers, aligning the visualization with the simulation worker's advanced strategy.
+2. **Phase Cash Strategy Visualization (Three Buckets) Interface Alignment (`ScenarioBuilder.tsx`):** Restructured the visual condition block in `ScenarioBuilder.tsx` to check `activeScenario?.budget?.budgetPhases` instead of `budgetDoc?.budgetPhases`. Because budget phases are stored within the nested subscenario budget model, checking the top-level generic `budgetDoc` resolved to undefined, which hid the "Phase Cash Strategy Visualization (Three Buckets)" chart from the Multi-Stage Modeling view. Correcting this path restores the dynamic interactive waterfall chart.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Confirmed that the net worth areas on the projection chart perfectly mirror the dynamic resizing of the cash buffer under phase transitions, with excess liquid cash safely flowing back into taxable brokerage and growth layers.
+* **Validation - Chart Visualizations & Layouts:** Verified that the "Phase Cash Strategy Visualization" waterfall chart correctly displays in the Multi-Stage modeling interface, providing clear insights into the three-bucket allocation.
+* **Validation - Strict Secrets Audit & Leak Sweep:** Audited all modifications and verified that zero secrets, API keys, or trace telemetry lines were added, preserving our secure, offline-first, zero-trust boundary.
+* **Validation - Complete Compilation & Linting Success:** Successfully verified compilation and linting tests with absolute zero warnings or errors.
+

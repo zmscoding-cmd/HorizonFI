@@ -32,7 +32,33 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
       let preTax = 0;
       let roth = 0;
 
-      if (snapshot.assetBalances) {
+      if (snapshot.bucket1Balance !== undefined && snapshot.bucket2Balance !== undefined && snapshot.bucket3Balance !== undefined) {
+        cash = Number(snapshot.bucket1Balance) || 0;
+        taxable = Number(snapshot.bucket2Balance) || 0;
+        
+        // Split bucket3Balance proportionally between PRE_TAX and ROTH based on actual asset values
+        let rawPreTax = 0;
+        let rawRoth = 0;
+        if (snapshot.assetBalances) {
+          for (const [assetId, balance] of Object.entries(snapshot.assetBalances)) {
+            const asset = assets.find((a) => a.id === assetId);
+            const val = Number(balance) || 0;
+            if (asset) {
+              if (asset.assetType === 'PRE_TAX') rawPreTax += val;
+              else if (asset.assetType === 'ROTH') rawRoth += val;
+            }
+          }
+        }
+        
+        const totalRawGrowth = rawPreTax + rawRoth;
+        const b3Val = Number(snapshot.bucket3Balance) || 0;
+        if (totalRawGrowth > 0) {
+          preTax = b3Val * (rawPreTax / totalRawGrowth);
+          roth = b3Val * (rawRoth / totalRawGrowth);
+        } else {
+          preTax = b3Val;
+        }
+      } else if (snapshot.assetBalances) {
         for (const [assetId, balance] of Object.entries(snapshot.assetBalances)) {
           const asset = assets.find((a) => a.id === assetId);
           const val = Number(balance) || 0;
