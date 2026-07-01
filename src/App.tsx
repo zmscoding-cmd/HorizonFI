@@ -154,6 +154,7 @@ export default function App() {
           {
             id: generateUUID(),
             name: 'Baseline Plan',
+            targetEndYear: 2085,
             budget: { 
               monthlyIncome: 10000, 
               budgetPhases: [{

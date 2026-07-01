@@ -243,10 +243,10 @@ export default function ScenarioBuilder({
       const budget: any = scenario.budget || {};
       const currentAge =
         budget.currentAge !== undefined ? Number(budget.currentAge) : 48;
-      const timelineDuration =
-        budget.timelineDuration !== undefined
-          ? Number(budget.timelineDuration)
-          : 40;
+      const targetEndYear =
+        scenario.targetEndYear !== undefined
+          ? Number(scenario.targetEndYear)
+          : new Date().getFullYear() + 40;
       const targetConstantMarketReturn =
         budget.targetConstantMarketReturn !== undefined
           ? Number(budget.targetConstantMarketReturn) / 100
@@ -282,7 +282,7 @@ export default function ScenarioBuilder({
       const config: TemporalConfig = {
         currentAge,
         startYear: new Date().getFullYear(),
-        endYear: new Date().getFullYear() + timelineDuration,
+        endYear: targetEndYear,
         initialPortfolioValue:
           scenario.assets?.reduce(
             (a: any, b: any) => a + Number(b.value || 0),
@@ -376,6 +376,7 @@ export default function ScenarioBuilder({
           scenarioId: scenario.id,
           startYear: config.startYear,
           endYear: config.endYear,
+          targetEndYear: config.endYear,
           currentAge: config.currentAge,
           assets: config.assets,
           stages: scenario.stages || [],
@@ -1574,24 +1575,23 @@ export default function ScenarioBuilder({
                           </div>
                           <div>
                             <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
-                              Simulation Duration (years)
+                              Simulation End Year
                             </label>
                             <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans">
-                              Decades timeline horizon modeling retirement
-                              curves (default = 40 years).
+                              The final calendar year for multi-decade timeline modeling and chart plotting.
                             </p>
                             <input
                               type="number"
                               defaultValue={
-                                activeScenario.budget?.timelineDuration !==
+                                activeScenario.targetEndYear !==
                                 undefined
-                                  ? activeScenario.budget.timelineDuration
-                                  : 40
+                                  ? activeScenario.targetEndYear
+                                  : new Date().getFullYear() + 40
                               }
                               onBlur={async (e) => {
                                 const val = Math.max(
-                                  1,
-                                  Math.min(100, Number(e.target.value) || 40),
+                                  2026,
+                                  Math.min(2150, Number(e.target.value) || new Date().getFullYear() + 40),
                                 );
                                 const doc = await db.plans
                                   .findOne(plan.id)
@@ -1601,10 +1601,7 @@ export default function ScenarioBuilder({
                                     s.id === activeScenario.id
                                       ? {
                                           ...s,
-                                          budget: {
-                                            ...s.budget,
-                                            timelineDuration: val,
-                                          },
+                                          targetEndYear: val,
                                         }
                                       : s,
                                 );
@@ -1613,6 +1610,11 @@ export default function ScenarioBuilder({
                                   updatedAt: Date.now(),
                                 });
                                 handleRunSimulation();
+                              }}
+                              onKeyDown={async (e) => {
+                                if (e.key === 'Enter') {
+                                  e.currentTarget.blur();
+                                }
                               }}
                               className="w-full text-sm border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-xl p-3 border font-medium focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 focus:border-blue-500 dark:focus:border-red-500 outline-none transition-all min-h-[44px]"
                             />

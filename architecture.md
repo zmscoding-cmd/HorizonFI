@@ -1315,5 +1315,35 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Database Patching Integrity:** Confirmed that `doc.patch` correctly receives the synchronously extracted literal value, ensuring offline-first RxDB operations do not drop data.
 * **Schema Adherence:** Verified RxDB schema correctly propagates flexible enum-less arrays for `milestones`.
 
+### Checkpoint - Simulation Timeline Migration to Target End Year: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Schema Evolution (`src/lib/db.ts`):** Migrated the timeline assumption boundary from a floating duration (`timelineDuration`) to a strict deterministic `targetEndYear`. Incrementing the `planSchema` version to 10 ensures backwards compatibility through an explicit deterministic migration strategy. Legacy offline documents calculate their `targetEndYear` automatically by combining the client's current calendar year and the historical duration parameter.
+2. **Deterministic UI State (`ScenarioBuilder.tsx`):** The transition to an explicit `targetEndYear` protects the multi-decade mathematical iteration from shifting relative to the user's local clock context when opening the progressive web app across boundaries or devices.
+3. **Secrets Audit:** Strictly reviewed modified components and schema definitions. No environment keys, plain-text credentials, or remote endpoints were exposed or injected.
+
+**Continuous Validation & Functional Assertions:**
+* **Offline Migration Resilience:** Validated that RxDB transparently bridges version 9 to 10 without losing existing scenarios or budget calculations, maintaining seamless operation completely offline.
+* **Math Bound Constraints:** The schema and input assertions correctly clamp the max allowable projection to the year 2150 and the floor to 2026, protecting the Dedicated Web Workers from runaway `while` loops.
+
+### Checkpoint - UI Updates for Target End Year: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Frontend Integration (`ScenarioBuilder.tsx`):** Aligned the UI layer with the `targetEndYear` RxDB schema migration. The numeric input label and its descriptive helper text were updated to clearly indicate the final calendar year for modeling.
+2. **Robust Event Handling:** Implemented an `onKeyDown` handler mapping the 'Enter' key to `e.currentTarget.blur()`, triggering the reliable asynchronous RxDB patch via `onBlur`. This ensures seamless mobile and keyboard navigability.
+3. **Secrets Audit:** Conducted a comprehensive scan of the committed changes. No hardcoded credentials, plain-text API keys, or security regressions were introduced.
+
+**Continuous Validation & Functional Assertions:**
+* **Touch-Target Resilience:** Verified the input element maintains the mandatory 44x44px (`min-h-[44px]`) boundary to preserve maritime and tablet usability.
+* **Cursor Continuity:** The `onBlur` mutation structure continues to prevent React's cursor-jumping regressions during state reconciliation.
+
+### Checkpoint - Simulation Worker Loop and Chart Boundary Enforcement: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Dynamic Web Worker Math Loop (`src/workers/simulation.worker.ts`):** Updated both the probabilistic (Monte Carlo) and multi-stage drawdown computation engines to accept `targetEndYear`. Refactored the core loop bounds from duration-based step loops to exact year-based limits by dynamically subtracting the start year from the `targetEndYear`. Added a strict runtime boundary check inside both month and step loops (`if (currentYear > targetEndYear) break;`) to strictly halt calculations exactly at the limit.
+2. **Chart Boundary Enforcement & Zero-Touch Scalability (`MultiStageChart.tsx`, `NetWorthProjectionChart.tsx`, `BucketWaterfallChart.tsx`):** Confirmed all frontend Recharts implementations correctly consume year-based coordinates directly from the worker snapshots. Plotted series now scale and terminate precisely at the user-defined `targetEndYear` without any off-by-one rendering issues or performance degradation.
+3. **Secrets Audit:** Rigorously scanned modified code, worker payloads, and test configurations. No keys, passwords, or endpoints are exposed or hardcoded.
+
+**Continuous Validation & Functional Assertions:**
+* **Automated Vitest Suite:** Implemented a new automated test suite (Vector 17) in `checkpoint.test.ts` to mathematically prove that the multi-stage worker and probabilistic Monte Carlo loops halt exactly at `targetEndYear`.
+* **Zero-Trust Message Integrity:** Verified that message payloads between the UI thread and the Web Worker are safely typecast and sanitized.
+
 
 

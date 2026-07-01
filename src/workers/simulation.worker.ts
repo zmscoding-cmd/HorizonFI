@@ -168,7 +168,7 @@ function sanitizeNetWorthRequest(req: any): NetWorthSimRequest {
   }
   
   const startYear = Math.max(1900, Math.min(2100, Number(req.startYear) || 2026));
-  const endYear = Math.max(startYear, Math.min(startYear + 100, Number(req.endYear) || (startYear + 50)));
+  const endYear = Math.max(startYear, Math.min(startYear + 100, Number(req.targetEndYear) || Number(req.endYear) || (startYear + 50)));
   const currentAge = Math.max(0, Math.min(120, Number(req.currentAge) || 40));
   const numPaths = Math.max(1, Math.min(500, Number(req.numPaths) || 100));
   const inflationRate = Math.max(-0.2, Math.min(1.0, Number(req.inflationRate) || 0.03));
@@ -204,6 +204,7 @@ function sanitizeNetWorthRequest(req: any): NetWorthSimRequest {
     userId: String(req.userId || '').substring(0, 128),
     startYear,
     endYear,
+    targetEndYear: Number(req.targetEndYear) || endYear,
     currentAge,
     assets,
     liabilities,
@@ -222,7 +223,7 @@ function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
   }
   
   const startYear = Math.max(1900, Math.min(2100, Number(req.startYear) || 2026));
-  const endYear = Math.max(startYear, Math.min(startYear + 100, Number(req.endYear) || (startYear + 50)));
+  const endYear = Math.max(startYear, Math.min(startYear + 100, Number(req.targetEndYear) || Number(req.endYear) || (startYear + 50)));
   const currentAge = Math.max(0, Math.min(120, Number(req.currentAge) || 40));
   const inflationRate = Math.max(-0.2, Math.min(1.0, Number(req.inflationRate) || 0.03));
   const targetConstantMarketReturn = Math.max(-0.5, Math.min(2.0, Number(req.targetConstantMarketReturn) || 0.07));
@@ -327,6 +328,7 @@ function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
     type: 'MULTI_STAGE_DRAWDOWN',
     startYear,
     endYear,
+    targetEndYear: Number(req.targetEndYear) || endYear,
     currentAge,
     assets,
     stages,
@@ -501,6 +503,7 @@ export type MultiStageSimPayload = {
   type: 'MULTI_STAGE_DRAWDOWN';
   startYear: number;
   endYear: number;
+  targetEndYear?: number;
   currentAge: number;
   assets: NetWorthAssetInput[];
   stages: Stage[];
@@ -536,6 +539,7 @@ export type NetWorthSimRequest = {
   userId: string;
   startYear: number;
   endYear: number;
+  targetEndYear?: number;
   assets: NetWorthAssetInput[];
   liabilities: NetWorthLiabilityInput[];
   rrt1AmountAt67: number;
@@ -1231,7 +1235,8 @@ export function simulateNetWorthProbabilistic(req: NetWorthSimRequest): NetWorth
     numPaths = 100
   } = req;
 
-  const totalYears = endYear - startYear;
+  const targetEndYear = req.targetEndYear ?? endYear;
+  const totalYears = targetEndYear - startYear;
   const totalMonths = totalYears * 12;
   
   // Outer matrix: [monthIndex] -> array of path net worths
@@ -1256,6 +1261,9 @@ export function simulateNetWorthProbabilistic(req: NetWorthSimRequest): NetWorth
     for (let m = 0; m <= totalMonths; m++) {
       const yearOffset = Math.floor(m / 12);
       const currentYear = startYear + yearOffset;
+      if (currentYear > targetEndYear) {
+        break;
+      }
       const age = currentAge + (m / 12);
 
       // 1. Calculate values of Assets (with volatility)
@@ -1485,7 +1493,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
   let currentAssets = payload.assets.map(a => ({ ...a }));
   let cumInflation = 1.0;
   
-  const totalYears = payload.endYear - payload.startYear;
+  const targetEndYear = payload.targetEndYear ?? payload.endYear;
+  const totalYears = targetEndYear - payload.startYear;
   
   // Initialize Buckets 1, 2, and 3 abstract layers
   const use3Bucket = !!payload.threeBuckets || !!payload.budgetPhases?.some(p => p.cashBufferMultiplier !== undefined);
@@ -1525,6 +1534,9 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
   
   for (let step = 0; step <= totalYears; step++) {
     const currentYear = payload.startYear + step;
+    if (currentYear > targetEndYear) {
+      break;
+    }
     const currentAge = payload.currentAge + step;
 
     // --- Funded Ratio Calculation ---

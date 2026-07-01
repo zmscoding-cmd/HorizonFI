@@ -99,6 +99,7 @@ export type AssetModel = {
 export type SubScenario = {
   id: string;
   name: string;
+  targetEndYear: number;
   budget: {
     monthlyIncome: number;
     inflationRate: number;
@@ -106,7 +107,6 @@ export type SubScenario = {
     budgetPhases?: BudgetPhase[];
     residencyState?: string;
     currentAge?: number;
-    timelineDuration?: number;
     targetConstantMarketReturn?: number;
     maxRealWithdrawal?: number;
     upperGuardrailMultiplier?: number;
@@ -176,7 +176,7 @@ export type HistoricalDatapointType = {
 };
 
 const planSchema = {
-  version: 9,
+  version: 10,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -190,6 +190,7 @@ const planSchema = {
         properties: {
           id: { type: 'string' },
           name: { type: 'string' },
+          targetEndYear: { type: 'integer', minimum: 2026, maximum: 2150 },
           budget: { 
             type: 'object',
             properties: {
@@ -839,6 +840,25 @@ export async function getDatabase() {
                     phase.cashBufferMultiplier = phase.cashBufferMultiplier ?? 2.0;
                     return phase;
                   });
+                }
+                return sc;
+              });
+              return oldDoc;
+            },
+            10: function (oldDoc: any) {
+              const currentYear = new Date().getFullYear();
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                let startYear = currentYear;
+                if (sc.budget && sc.budget.budgetPhases && sc.budget.budgetPhases.length > 0) {
+                  const firstPhaseStart = Math.min(...sc.budget.budgetPhases.map((p: any) => p.startYear));
+                  if (!isNaN(firstPhaseStart)) {
+                    startYear = firstPhaseStart;
+                  }
+                }
+                const legacyDuration = sc.budget?.timelineDuration ?? 50;
+                sc.targetEndYear = startYear + legacyDuration;
+                if (sc.budget) {
+                  delete sc.budget.timelineDuration;
                 }
                 return sc;
               });

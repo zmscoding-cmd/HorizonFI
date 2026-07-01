@@ -488,4 +488,70 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
     expect(results[0].pvFutureLiabilities).toBeGreaterThan(0);
   });
 
+  // Test Case 17: Dynamic Target End Year and Termination Bounds
+  describe('Vector 17: Simulation Target End Year Halt Bounds', () => {
+    it('should strictly halt the multi-stage drawdown loop exactly at the specified targetEndYear', () => {
+      const payload: any = {
+        type: 'MULTI_STAGE_DRAWDOWN',
+        startYear: 2026,
+        targetEndYear: 2031, // Explicit end year
+        currentAge: 45,
+        assets: [
+          { id: 'ast1', value: 1000000, type: 'cash', assetType: 'CASH', expectedGrowthRate: 0.05, expectedDividendYield: 0.0 }
+        ],
+        stages: [
+          { id: 'stg1', fundingPriorities: [], startYearType: 'absolute', startAbsoluteYear: 2026 }
+        ],
+        milestones: [],
+        targetConstantMarketReturn: 0.05,
+        inflationRate: 0.02,
+        budgetPhases: [
+          { phaseId: 'p1', startYear: 2026, endYear: 2100, baselineAmount: 40000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }
+        ],
+        maxRealWithdrawal: 1000000,
+        liquidBufferYears: 0,
+        futureIncomeStreams: [],
+        futureLiabilities: [],
+        uprrDivestmentAnnualAmount: 0
+      };
+
+      const results = simulateMultiStageDrawdownWorker(payload);
+
+      // Verify start year is 2026 and last year is exactly 2031 (targetEndYear)
+      expect(results[0].year).toBe(2026);
+      expect(results[results.length - 1].year).toBe(2031);
+      expect(results).toHaveLength(6); // 2026, 2027, 2028, 2029, 2030, 2031
+    });
+
+    it('should strictly halt the probabilistic Monte Carlo net worth simulation loop exactly at the specified targetEndYear', () => {
+      const request: NetWorthSimRequest = {
+        type: 'COMPUTE_NET_WORTH',
+        userId: 'test_user_uid',
+        startYear: 2026,
+        endYear: 2031,
+        targetEndYear: 2031, // Explicit end year
+        currentAge: 45,
+        assets: [
+          { id: 'ast1', name: 'Cash', value: 1000000, type: 'cash', assetType: 'CASH', expectedGrowthRate: 0.05, expectedDividendYield: 0.0 }
+        ],
+        liabilities: [],
+        rrt1AmountAt67: 0,
+        rrt2AmountAt67: 0,
+        pensionAmountAt65: 0,
+        inflationRate: 0.02,
+        numPaths: 5
+      };
+
+      const results = simulateNetWorthProbabilistic(request);
+
+      // Verify that no data point exists for calendar years greater than 2031
+      results.forEach(dp => {
+        expect(dp.year).toBeLessThanOrEqual(2031);
+      });
+      // The last datapoint should correspond to the final year or month matching the targetEndYear limit
+      const lastDatapoint = results[results.length - 1];
+      expect(Math.floor(lastDatapoint.year)).toBe(2031);
+    });
+  });
+
 });
