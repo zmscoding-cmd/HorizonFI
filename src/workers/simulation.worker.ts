@@ -342,7 +342,8 @@ function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
       endYear: Number(p.endYear) || endYear,
       baselineAmount: Number(p.baselineAmount) || 0,
       applyLifestyleAdjustment: Boolean(p.applyLifestyleAdjustment),
-      lifestyleAdjustmentRate: Number(p.lifestyleAdjustmentRate) || 0
+      lifestyleAdjustmentRate: Number(p.lifestyleAdjustmentRate) || 0,
+      cashBufferMultiplier: p.cashBufferMultiplier !== undefined ? Number(p.cashBufferMultiplier) : 2.0
     })) : undefined,
     maxRealWithdrawal,
     liquidBufferYears,
@@ -600,6 +601,76 @@ export interface TaxEngineOutput {
 interface TaxBracket {
   limit: number;
   rate: number;
+}
+
+export interface OptimalTaxMovesResult {
+  maxRecommendedRothConversion: number;
+  maxRecommendedStockSale: number;
+  remainingOrdinaryCapacity: number;
+  remainingLtcgCapacity: number;
+}
+
+export function calculateOptimalTaxMoves(
+  currentOrdinaryIncome: number,
+  currentLTCG: number,
+  targetOrdinaryBracket: number,
+  targetLTCGBracket: number,
+  estimatedCostBasisPercentage: number
+): OptimalTaxMovesResult {
+  // Post-2026 TCJA Threshold Baselines (MFJ)
+  const STANDARD_DEDUCTION = 30000;
+  
+  // These represent the maximum gross ordinary income that keeps you within a specific bracket.
+  // Taxable limit + Standard Deduction.
+  const ordinaryGrossLimits: Record<number, number> = {
+    0.00: STANDARD_DEDUCTION,
+    0.10: STANDARD_DEDUCTION + 23200,
+    0.12: STANDARD_DEDUCTION + 94300,
+    0.22: STANDARD_DEDUCTION + 201050,
+    0.24: Infinity
+  };
+
+  const ltcgBrackets: TaxBracket[] = [
+    { limit: 98900, rate: 0.0 },
+    { limit: 613700, rate: 0.15 },
+    { limit: Infinity, rate: 0.20 }
+  ];
+
+  // 1. Calculate remaining capacity in targetOrdinaryBracket
+  const targetOrdinaryGrossLimit = ordinaryGrossLimits[targetOrdinaryBracket] || Infinity;
+  const remainingOrdinaryCapacity = Math.max(0, targetOrdinaryGrossLimit - currentOrdinaryIncome);
+  
+  // This exact capacity is the Maximum Recommended Roth Conversion
+  const maxRecommendedRothConversion = remainingOrdinaryCapacity;
+
+  // 2. Stack that simulated Roth conversion on top of currentOrdinaryIncome
+  const simulatedOrdinaryIncome = currentOrdinaryIncome + maxRecommendedRothConversion;
+  
+  // Calculate new baseline for Capital Gains (Taxable Ordinary Income)
+  const simulatedTaxableOrdinaryIncome = Math.max(0, simulatedOrdinaryIncome - STANDARD_DEDUCTION);
+
+  // 3. Calculate remaining capacity in targetLTCGBracket
+  // Find the limit for the requested LTCG bracket
+  const targetLtcgBracketLimit = ltcgBrackets.find(b => b.rate === targetLTCGBracket)?.limit || Infinity;
+  
+  // LTCG stacks on top of Taxable Ordinary Income
+  const combinedTaxableIncome = simulatedTaxableOrdinaryIncome + currentLTCG;
+  const remainingLtcgCapacity = Math.max(0, targetLtcgBracketLimit - combinedTaxableIncome);
+
+  // 4. Calculate Max Stock Sale using estimatedCostBasisPercentage
+  // Ensure we use a value between 0 and 100 for cost basis
+  const safeCostBasisPct = Math.max(0, Math.min(100, estimatedCostBasisPercentage));
+  const gainsRatio = Math.max(0, Math.min(1, 1.0 - (safeCostBasisPct / 100)));
+  
+  // Max Stock Sale = Remaining LTCG Capacity / (1 - Cost Basis Percentage)
+  const maxRecommendedStockSale = gainsRatio > 0 ? remainingLtcgCapacity / gainsRatio : Infinity;
+
+  return {
+    maxRecommendedRothConversion,
+    maxRecommendedStockSale,
+    remainingOrdinaryCapacity,
+    remainingLtcgCapacity
+  };
 }
 
 export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
@@ -1371,6 +1442,8 @@ export type MultiStageYearlySnapshot = {
   targetBudgetReal?: number;
   cumulativeInflation?: number;
   lifestyleShrinking?: boolean;
+  lifestyleGrowing?: boolean;
+  lifestyleFlat?: boolean;
   bucket1Balance?: number;
   bucket1BalanceReal?: number;
   bucket2Balance?: number;
@@ -1422,8 +1495,9 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
   
   if (use3Bucket && payload.stages && payload.stages.length > 0) {
     const totalAssets = currentAssets.reduce((sum, a) => sum + a.value, 0);
-    const initialTargetBudget = payload.budgetPhases?.[0]?.baselineAmount || 0;
-    const b1Target = initialTargetBudget * (payload.threeBuckets!.bucket1LiquiditySecuredYears || 2);
+    const initialActivePhase = payload.budgetPhases?.find(p => payload.startYear >= p.startYear && payload.startYear <= p.endYear) || payload.budgetPhases?.[0];
+    const initialTargetBudget = initialActivePhase?.baselineAmount || 0;
+    const b1Target = initialTargetBudget * (initialActivePhase?.cashBufferMultiplier ?? payload.threeBuckets!.bucket1LiquiditySecuredYears ?? 2.0);
     const b2Target = initialTargetBudget * (payload.threeBuckets!.bucket2IncomeSecuredYears || 5);
     
     bucket1Balance = Math.min(totalAssets, b1Target);
@@ -1574,6 +1648,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     // 2. Budget adjustment
     let stageTargetBudgetNominal = 0;
     let lifestyleShrinking = false;
+    let lifestyleGrowing = false;
+    let lifestyleFlat = false;
     
     const activePhase = payload.budgetPhases?.find(p => currentYear >= p.startYear && currentYear <= p.endYear) || payload.budgetPhases?.[0];
     
@@ -1587,13 +1663,19 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
         lsAdjustmentCum = Math.pow(1 + lsRate, phaseYears);
         if (lsRate < 0) {
           lifestyleShrinking = true;
+        } else if (lsRate > 0) {
+          lifestyleGrowing = true;
+        } else {
+          lifestyleFlat = true;
         }
       } else {
         lsAdjustmentCum = 1.0;
+        lifestyleFlat = true;
       }
       stageTargetBudgetNominal = activePhase.baselineAmount * cumInflation * lsAdjustmentCum;
     } else {
       stageTargetBudgetNominal = 0;
+      lifestyleFlat = true;
     }
     
     // 3. UPRR Divestment Logic (Convert concentrated UPRR into SCHD ETF)
@@ -1896,10 +1978,24 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
        }
        
        // Refill Buckets based on Target Configuration
-       const b1TargetMultiplier = payload.threeBuckets.bucket1LiquiditySecuredYears || 2;
+       const b1TargetMultiplier = activePhase?.cashBufferMultiplier ?? payload.threeBuckets.bucket1LiquiditySecuredYears ?? 2.0;
        const b2TargetMultiplier = payload.threeBuckets.bucket2IncomeSecuredYears || 5;
        const b1Target = stageTargetBudgetNominal * b1TargetMultiplier;
        const b2Target = stageTargetBudgetNominal * b2TargetMultiplier;
+       
+       // Handle drop in Cash Buffer Target: reallocate excess to Bucket 2/3
+       if (bucket1Balance > b1Target) {
+          const excess = bucket1Balance - b1Target;
+          bucket1Balance -= excess;
+          if (bucket2Balance < b2Target) {
+             const b2Shortfall = b2Target - bucket2Balance;
+             const toBucket2 = Math.min(excess, b2Shortfall);
+             bucket2Balance += toBucket2;
+             bucket3Balance += (excess - toBucket2);
+          } else {
+             bucket3Balance += excess;
+          }
+       }
        
        // Refill Bucket 1 from Bucket 2
        if (bucket1Balance < b1Target) {
@@ -1960,6 +2056,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       targetBudgetReal: stageTargetBudgetNominal / cumInflation,
       cumulativeInflation: cumInflation,
       lifestyleShrinking,
+      lifestyleGrowing,
+      lifestyleFlat,
       bucket1Balance,
       bucket1BalanceReal: bucket1Balance / cumInflation,
       bucket2Balance,

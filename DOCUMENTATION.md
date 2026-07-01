@@ -85,8 +85,9 @@ The **Global Discount Rate** (configured in your active scenario settings, defau
     *   *Lower Discount Rate (Conservative):* Assumes a lower real rate of growth. This increases the present value of future liabilities, lowering your Funded Ratio and demanding a more substantial current asset buffer to ensure long-term retirement safety.
 
 ### Step 4: Calibrate the Liquid Cash Buffer
-Specify your desired **Cash Buffer Duration** inside the active sidebar (default is *2 to 3 years*).
+Specify your desired **Cash Buffer Multiplier (Years)** on a per-phase basis in the Budget Phase configuration forms.
 *   **How it protects you:** Early retirement is exposed to severe **Sequence-of-Returns Risk** (the risk of a market crash occurring in the first few years of retirement). By keeping 24 to 36 months of living expenses in cash or cash-equivalents, HorizonFI automatically bypasses selling equities at depressed prices during market downturns, drawing down the cash bucket instead.
+*   **Dynamic Phase Transitions:** When transitioning from a phase with a high cash buffer (e.g., 3.0 years) to a lower one (e.g., 1.0 years), HorizonFI automatically reallocates the excess cash to other asset buckets, maximizing yield while protecting short-term cash flow needs.
 
 ---
 
@@ -374,6 +375,50 @@ To determine this exact figure, the Web Worker executes a **multi-variable numer
 
 ---
 
+### 7.1 Interactive Tax Bracket Optimization Suite & Safe Capacities
+
+To empower early retirees to confidently navigate tax bracket boundaries, HorizonFI features an interactive **Tax Bracket Optimization Suite**. This tool visually maps your current income stack against progressive tax thresholds and runs a real-time, zero-latency optimization algorithm to calculate safe Roth conversions and taxable capital gain limits.
+
+```
+       ┌────────────────────────────────────────────────────────┐
+       │ Safe Taxable Stock Sale Capacity                       │ ◄─── Driven by LTCG Bracket limit
+       │ Derived as: Remaining LTCG Capacity / (1 - Cost Basis%)│
+       ├────────────────────────────────────────────────────────┤
+       │ Max Recommended Roth Conversion                        │ ◄─── Driven by Ordinary Bracket limit
+       │ Fills the remainder of your target Ordinary Bracket     │
+       └────────────────────────────────────────────────────────┘
+```
+
+#### 1. Interactive Stacking Parameters
+The suite exposes three user-configurable variables that directly drive the real-time background optimization:
+*   **Target Ordinary Bracket:** Allows you to set a threshold (e.g., Standard Deduction, 10%, 12%, or 22%) to limit your recommended ordinary income.
+*   **Target LTCG Bracket:** Sets your preferred maximum long-term capital gains tax rate threshold (typically 0% for early retirement, or 15% / 20%).
+*   **Taxable Account Cost Basis Percentage:** A slider from 0% to 100% reflecting the ratio of principal to gains in your taxable portfolio. A higher cost basis (e.g., 75%) indicates that only 25% of any stock sale will trigger taxable capital gains, significantly expanding your safe liquidations.
+
+#### 2. Optimization Algorithm & Mathematical Derivations
+The optimization suite executes a dual-layer calculation flow:
+*   **Layer 1: Roth Conversion Headroom:**
+    $$\text{Remaining Ordinary Capacity} = \max(0, \text{Target Ordinary Gross Limit} - \text{Gross Ordinary Income})$$
+    $$\text{Max Recommended Roth Conversion} = \text{Remaining Ordinary Capacity}$$
+    *This represents the exact dollar capacity left in your target ordinary bracket before any income spills over into the next tax tier.*
+*   **Layer 2: Safe Stock Sale Headroom:**
+    We stack the simulated maximum Roth conversion on top of your existing ordinary income to establish a new, simulated baseline taxable ordinary income:
+    $$\text{Simulated Taxable Ordinary Income} = \max(0, (\text{Gross Ordinary Income} + \text{Max Roth Conversion}) - \$30,000)$$
+    Next, we calculate the remaining capacity within your target LTCG bracket:
+    $$\text{Remaining LTCG Capacity} = \max(0, \text{Target LTCG Taxable Limit} - (\text{Simulated Taxable Ordinary Income} + \text{Current LTCG Gains}))$$
+    Finally, using your estimated cost basis percentage, we compute the maximum gross stock sale amount that will yield exactly that capital gain:
+    $$\text{Gains Ratio} = 1.0 - \text{Cost Basis Percentage}$$
+    $$\text{Max Recommended Stock Sale} = \frac{\text{Remaining LTCG Capacity}}{\text{Gains Ratio}}$$
+    *If your cost basis is 100%, the Gains Ratio is 0, indicating that stock sales consist entirely of return-of-principal and trigger zero tax. The engine safely returns "Unlimited" capacity.*
+
+#### 3. Stacking Sequence Visualization
+The companion Recharts visualization renders a high-contrast stacked horizontal bar detailing how your active cash flow layers fit together:
+*   **Standard Deduction (Gray Base):** The first $30,000 of ordinary income, completely tax-sheltered.
+*   **Taxable Ordinary Income (Blue Middle):** The taxable portion of ordinary withdrawals and strategic Roth conversions.
+*   **Capital Gains & Dividends (Green Top):** Stacked on top of ordinary income, showing if and when gains cross the statutory 0% LTCG boundary ($128,900 gross, which is $98,900 taxable + $30,000 standard deduction).
+
+---
+
 ## 8. Dynamic Multi-Stage Integration
 
 To accurately model complex timeline shifts, HorizonFI supports **Dynamic Temporal Logic** within the Multi-Stage Configurator. You no longer need to rely on static absolute calendar years to structure your phase transitions.
@@ -392,5 +437,35 @@ Instead of hardcoding a stage to start in "2035", you can toggle the stage bound
 In early retirement, certain phases may benefit from external income (like a part-time consulting gig or family gift), while other phases rely 100% on portfolio drawdowns. HorizonFI now allows you to funnel external income explicitly at the **Stage Level**:
 *   **Include Global Income Streams:** Toggling this flag forces the simulation engine to absorb any active Social Security, pensions, or other fixed income streams and apply them directly against that specific stage's target budget, mathematically reducing the drawdown demand against your core asset buckets.
 *   **Include Auxiliary Tax-Free Income:** Toggling this flag allows you to funnel tax-free capital (like scheduled inheritance or family gifts) into a specific phase. The engine safely deducts this exact amount from the required portfolio withdrawal without triggering any income tax drag gross-up, preserving your capital efficiency.
+
+---
+
+## 9. Strategic Guide: Phase-Based Cash Buffers
+
+In standard retirement planning, retirees are often advised to maintain a static cash buffer (e.g., 2 years of expenses) across their entire retirement horizon. While simple, this static approach creates a severe **cash drag** on the portfolio during the later, more stable years of retirement and fails to address the highly front-loaded nature of risk in early retirement.
+
+HorizonFI introduces **Phase-Based Cash Buffers**, a mathematically rigorous framework allowing early retirees to calibrate their liquid cash reserve (Bucket 1) dynamically across different phases of their retirement life cycle.
+
+### 1. The Strategic Value for Early Retirees
+
+*   **Mitigating Sequence-of-Returns Risk (SRR):** 
+    Sequence-of-Returns Risk is highest during the first 5 to 10 years of retirement (the "Go-Go" years), when portfolio drawdowns are large, and any market crash can permanently impair the compounding path of your assets. By setting a high cash buffer multiplier (e.g., 3.0× annual budget) during your initial phases, you establish a resilient liquid shield. If a market downturn occurs, HorizonFI draws down from this pre-funded cash bucket rather than forcing you to sell equities (Bucket 3) at depressed prices.
+    
+*   **Improving Capital Efficiency in Later Years:**
+    As you age and transition into more stable, low-spend phases (e.g., "Slow-Go" or "No-Go" phases) or begin receiving fixed pension/Social Security income, your vulnerability to SRR drops dramatically. Keeping a large cash buffer in these later phases introduces unnecessary opportunity cost, dragging down overall portfolio yield. By stepping down the cash buffer multiplier (e.g., to 1.0× or 0.5×), you dynamically redeploy capital back into yield-producing growth assets, maximizing long-term wealth velocity.
+
+### 2. The Dynamic Reallocation Mathematics
+
+When your simulation transitions from a high-multiplier phase to a low-multiplier phase, HorizonFI does not allow the "discarded" cash buffer to simply vanish. The background simulation worker handles the transition with strict mathematical preservation:
+
+$$\text{Target Cash Buffer (Bucket 1)} = \text{Active Target Budget} \times \text{Phase Cash Buffer Multiplier}$$
+
+1.  **Detecting the Drop:** Upon stepping into a new budget phase, the engine calculates the new `b1Target`. If the existing `bucket1Balance` exceeds this new target, an `excess` amount is declared:
+    $$\text{Excess Cash} = \max(0, \text{bucket1Balance} - \text{New b1Target})$$
+2.  **Surgical Reinvestment Flow:** This excess cash is immediately reallocated to downstream buckets:
+    *   **Fill Bucket 2 Shortfall:** The excess is first funneled into Bucket 2 (Fixed Income) up to its designated target configuration (`b2Target`).
+    *   **Overflow to Bucket 3:** Any remaining excess after fully refilling Bucket 2 is automatically swept into Bucket 3 (Growth Assets), where it is immediately exposed to market returns and compound growth.
+3.  **Halted Harvesting Guardrails:** During negative market years, the refilling of Bucket 1 and Bucket 2 from Bucket 3 is strictly frozen (halted). The system relies purely on the existing liquid reserves, preserving equity assets from liquidation during a crash.
+
 
 

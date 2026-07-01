@@ -78,6 +78,7 @@ export type BudgetPhase = {
   baselineAmount: number;
   applyLifestyleAdjustment: boolean;
   lifestyleAdjustmentRate: number;
+  cashBufferMultiplier?: number;
 };
 
 export type AssetModel = {
@@ -127,6 +128,9 @@ export type SubScenario = {
   futureLiabilities?: FutureLiability[];
   nonTaxableGifts?: NonTaxableType[];
   threeBuckets?: ThreeBucketConfig; // Added for 3-Bucket Strategy support
+  targetOrdinaryBracket?: number;
+  targetLTCGBracket?: number;
+  taxableAccountCostBasisPct?: number;
 };
 
 export type PlanType = {
@@ -172,7 +176,7 @@ export type HistoricalDatapointType = {
 };
 
 const planSchema = {
-  version: 7,
+  version: 9,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -199,7 +203,8 @@ const planSchema = {
                     endYear: { type: 'number' },
                     baselineAmount: { type: 'number' },
                     applyLifestyleAdjustment: { type: 'boolean' },
-                    lifestyleAdjustmentRate: { type: 'number' }
+                    lifestyleAdjustmentRate: { type: 'number' },
+                    cashBufferMultiplier: { type: 'number', default: 2.0 }
                   },
                   required: ['phaseId', 'startYear', 'endYear', 'baselineAmount', 'applyLifestyleAdjustment', 'lifestyleAdjustmentRate']
                 }
@@ -321,7 +326,10 @@ const planSchema = {
               rebalancingThresholdPercent: { type: 'number', minimum: 0, maximum: 100 }
             },
             required: ['bucket1LiquiditySecuredYears', 'bucket2IncomeSecuredYears', 'bucket3GrowthRemainingYears', 'rebalancingTriggerType']
-          }
+          },
+          targetOrdinaryBracket: { type: 'number', default: 0.12 },
+          targetLTCGBracket: { type: 'number', default: 0.0 },
+          taxableAccountCostBasisPct: { type: 'number', default: 0.75 }
         }
       }
     },
@@ -809,6 +817,27 @@ export async function getDatabase() {
                     const migratedStage = { ...stage };
                     delete migratedStage.targetAnnualBudget;
                     return migratedStage;
+                  });
+                }
+                return sc;
+              });
+              return oldDoc;
+            },
+            8: function (oldDoc: any) {
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                sc.targetOrdinaryBracket = sc.targetOrdinaryBracket ?? 0.12;
+                sc.targetLTCGBracket = sc.targetLTCGBracket ?? 0.0;
+                sc.taxableAccountCostBasisPct = sc.taxableAccountCostBasisPct ?? 0.75;
+                return sc;
+              });
+              return oldDoc;
+            },
+            9: function (oldDoc: any) {
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                if (sc.budget && sc.budget.budgetPhases) {
+                  sc.budget.budgetPhases = sc.budget.budgetPhases.map((phase: any) => {
+                    phase.cashBufferMultiplier = phase.cashBufferMultiplier ?? 2.0;
+                    return phase;
                   });
                 }
                 return sc;

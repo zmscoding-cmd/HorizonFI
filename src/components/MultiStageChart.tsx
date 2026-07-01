@@ -21,24 +21,51 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
   const transitionYears = [];
   let currentStageId = data[0]?.activeStageId;
   
-  const chartData = data.map((d) => {
+  const rawChartData = data.map((d) => {
     const divisor = isCurrent ? (d.cumulativeInflation || 1) : 1;
     const budgetVal = isCurrent ? (d.targetBudgetReal || (d.targetBudgetNominal / divisor)) : d.targetBudgetNominal;
     
     const startAssets = (d.endingBalance || 0) - (d.changeInNetWorth || 0);
     const withdrawalRate = startAssets > 0 ? ((d.nominalWithdrawal || 0) / startAssets) * 100 : 0;
 
+    // Real-term trend classification (growth from inflation is factored out)
+    const isShrinking = !!d.lifestyleShrinking;
+    const isGrowing = d.lifestyleGrowing !== undefined ? !!d.lifestyleGrowing : false;
+    const isFlat = d.lifestyleFlat !== undefined ? !!d.lifestyleFlat : !isShrinking;
+
     return {
       ...d,
+      divisor,
+      budgetVal,
+      isShrinking,
+      isGrowing,
+      isFlat,
+      chartWithdrawal: (d.nominalWithdrawal || 0) / divisor,
+      chartStartAssets: startAssets / divisor,
       giftAmountUsed: (d.giftAmountUsed || 0) / divisor,
       pensionIncome: (d.pensionIncome || 0) / divisor,
       rrbIncome: (d.rrbIncome || 0) / divisor,
       withdrawnDividends: (d.withdrawnDividends || 0) / divisor,
       withdrawnTaxable: (d.withdrawnTaxable || 0) / divisor,
       withdrawnTaxAdvantaged: (d.withdrawnTaxAdvantaged || 0) / divisor,
-      targetBudgetGrowing: d.lifestyleShrinking ? null : budgetVal,
-      targetBudgetShrinking: d.lifestyleShrinking ? budgetVal : null,
       withdrawalRate: Math.max(0, Math.min(100, withdrawalRate)),
+    };
+  });
+
+  const chartData = rawChartData.map((d, idx) => {
+    const prev = idx > 0 ? rawChartData[idx - 1] : null;
+    const next = idx < rawChartData.length - 1 ? rawChartData[idx + 1] : null;
+
+    // Overlap transitional boundary points by 1 year to connect stepped lines flawlessly
+    const showGrowing = d.isGrowing || (prev && prev.isGrowing) || (next && next.isGrowing);
+    const showShrinking = d.isShrinking || (prev && prev.isShrinking) || (next && next.isShrinking);
+    const showFlat = d.isFlat || (prev && prev.isFlat) || (next && next.isFlat);
+
+    return {
+      ...d,
+      targetBudgetGrowing: showGrowing ? d.budgetVal : null,
+      targetBudgetShrinking: showShrinking ? d.budgetVal : null,
+      targetBudgetFlat: showFlat ? d.budgetVal : null,
     };
   });
 
@@ -92,28 +119,94 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
             tickFormatter={(val) => `${val.toFixed(1)}%`} 
           />
           <Tooltip 
-             contentStyle={{ 
-               borderRadius: '16px', 
-               border: `1px solid ${tooltipBorder}`, 
-               backgroundColor: tooltipBg,
-               color: tooltipTextColor,
-               fontSize: '12px',
-               boxShadow: isDark ? '0 10px 15px -3px rgba(0, 0, 0, 0.45)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
-             }}
-             itemStyle={{ color: tooltipTextColor }}
-             labelStyle={{ color: textFill }}
-             formatter={(value: any, name: any) => {
-               if (name && name.toLowerCase().includes('rate')) {
-                 return [`${Number(value).toFixed(2)}%`, name];
+             content={({ active, payload, label }: any) => {
+               if (active && payload && payload.length) {
+                 const step = payload[0]?.payload;
+                 const activeStg = stages.find(s => s.id === step?.activeStageId);
+                 const suffix = isCurrent ? ' (Today\'s Value)' : ' (Nominal Future)';
+                 const title = `Year: ${label} (Age ${step?.age}) - ${activeStg?.name || 'Default Stage'}${suffix}`;
+
+                 // Format utility
+                 const formatValue = (value: any, name: any) => {
+                   if (name && name.toLowerCase().includes('rate')) {
+                     return `${Number(value).toFixed(2)}%`;
+                   }
+                   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(value));
+                 };
+
+                 // Filter and sort items so "Portfolio Withdrawal Rate" is at the top
+                 const validPayload = payload.filter((p: any) => p.value !== null && p.value !== undefined);
+                 const sortedPayload = [...validPayload].sort((a, b) => {
+                   if (a.name === "Portfolio Withdrawal Rate") return -1;
+                   if (b.name === "Portfolio Withdrawal Rate") return 1;
+                   return 0;
+                 });
+
+                 return (
+                   <div 
+                     className="p-3.5 rounded-2xl border shadow-xl transition-colors"
+                     style={{
+                       borderColor: tooltipBorder,
+                       backgroundColor: tooltipBg,
+                       color: tooltipTextColor,
+                       fontSize: '12px',
+                     }}
+                   >
+                     <p className="font-semibold mb-2.5" style={{ color: textFill }}>{title}</p>
+                     <ul className="space-y-1.5">
+                       {sortedPayload.map((entry, index) => {
+                         const isPWR = entry.name === "Portfolio Withdrawal Rate";
+                         return (
+                           <li 
+                             key={`item-${index}`} 
+                             className={`flex flex-col ${isPWR ? 'pb-2.5 mb-2.5 border-b' : ''}`}
+                             style={{ 
+                               borderColor: isPWR ? tooltipBorder : 'transparent'
+                             }}
+                           >
+                             <div className="flex items-center justify-between gap-6 w-full">
+                               <div className="flex items-center gap-2">
+                                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                                 <span className={isPWR ? 'font-bold' : ''}>{entry.name}</span>
+                               </div>
+                               <span className="font-mono">
+                                 {formatValue(entry.value, entry.name)}
+                                </span>
+                             </div>
+                             {isPWR && step && (
+                               <div className="mt-1.5 text-[10px] text-zinc-400 dark:text-zinc-500 leading-normal font-normal">
+                                 <div className="font-mono bg-zinc-50/50 dark:bg-zinc-950/40 p-2 rounded-lg border border-zinc-150 dark:border-zinc-850/60 space-y-1">
+                                   <div className="flex justify-between gap-4">
+                                     <span>Portfolio Withdrawal:</span>
+                                     <span className="text-zinc-850 dark:text-zinc-350 font-bold">
+                                       {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(step.chartWithdrawal || 0)}
+                                     </span>
+                                   </div>
+                                   <div className="flex justify-between gap-4 pb-1 border-b border-dashed border-zinc-200 dark:border-zinc-800">
+                                     <span>Starting Portfolio Assets:</span>
+                                     <span className="text-zinc-850 dark:text-zinc-350 font-bold">
+                                       {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(step.chartStartAssets || 0)}
+                                     </span>
+                                   </div>
+                                   <div className="pt-1">
+                                     <div className="text-[9px] text-zinc-455 dark:text-zinc-500">
+                                       Formula: (Withdrawal / Starting Assets) × 100
+                                     </div>
+                                     <div className="text-pink-600 dark:text-pink-400 font-bold text-right mt-0.5">
+                                       ({new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(step.chartWithdrawal || 0)} / {new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(step.chartStartAssets || 0)}) × 100 = {Number(entry.value).toFixed(2)}%
+                                     </div>
+                                   </div>
+                                 </div>
+                               </div>
+                             )}
+                           </li>
+                         );
+                       })}
+                     </ul>
+                   </div>
+                 );
                }
-               const formattedVal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(value));
-               return [formattedVal, name];
-             }}
-             labelFormatter={(label, payload) => {
-                const step = payload?.[0]?.payload;
-                const activeStg = stages.find(s => s.id === step?.activeStageId);
-                const suffix = isCurrent ? ' (Today\'s Value)' : ' (Nominal Future)';
-                return `Year: ${label} (Age ${step?.age}) - ${activeStg?.name || 'Default Stage'}${suffix}`;
+               return null;
              }}
           />
           <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px', color: textFill }} />
@@ -134,10 +227,19 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
             yAxisId="left"
             type="stepAfter" 
             dataKey="targetBudgetGrowing" 
-            name={`Target Budget (Growing/Flat)${isCurrent ? ' - Real' : ' - Nominal'}`} 
+            name={`Target Budget (Increasing)${isCurrent ? ' - Real' : ' - Nominal'}`} 
             stroke="#10b981" 
-            strokeWidth={3}
-            strokeDasharray="4 4"
+            strokeWidth={4.5}
+            dot={false}
+            connectNulls={false}
+          />
+          <Line 
+            yAxisId="left"
+            type="stepAfter" 
+            dataKey="targetBudgetFlat" 
+            name={`Target Budget (Flat)${isCurrent ? ' - Real' : ' - Nominal'}`} 
+            stroke={isDark ? '#e2e8f0' : '#475569'} 
+            strokeWidth={4.5}
             dot={false}
             connectNulls={false}
           />
@@ -145,10 +247,9 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
             yAxisId="left"
             type="stepAfter" 
             dataKey="targetBudgetShrinking" 
-            name={`Target Budget (Shrinking)${isCurrent ? ' - Real' : ' - Nominal'}`} 
+            name={`Target Budget (Decreasing)${isCurrent ? ' - Real' : ' - Nominal'}`} 
             stroke="#ef4444" 
-            strokeWidth={3}
-            strokeDasharray="4 4"
+            strokeWidth={4.5}
             dot={false}
             connectNulls={false}
           />

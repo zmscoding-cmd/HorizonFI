@@ -3,6 +3,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { useTheme } from './ThemeProvider';
 import { AlertTriangle, Percent, DollarSign } from 'lucide-react';
 import { evaluateMultiBucketTax } from '../workers/simulation.worker';
+import TaxStackVisualizer from './TaxStackVisualizer';
 
 export default function FundingAllocation({ plan, activeScenario, db, userId, handleRunSimulation }: any) {
   const { theme } = useTheme();
@@ -439,28 +440,96 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
           </div>
           
           {/* Validation Banner */}
-          <div className={`p-4 mt-6 rounded-xl flex items-center justify-between border ${!isValid ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/40' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/40'}`}>
-            <div className="flex items-center gap-3">
-              {!isValid ? (
-                <AlertTriangle className="text-red-500" size={20} />
+          <div className={`p-4 mt-6 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border ${
+            allocationMode === 'PERCENTAGE'
+              ? (currentTotal !== 100 ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/40' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/40')
+              : (currentTotal !== targetNetExpense ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/40' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/40')
+          }`}>
+            <div className="flex items-start sm:items-center gap-3">
+              {allocationMode === 'PERCENTAGE' ? (
+                currentTotal !== 100 ? (
+                  <AlertTriangle className="text-red-500 shrink-0 mt-0.5 sm:mt-0" size={20} />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  </div>
+                )
               ) : (
-                <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                </div>
+                currentTotal !== targetNetExpense ? (
+                  <AlertTriangle className="text-amber-500 shrink-0 mt-0.5 sm:mt-0" size={20} />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  </div>
+                )
               )}
               <div>
-                <p className={`text-xs font-bold ${!isValid ? 'text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                <p className={`text-xs font-bold ${
+                  allocationMode === 'PERCENTAGE'
+                    ? (currentTotal !== 100 ? 'text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400')
+                    : (currentTotal !== targetNetExpense ? 'text-amber-700 dark:text-amber-400' : 'text-blue-700 dark:text-blue-400')
+                }`}>
                   {allocationMode === 'PERCENTAGE' ? 'Verification Target: 100%' : `Verification Target: $${targetNetExpense.toLocaleString()} Net`}
                 </p>
-                <p className={`text-[10px] uppercase tracking-wider font-bold mt-0.5 ${!isValid ? 'text-red-500 dark:text-red-500/70' : 'text-blue-500 dark:text-blue-500/70'}`}>
-                  {allocationMode === 'PERCENTAGE' 
-                    ? `Current Total: ${currentTotal}%` 
-                    : `Current Assigned Targets: $${currentTotal.toLocaleString()}`}
-                </p>
+                <div className="space-y-1 mt-1">
+                  <p className={`text-[10px] uppercase tracking-wider font-bold ${
+                    allocationMode === 'PERCENTAGE'
+                      ? (currentTotal !== 100 ? 'text-red-500 dark:text-red-500/70' : 'text-blue-500 dark:text-blue-500/70')
+                      : (currentTotal !== targetNetExpense ? 'text-amber-500 dark:text-amber-500/70' : 'text-blue-500 dark:text-blue-500/70')
+                  }`}>
+                    {allocationMode === 'PERCENTAGE' 
+                      ? `Current Total: ${currentTotal}%` 
+                      : `Current Assigned Targets: $${currentTotal.toLocaleString()}`}
+                  </p>
+                  {allocationMode === 'DOLLARS' && (
+                    <p className={`text-xs font-semibold ${currentTotal === targetNetExpense ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-amber-600 dark:text-amber-400'}`}>
+                      {currentTotal < targetNetExpense ? (
+                        <>
+                          <span className="font-bold text-amber-700 dark:text-amber-400">Not Yet Assigned: </span>
+                          <span className="font-mono bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 rounded text-amber-850 dark:text-amber-300 font-bold">
+                            ${(targetNetExpense - currentTotal).toLocaleString()}
+                          </span>
+                          <span className="text-[11px] ml-1.5 text-zinc-500 dark:text-zinc-450 font-normal">needed to reach verification target</span>
+                        </>
+                      ) : currentTotal > targetNetExpense ? (
+                        <>
+                          <span className="font-bold text-red-700 dark:text-red-400">Overassigned By: </span>
+                          <span className="font-mono bg-red-100 dark:bg-red-950/40 px-1.5 py-0.5 rounded text-red-850 dark:text-red-300 font-bold">
+                            ${(currentTotal - targetNetExpense).toLocaleString()}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-blue-600 dark:text-blue-400 font-bold">✓ Perfectly allocated to targets!</span>
+                      )}
+                    </p>
+                  )}
+                  {allocationMode === 'PERCENTAGE' && currentTotal !== 100 && (
+                    <p className="text-xs font-semibold text-red-600 dark:text-red-400">
+                      {currentTotal < 100 ? (
+                        <>
+                          <span className="font-bold text-red-700 dark:text-red-400">Remaining: </span>
+                          <span className="font-mono bg-red-100 dark:bg-red-950/40 px-1.5 py-0.5 rounded text-red-850 dark:text-red-300 font-bold">
+                            {(100 - currentTotal).toFixed(1)}%
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-bold text-red-700 dark:text-red-400">Over: </span>
+                          <span className="font-mono bg-red-100 dark:bg-red-950/40 px-1.5 py-0.5 rounded text-red-850 dark:text-red-300 font-bold">
+                            {(currentTotal - 100).toFixed(1)}%
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-            {!isValid && allocationMode === 'PERCENTAGE' && (
-               <span className="text-xs font-semibold text-red-600 dark:text-red-400">Fix required</span>
+            {allocationMode === 'PERCENTAGE' && currentTotal !== 100 && (
+               <span className="text-xs font-bold text-red-600 dark:text-red-400 shrink-0 self-end sm:self-center bg-red-100/50 dark:bg-red-950/40 px-2 py-1 rounded-md">100% required</span>
+            )}
+            {allocationMode === 'DOLLARS' && currentTotal !== targetNetExpense && (
+               <span className="text-xs font-bold text-amber-600 dark:text-amber-400 shrink-0 self-end sm:self-center bg-amber-100/50 dark:bg-amber-950/40 px-2 py-1 rounded-md">Target mismatch</span>
             )}
           </div>
 
@@ -754,6 +823,15 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
               </ul>
             </div>
           </div>
+
+          <TaxStackVisualizer 
+            plan={plan} 
+            activeScenario={activeScenario} 
+            db={db} 
+            grossOrdinaryIncome={grossOrdinaryIncome}
+            totalLtcgGains={ltcgBracketInfo.totalLtcgGains}
+            blendedCostBasisPercentage={basis}
+          />
 
           {/* Tax Bracket Headroom Section */}
           <div className="mt-5 p-4 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-900/30 text-sm">

@@ -331,6 +331,72 @@ describe('Web Worker - Phased Budget Implementation', () => {
     expect(results[1].targetBudgetNominal).toBeCloseTo(103000, 0);
     expect(results[1].lifestyleShrinking).toBe(false);
   });
+
+  it('VAL_PHASE_CASH_BUFFER_REALLOCATION: should handle drop in cash target on phase transition from Year 5 to 6 without losing assets', () => {
+    // Year 1 (2026) to Year 5 (2030): Phase 1 (Multiplier 3.0, Budget $100k) -> target b1Target should be $300k
+    // Year 6 (2031) onwards: Phase 2 (Multiplier 1.0, Budget $80k) -> target b1Target should be $80k
+    // Starting total asset = $1,000,000. No market growth or inflation. No taxes. No other expenses.
+    // Ensure that B1 target drops correctly from $300k to $80k, and the $220k excess from B1 is transferred to B2 or B3 (not lost/vanished)
+    const payload: any = {
+      type: 'MULTI_STAGE_DRAWDOWN',
+      startYear: 2026,
+      endYear: 2031, // Year 1 to 6 (6 years: 2026, 2027, 2028, 2029, 2030, 2031)
+      currentAge: 60,
+      assets: [
+        { id: 'ast1', value: 1000000, type: 'cash', growthRate: 0.0 }
+      ],
+      stages: [
+        { id: 'stg1', fundingPriorities: [] }
+      ],
+      targetConstantMarketReturn: 0.0, 
+      inflationRate: 0.0,
+      budgetPhases: [
+        { phaseId: 'p1', startYear: 2026, endYear: 2030, baselineAmount: 100000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0.0, cashBufferMultiplier: 3.0 },
+        { phaseId: 'p2', startYear: 2031, endYear: 2100, baselineAmount: 80000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0.0, cashBufferMultiplier: 1.0 }
+      ],
+      maxRealWithdrawal: 1000000,
+      liquidBufferYears: 0,
+      milestones: [],
+      futureIncomeStreams: [],
+      futureLiabilities: [],
+      nonTaxableGifts: [],
+      threeBuckets: {
+        bucket1LiquiditySecuredYears: 3.0,
+        bucket2IncomeSecuredYears: 5.0,
+        bucket3GrowthRemainingYears: 25.0,
+        rebalancingTriggerType: 'Chronological'
+      }
+    };
+
+    const results = simulateMultiStageDrawdownWorker(payload);
+    expect(results).toHaveLength(6);
+
+    // Verify Year 5 (2030, index 4):
+    const y5 = results[4];
+    expect(y5.year).toBe(2030);
+    // Budget is 100,000. Multiplier is 3.0. B1 Target = $300,000.
+    expect(y5.bucket1Balance).toBe(300000);
+
+    // Verify Year 6 (2031, index 5):
+    const y6 = results[5];
+    expect(y6.year).toBe(2031);
+    // Budget drops to 80,000. Multiplier is 1.0. B1 Target = $80,000.
+    expect(y6.bucket1Balance).toBe(80000);
+
+    // Ensure the total assets are mathematically accounted for:
+    // Starting Year 5 assets: $1M initially, minus $100k withdrawal for year 1, $100k for year 2, $100k for year 3, $100k for year 4.
+    // So start of Year 5 assets is $600k. Year 5 withdrawal is $100k. Total end of Year 5 assets should be $500k.
+    expect(y5.endingBalance).toBeCloseTo(500000, 0);
+    // At end of Year 5: B1 has 300,000. B2 + B3 have the rest = 200,000.
+    expect(y5.bucket1Balance + y5.bucket2Balance! + y5.bucket3Balance!).toBeCloseTo(500000, 0);
+
+    // Year 6 start assets: $500k. Year 6 withdrawal is $80k. Total end of Year 6 assets should be $420k.
+    expect(y6.endingBalance).toBeCloseTo(420000, 0);
+    // B1 target is $80k. So B1 balance should be $80k. B2 + B3 should have $340k.
+    expect(y6.bucket1Balance).toBe(80000);
+    expect(y6.bucket2Balance! + y6.bucket3Balance!).toBeCloseTo(340000, 0);
+    expect(y6.bucket1Balance + y6.bucket2Balance! + y6.bucket3Balance!).toBeCloseTo(420000, 0);
+  });
 });
 
 describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {

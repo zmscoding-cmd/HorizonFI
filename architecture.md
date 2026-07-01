@@ -1111,3 +1111,105 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Mathematical Integrity:** Moving configuration inputs from the budget list directly to the tax visualizer maintains perfect mathematical correlation without introducing race conditions or state drift in the RxDB replication pipeline.
 * **Validation - Thread Isolation:** Tax calculations remain fully offloaded to Web Workers (`simulation.worker.ts`). All inputs are sanitized, validating that they do not block or interfere with main-thread UI interactions.
 * **Validation - Strict Secrets Audit:** No hardcoded secret keys, telemetry scripts, or cloud-syncing bypasses were introduced. The application remains completely zero-trust and functional offline.
+
+### Checkpoint - Funding Source Remaining Targets Visualization: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Dynamic Unassigned Amount Verification (`FundingAllocation.tsx`):** Added conditional logic to the Absolute Dollars mode of the Funding Source Allocation Engine to dynamically render the exact unassigned dollar amount needed to reach the Verification Target. This reduces cognitive load when explicitly entering dollar values by removing manual subtraction steps for the user.
+2. **Percentage Mode Over/Under Detection:** Implemented symmetrical support for the `PERCENTAGE` toggle mode, natively outputting either `(Remaining)` or `(Over)` percentages dynamically to instantly guide the user back to the 100% bounds target.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Arithmetic boundaries strictly evaluate remaining balances `(target - total)` cleanly on the frontend.
+* **Validation - Strict Secrets Audit:** No hardcoded API keys or external services were integrated into the frontend layer.
+
+### Checkpoint - Tax Optimization Algorithm: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Bracket-Targeting Algorithm (`calculateOptimalTaxMoves`):** Implemented a rigorous tax optimization algorithm in `simulation.worker.ts` to calculate optimal Roth conversion capacities and taxable rebalancing sales. It establishes target limits for progressive brackets (e.g., stacking simulated Roth conversions to exhaust an Ordinary Income bracket before calculating remaining headroom in the LTCG bracket).
+2. **Gross Stock Sale Derivation:** Incorporated the `estimatedCostBasisPercentage` into the algorithm to dynamically calculate the exact gross stock sale required to yield the optimal capital gain without spilling over into higher LTCG brackets.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Verified exact computation parity with post-2026 TCJA statutory limits (e.g., filling ordinary capacities first, then stacking capital gains limits on top). Division by zero cases (e.g., 100% cost basis) handle safe `Infinity` returns representing unlimited sale capacity without tax drag.
+* **Validation - Thread Isolation:** Placed algorithm firmly inside `simulation.worker.ts`, preserving main-thread UI performance during large iterative bracket evaluations.
+* **Validation - Strict Secrets Audit:** No hardcoded API keys or unencrypted local data structures were introduced.
+
+### Checkpoint - RxDB Schema & State Management for Tax Targets: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Schema Extension (`db.ts`):** Extended the `planSchema` (version bumped to 8) to explicitly type and persist `targetOrdinaryBracket`, `targetLTCGBracket`, and `taxableAccountCostBasisPct` within the `scenarios` nested array. A migration strategy (8) was added to ensure backwards compatibility with default baseline values (12% Ordinary, 0% LTCG, 75% Cost Basis).
+2. **Encryption Boundary:** All new schema fields natively sit underneath the existing `encrypted: ['scenarios']` directive, meaning target tax brackets and cost basis estimations remain structurally secure at rest via `crypto-js`, satisfying our zero-trust architecture mandate.
+3. **React State Hook (`useScenarioTaxTargets.ts`):** Authored a new modular, reactive hook that subscribes to the IndexedDB document (`docQuery.$.subscribe`) to push tax target configurations into the React context. It exports an asynchronous `updateTaxTargets` patching method to gracefully push adjustments back down to the IndexedDB instance for persistent offline optimization planning.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Migration schema strictly enforces safe baseline percentages (`??` nullish coalescing) if users load older documents without explicit parameters.
+* **Validation - Strict Secrets Audit:** Explicitly reviewed to guarantee zero inclusion of telemetry or hardcoded credentials. All storage is inherently local, offline-first, and encrypted at rest.
+
+### Checkpoint - Tax Bracket Optimization Suite Visual Integration: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Visual Sequence Stacking (`TaxStackVisualizer.tsx`):** Implemented a high-contrast horizontal stacked bar chart using Recharts to visually model the sequence-of-stacking tax code principles (Standard Deduction -> Taxable Ordinary Income -> Capital Gains & Dividends).
+2. **Dynamic Limit Demarcation:** Embedded smart Y-axis ReferenceLine components which dynamically adapt based on user-selected target rates to clearly indicate threshold boundaries.
+3. **Reactive Control Preferences:** Placed tactile buttons for ordinary and capital gains bracket selection alongside a customized cost basis slider to empower instantaneous, zero-latency scenario modeling.
+4. **Interactive Guidance Panel:** Designed a dynamic markdown and mathematical guidance block detailing safe Roth conversion and capital gain stock liquidation limits in natural language.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Verified that slider scale modifications feed real-time calculations without introducing off-by-one errors or numeric overflow.
+* **Validation - Strict Secrets Audit:** Re-verified that no telemetry trackers, hardcoded API variables, or diagnostic logging elements were added. All state is managed locally via encrypted RxDB.
+
+### Checkpoint - Tooltip Refinement for Income Shift Visualization: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Interactive Tooltip Alignment (`MultiStageChart.tsx`):** Refined the Recharts `<Tooltip>` structure to utilize a custom JSX content renderer. This explicitly moves the **Portfolio Withdrawal Rate** details parameter to the very top of the details list to improve tactical scannability.
+2. **Visual Emphasis & Bold Typography:** Enforced bold styling for the top-listed withdrawal rate metric, adding a crisp bottom border separator to visually isolate it from the stacked dollar values (Dividends, Taxable Principal, 401k/IRA, Pension, and Gifts).
+3. **Data Sanitization / Null Safety:** Incorporated active filtering within the custom tooltip renderer to exclude parameters representing inactive stages (e.g., target budgets for non-active lifestyle trajectory paths) preventing visual clutter.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Custom formatting utility inside the tooltip guarantees precise representation of percentage values (two decimal places) alongside proper currency rounding rules.
+* **Validation - Strict Secrets Audit:** Fully scanned the modified file; absolutely no hardcoded credentials, diagnostic logs, or tracking systems have been introduced. All client-side presentation layers operate securely offline.
+
+### Checkpoint - Budget Line Prominence & Real-Term Color Coding: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Three-Segment Real-Term Classification (`simulation.worker.ts` & `MultiStageChart.tsx`):** Added explicit indicators `lifestyleGrowing` and `lifestyleFlat` on snapshot snapshot objects to isolate real-term trend adjustments from inflationary growth. This allows distinct color-coding for Increasing (`#10b981`), Flat (Theme-sensitive slate/white), and Decreasing (`#ef4444`) trajectories.
+2. **Seamless Boundary Overlap:** Implemented transition overlap logic in the chart-data mapper to seamlessly connect stepped lines at transition boundaries without visual gaps.
+3. **Thicker Solid Styling:** Upgraded the lines to a solid `#stroke` with a highly prominent `strokeWidth={4.5}` to ensure the active target budget path pops beautifully on top of stacked area layers.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Verified that real-term classification isolates inflation correctly so that color indicators represent only direct lifestyle spend changes.
+* **Validation - Strict Secrets Audit:** Verified that all code edits use dynamic, local parameters. Zero hardcoded secrets, logs, or metrics track user interactions.
+
+### Checkpoint - Tooltip Formula and Input Values Integration: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Dynamic Input Propagation (`MultiStageChart.tsx`):** Augmented the mapping block to compute and attach `chartWithdrawal` and `chartStartAssets` in the active currency mode (adjusting correctly for both Real/Today's Value and Nominal/Future Value).
+2. **Interactive Mathematical Disclosure Panel:** Embedded a clean, nested explanation card within the custom tooltip that discloses the calculation formula: `(Withdrawal / Starting Assets) × 100`.
+3. **Traceable Real-Time Inputs:** Rendered the exact dynamic values of portfolio withdrawals and starting assets formatted elegantly as currency, ensuring total mathematical transparency.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Unit calculations show exactly how the percentage withdrawal rate is derived from active inputs without rounding discrepancies.
+* **Validation - Strict Secrets Audit:** Fully scanned the modified file. Absolutely no diagnostic telemetry or secrets were introduced; user-privacy is fully preserved at the browser boundary.
+### Checkpoint - Phase-Based Cash Buffer Multipliers: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Dynamic Schema Upgrades (`db.ts`):** Transitioned the `scenarios` and `plans` RxDB collections from version 8 to version 9. Introduced a dynamic, phase-based `cashBufferMultiplier` to the `budgetPhases` interface, allowing highly granular liquid buffering per lifestyle phase (e.g., Go-Go, Slow-Go) rather than relying on a rigid, global parameter.
+2. **Offline-First Synchronization (`replicateFirestore`):** The new schema property inherently flows through our strict `replicateFirestore` JSON parse wrapper, preserving seamless synchronization with Firebase Cloud Firestore without violating security rule validation logic (as schema rules inherently rely on RxDB document encapsulation).
+3. **Temporal Logic Offloading (`temporal-engine.ts` & `simulation.worker.ts`):** Removed the global liquid buffer binding inside the engine. The buffer depletion logic now fetches the isolated multiplier linked to the active phase interval (`config.startYear >= p.startYear && config.startYear <= p.endYear`).
+4. **UX Component Upgrades (`ScenarioBuilder.tsx`):** Eliminated the global inputs and injected a responsive grid item for the Cash Buffer multiplier into the phase configuration card, maintaining the mobile-first styling principles with fallback dark mode values.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Confirmed phase injection preserves the exact numeric bounds necessary to prevent memory exhaustion and buffer overallocations during the simulation loop.
+* **Validation - Strict Secrets Audit:** Fully audited `db.ts`, `simulation.worker.ts`, `temporal-engine.ts`, and `ScenarioBuilder.tsx`. No secrets, keys, or external diagnostic hooks were introduced. Offline capabilities remain impenetrable.
+
+### Checkpoint - Dynamic Cash Bucket Resizing in Simulation Loop: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Dynamic Target Resizing (`simulation.worker.ts`):** Modified the inner loop of the Web Worker simulation to calculate the Bucket 1 (cash) target dynamically based on `activePhase.cashBufferMultiplier` for the current chronological year, falling back to legacy global properties to ensure absolute backward compatibility.
+2. **Reallocation of Excess Capital:** Implemented logic to capture drops in the target multiplier during phase transitions (e.g., from 3.0 to 1.0). Excess cash is gracefully captured and reallocated structurally into Bucket 2, with any remaining spillover deposited into Bucket 3 for growth.
+3. **Thread Isolation & Performance:** Logic executes natively inside the Web Worker without blocking the React lifecycle, preserving UI performance.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Ran unit tests (e.g. `simulation.worker.test.ts`) that strictly confirm the reallocation logic honors the mathematical bounds and gracefully resizes the liquid cache between phases without dropping total assets.
+* **Validation - Strict Secrets Audit:** Fully audited the Web Worker codebase. Verified zero introduction of API keys, hardcoded parameters, or telemetry hooks, maintaining absolute adherence to the offline-first mandate.
+
+### Checkpoint - Refactored Budget Phase UI & Cash Buffer Multiplier Guidance: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Responsive Mobile-First Restructuring (`ScenarioBuilder.tsx`):** Shifted the layout grid for budget phases from static column matrices (`grid-cols-3` and `grid-cols-2`) to responsive, screen-adaptive stacking layouts (`grid-cols-1 sm:grid-cols-3` and `grid-cols-1 sm:grid-cols-2`). This guarantees perfect visual scaling across cleartext mobile, tablet, and widescreen environments without horizontal page overflow.
+2. **Touch Target Sizing Conformity:** Upgraded action links, delete triggers, and form input elements to strictly enforce `min-h-[44px]` (and 48x48px on main buttons) touch-target sizes, ensuring WCAG 2.1 touch accessibility on maritime tablets in dynamic offshore settings.
+3. **Contextual Inline Explainer Card:** Appended a high-visibility, always-visible inline help card directly under the active budget phase fields. This card clearly details the exact formula: `Target Cash = Target Budget × Multiplier` and explains the dynamic cash reallocation and drawdown reinvestment logic upon phase transitions.
+4. **Theme Resilience & Eye Preservation:** Applied theme-resilient colors using `dark:bg-gray-900` fallback styling and soft background shading on cards to guarantee seamless night-watch compliance for marine watches.
+5. **Interactive Help Tooltip:** Integrated a helper Info icon next to the input label featuring a dynamic CSS-driven hover-and-focus tooltip explaining the cash resizing behavior.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Confirmed that numeric inputs support precise decimal adjustments (e.g., `step="0.1"`) and write successfully to RxDB and Cloud Firestore without losing fraction resolution.
+* **Validation - Strict Secrets Audit & Leak Sweep:** Verified that no hardcoded credentials, API keys, tracking telemetry, or local environment overrides were introduced. All operations are kept strictly secured within the local-first boundary.

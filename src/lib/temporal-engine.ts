@@ -81,7 +81,8 @@ export function runMultiDecadeSimulation(config: TemporalConfig): YearlySimResul
   const initialPortfolioValue = currentAssets.reduce((sum, a) => sum + a.value, 0) || 1;
   const initialWithdrawalRate = previousWithdrawal / initialPortfolioValue;
   
-  let liquidBuffer = previousWithdrawal * (config.liquidBufferYears ?? 3); // Start with custom/defaults buffer
+  let initialPhase = config.budgetPhases?.find(p => config.startYear >= p.startYear && config.startYear <= p.endYear) || config.budgetPhases?.[0];
+  let liquidBuffer = previousWithdrawal * (initialPhase?.cashBufferMultiplier ?? 2.0); // Start with phase-based buffer
 
   // We loop year by year
   for (let y = config.startYear; y <= config.endYear; y++) {
@@ -242,8 +243,9 @@ export function runMultiDecadeSimulation(config: TemporalConfig): YearlySimResul
       if (liquidBuffer < 0) liquidBuffer = 0;
     } else {
       // refill
-      let baseline = config.budgetPhases && config.budgetPhases.length > 0 ? config.budgetPhases[0].baselineAmount : 54000;
-      liquidBuffer = baseline * (config.liquidBufferYears ?? 3);
+      let baseline = activePhase ? activePhase.baselineAmount : (config.budgetPhases?.[0]?.baselineAmount ?? 54000);
+      let multiplier = activePhase?.cashBufferMultiplier ?? 2.0;
+      liquidBuffer = baseline * multiplier;
     }
     
     results.push({
