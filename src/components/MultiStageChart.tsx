@@ -224,13 +224,35 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxable" name="Taxable Principal" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxAdvantaged" name="401k/IRA" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.8} />
           
+          {/* Target Budget Lines with high-contrast outline borders */}
+          <Line 
+            yAxisId="left"
+            type="stepAfter" 
+            dataKey="targetBudgetGrowing" 
+            legendType="none"
+            stroke={isDark ? '#09090b' : '#ffffff'} 
+            strokeWidth={7.5}
+            dot={false}
+            connectNulls={false}
+          />
           <Line 
             yAxisId="left"
             type="stepAfter" 
             dataKey="targetBudgetGrowing" 
             name={`Target Budget (Increasing)${isCurrent ? ' - Real' : ' - Nominal'}`} 
-            stroke="#84cc16" 
+            stroke="#bef264" 
             strokeWidth={4.5}
+            dot={false}
+            connectNulls={false}
+          />
+          
+          <Line 
+            yAxisId="left"
+            type="stepAfter" 
+            dataKey="targetBudgetFlat" 
+            legendType="none"
+            stroke={isDark ? '#09090b' : '#ffffff'} 
+            strokeWidth={7.5}
             dot={false}
             connectNulls={false}
           />
@@ -239,8 +261,19 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
             type="stepAfter" 
             dataKey="targetBudgetFlat" 
             name={`Target Budget (Flat)${isCurrent ? ' - Real' : ' - Nominal'}`} 
-            stroke={isDark ? '#e2e8f0' : '#475569'} 
+            stroke={isDark ? '#f1f5f9' : '#334155'} 
             strokeWidth={4.5}
+            dot={false}
+            connectNulls={false}
+          />
+          
+          <Line 
+            yAxisId="left"
+            type="stepAfter" 
+            dataKey="targetBudgetShrinking" 
+            legendType="none"
+            stroke={isDark ? '#09090b' : '#ffffff'} 
+            strokeWidth={7.5}
             dot={false}
             connectNulls={false}
           />
@@ -249,7 +282,7 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
             type="stepAfter" 
             dataKey="targetBudgetShrinking" 
             name={`Target Budget (Decreasing)${isCurrent ? ' - Real' : ' - Nominal'}`} 
-            stroke="#ef4444" 
+            stroke="#f87171" 
             strokeWidth={4.5}
             dot={false}
             connectNulls={false}

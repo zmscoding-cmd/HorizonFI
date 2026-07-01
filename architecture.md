@@ -1239,11 +1239,12 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 
 ### Checkpoint - Chart Palette Distinction & High Contrast Refinement: 2026-07-01
 **Architectural Shifts & Justifications:**
-1. **Palette Separation and High Contrast (`MultiStageChart.tsx`):** Resolved a visual collision where "Target Budget (Increasing)" and "Dividends" were sharing the exact same emerald green hex code (`#10b981`). We updated the line stroke of "Target Budget (Increasing)" to a bright, distinct lime green (`#84cc16`), which is highly recognizable and preserves clear accessibility against the layered stack of cash, pension, dividend, taxable, and tax-advantaged income streams.
-2. **Zero-Trust Audit & Compliance check:** Explicitly scanned all modifications to ensure no hardcoded secrets, telemetry trackers, or external API requirements were introduced. The application remains local-first and fully offline-capable.
+1. **Palette Separation and High Contrast (`MultiStageChart.tsx`):** Resolved a visual collision where "Target Budget (Increasing)" and "Dividends" were sharing similar greens (`#10b981`), making the line hard to see over the emerald areas.
+2. **Dual-Line SVG Outline Border Design Pattern:** To guarantee flawless visual distinction regardless of background colors or stacked values, we implemented a dual-line overlay pattern. A thicker, background-matched outline border (`stroke={isDark ? '#09090b' : '#ffffff'}`) is rendered directly underneath the primary line, creating a high-contrast shadow gap. The foreground line itself was boosted to a super-bright neon-lime green (`#bef264`). This pattern was extended across all three target budget trend lines (Increasing, Flat, Decreasing) to create a beautifully consistent, hand-crafted vector aesthetic.
+3. **Zero-Trust Audit & Compliance check:** Confirmed no hardcoded secrets, tracker tags, or external services were introduced.
 
 **Continuous Validation & Functional Assertions:**
-* **Validation - Aesthetic Integrity & Contrast Ratio:** Verified that the new vibrant lime green line maintains exceptional visibility in both Light Mode and dark/night-watch themes.
-* **Validation - Complete Verification:** Confirmed that the compilation, linting, and test suites are executing successfully.
+* **Validation - Aesthetic Integrity & Contrast Ratio:** Verified that the new vibrant neon lime line with white/dark border outlines stands out exceptionally well in both Light Mode and dark/night-watch themes.
+* **Validation - Complete Verification:** Confirmed that compilation, linting, and tests pass successfully.
 
 
