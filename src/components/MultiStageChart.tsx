@@ -229,7 +229,7 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
             type="stepAfter" 
             dataKey="targetBudgetGrowing" 
             name={`Target Budget (Increasing)${isCurrent ? ' - Real' : ' - Nominal'}`} 
-            stroke="#10b981" 
+            stroke="#84cc16" 
             strokeWidth={4.5}
             dot={false}
             connectNulls={false}

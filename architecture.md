@@ -1236,3 +1236,14 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Strict Secrets Audit & Leak Sweep:** Audited all modifications and verified that zero secrets, API keys, or trace telemetry lines were added, preserving our secure, offline-first, zero-trust boundary.
 * **Validation - Complete Compilation & Linting Success:** Successfully verified compilation and linting tests with absolute zero warnings or errors.
 
+
+### Checkpoint - Chart Palette Distinction & High Contrast Refinement: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Palette Separation and High Contrast (`MultiStageChart.tsx`):** Resolved a visual collision where "Target Budget (Increasing)" and "Dividends" were sharing the exact same emerald green hex code (`#10b981`). We updated the line stroke of "Target Budget (Increasing)" to a bright, distinct lime green (`#84cc16`), which is highly recognizable and preserves clear accessibility against the layered stack of cash, pension, dividend, taxable, and tax-advantaged income streams.
+2. **Zero-Trust Audit & Compliance check:** Explicitly scanned all modifications to ensure no hardcoded secrets, telemetry trackers, or external API requirements were introduced. The application remains local-first and fully offline-capable.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Aesthetic Integrity & Contrast Ratio:** Verified that the new vibrant lime green line maintains exceptional visibility in both Light Mode and dark/night-watch themes.
+* **Validation - Complete Verification:** Confirmed that the compilation, linting, and test suites are executing successfully.
+
+
