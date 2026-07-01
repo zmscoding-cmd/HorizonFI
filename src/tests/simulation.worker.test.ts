@@ -463,3 +463,61 @@ describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {
     expect(year2.nominalWithdrawal).toBe(100000);
   });
 });
+
+describe('Web Worker - Real vs Nominal Dollar Discounting Calculations', () => {
+  it('should mathematically discount nominal values to real values using cumulative inflation', () => {
+    const payload: any = {
+      type: 'MULTI_STAGE_DRAWDOWN',
+      startYear: 2026,
+      endYear: 2035, // 10 years: 2026 to 2035 inclusive (10 snapshots)
+      currentAge: 60,
+      assets: [
+        { id: 'cash1', value: 1000000, type: 'cash', growthRate: 0.05, expectedGrowthRate: 0.05, expectedDividendYield: 0.0 }
+      ],
+      stages: [
+        { id: 'st1', fundingPriorities: ['TAXABLE'], startYearType: 'absolute', startAbsoluteYear: 2026 }
+      ],
+      targetConstantMarketReturn: 0.05,
+      inflationRate: 0.03, // 3% inflation
+      budgetPhases: [
+        { phaseId: 'phase1', startYear: 2026, endYear: 2100, baselineAmount: 100000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0.0 }
+      ],
+      maxRealWithdrawal: 1000000,
+      liquidBufferYears: 0,
+      milestones: [],
+      futureIncomeStreams: [],
+      futureLiabilities: [],
+      nonTaxableGifts: []
+    };
+
+    const snapshots = simulateMultiStageDrawdownWorker(payload);
+
+    // We expect exactly 10 snapshots (2026 to 2035 inclusive)
+    expect(snapshots).toHaveLength(10);
+
+    // Verify Year 1 (2026, Year Offset 0) - inflation should be 1.0 (no discount yet)
+    const year1 = snapshots[0];
+    expect(year1.year).toBe(2026);
+    expect(year1.cumulativeInflation).toBe(1.0);
+    expect(year1.endingBalanceReal).toBeCloseTo(year1.endingBalance, 2);
+    expect(year1.targetBudgetReal).toBeCloseTo(year1.targetBudgetNominal!, 2);
+
+    // Verify Year 10 (2035, Year Offset 9) - inflation should be (1 + 0.03)^9
+    const year10 = snapshots[9];
+    expect(year10.year).toBe(2035);
+    const expectedCumInflation = Math.pow(1 + 0.03, 9);
+    expect(year10.cumulativeInflation).toBeCloseTo(expectedCumInflation, 5);
+
+    // Ensure ending balance is correctly discounted
+    expect(year10.endingBalanceReal).toBeCloseTo(year10.endingBalance / expectedCumInflation, 2);
+
+    // Ensure target budget is correctly discounted
+    expect(year10.targetBudgetReal).toBeCloseTo(year10.targetBudgetNominal! / expectedCumInflation, 2);
+
+    // Ensure bucket balances are correctly discounted
+    if (year10.bucket1Balance !== undefined) {
+      expect(year10.bucket1BalanceReal).toBeCloseTo(year10.bucket1Balance / expectedCumInflation, 2);
+    }
+  });
+});
+

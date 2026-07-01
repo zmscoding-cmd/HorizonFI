@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { AssetModel } from '../lib/db';
 import { useTheme } from './ThemeProvider';
+import { useCurrencyMode } from '../contexts/CurrencyModeContext';
 
 interface NetWorthProjectionChartProps {
   data: any[];
@@ -20,6 +21,7 @@ interface NetWorthProjectionChartProps {
 export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChartProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark' || theme === 'night-watch';
+  const { currencyMode } = useCurrencyMode();
   
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -50,21 +52,24 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
         taxable += snapshot.endingBalance || 0;
       }
 
+      const isCurrent = currencyMode === 'CURRENT';
+      const divisor = isCurrent ? (snapshot.cumulativeInflation || 1) : 1;
+
       return {
         year: snapshot.year,
         age: snapshot.age,
-        CASH: Math.max(0, cash),
-        TAXABLE: Math.max(0, taxable),
-        PRE_TAX: Math.max(0, preTax),
-        ROTH: Math.max(0, roth),
-        Total: Math.max(0, cash + taxable + preTax + roth),
-        expectedSpend: snapshot.targetBudgetNominal || 0,
-        expectedGrowth: snapshot.expectedGrowth || 0,
-        expectedYield: snapshot.expectedYield || 0,
-        changeInNetWorth: snapshot.changeInNetWorth || 0
+        CASH: Math.max(0, cash / divisor),
+        TAXABLE: Math.max(0, taxable / divisor),
+        PRE_TAX: Math.max(0, preTax / divisor),
+        ROTH: Math.max(0, roth / divisor),
+        Total: Math.max(0, (cash + taxable + preTax + roth) / divisor),
+        expectedSpend: (isCurrent ? snapshot.targetBudgetReal : snapshot.targetBudgetNominal) || 0,
+        expectedGrowth: (snapshot.expectedGrowth || 0) / divisor,
+        expectedYield: (snapshot.expectedYield || 0) / divisor,
+        changeInNetWorth: (snapshot.changeInNetWorth || 0) / divisor
       };
     });
-  }, [data, assets]);
+  }, [data, assets, currencyMode]);
 
   if (!data || data.length === 0) {
     return (
@@ -104,6 +109,8 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
     const change = dataObj.changeInNetWorth;
 
     const isChangePositive = change >= 0;
+    const isCurrent = currencyMode === 'CURRENT';
+    const currencySuffix = isCurrent ? ' (Today\'s Value)' : ' (Nominal Future)';
 
     return (
       <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-xl text-xs max-w-xs transition-colors space-y-3.5">
@@ -118,7 +125,9 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
         
         {/* Asset Classes Breakdown */}
         <div className="space-y-1.5">
-          <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Portfolio Balances</div>
+          <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">
+            Portfolio Balances {currencySuffix}
+          </div>
           <div className="flex justify-between gap-8 items-center">
             <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
@@ -155,7 +164,9 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
 
         {/* Dynamic Yearly Details */}
         <div className="border-t border-zinc-100 dark:border-zinc-800/85 pt-3.5 space-y-2">
-          <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Yearly Flow & Growth</div>
+          <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">
+            Yearly Flow & Growth {currencySuffix}
+          </div>
           
           <div className="flex justify-between items-center gap-4">
             <span className="text-zinc-600 dark:text-zinc-400">Expected Spend:</span>

@@ -33,6 +33,10 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
     rebalancingCapitalGainPercentage: 0
   });
 
+  const [localRothConversion, setLocalRothConversion] = useState<string>('');
+  const [localRebalancingSale, setLocalRebalancingSale] = useState<string>('');
+  const [localCapitalGainPercent, setLocalCapitalGainPercent] = useState<string>('');
+
   useEffect(() => {
     if (!db || !userId) return;
 
@@ -51,6 +55,51 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
 
     return () => subscription.unsubscribe();
   }, [db, userId]);
+
+  useEffect(() => {
+    setLocalRothConversion(taxEvents.targetRothConversionAmount ? taxEvents.targetRothConversionAmount.toString() : '');
+    setLocalRebalancingSale(taxEvents.taxableRebalancingSaleAmount ? taxEvents.taxableRebalancingSaleAmount.toString() : '');
+    setLocalCapitalGainPercent(taxEvents.rebalancingCapitalGainPercentage ? taxEvents.rebalancingCapitalGainPercentage.toString() : '');
+  }, [taxEvents]);
+
+  const updateDatabaseTaxPlanningEvents = async (updates: any) => {
+    if (!db || !userId) return;
+    try {
+      const sanitizedUpdates: any = {};
+      if ('targetRothConversionAmount' in updates) {
+        sanitizedUpdates.targetRothConversionAmount = Math.max(0, Number(updates.targetRothConversionAmount) || 0);
+      }
+      if ('taxableRebalancingSaleAmount' in updates) {
+        sanitizedUpdates.taxableRebalancingSaleAmount = Math.max(0, Number(updates.taxableRebalancingSaleAmount) || 0);
+      }
+      if ('rebalancingCapitalGainPercentage' in updates) {
+        sanitizedUpdates.rebalancingCapitalGainPercentage = Math.max(0, Math.min(100, Number(updates.rebalancingCapitalGainPercentage) || 0));
+      }
+
+      const existing = await db.budgets.findOne({ selector: { userId } }).exec();
+      if (existing) {
+        await existing.patch({
+          ...sanitizedUpdates,
+          updatedAt: Date.now()
+        });
+      } else {
+        await db.budgets.insert({
+          id: Math.random().toString(36).substring(2),
+          userId,
+          name: 'Main Household Budget',
+          totalPlaintextMonthly: 0,
+          totalPlaintextAnnual: targetNetExpense,
+          ...sanitizedUpdates,
+          notes: 'Auto-calculated offline via Kahn Simulation worker.',
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      }
+      handleRunSimulation();
+    } catch (err) {
+      console.error('Error auto-syncing tax planning events to DB', err);
+    }
+  };
 
   const handleUpdate = async (field: string, value: any, isBucket = false) => {
     if (!plan || !activeScenario || !db) return;
@@ -569,10 +618,63 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Column 1: Strategic Tax Events Impact */}
+            {/* Column 1: Strategic Tax Events & Inputs */}
             <div className="p-4 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-900/30 text-sm flex flex-col justify-between">
               <div>
-                <h5 className="text-[11px] font-bold uppercase tracking-widest mb-3 text-zinc-700 dark:text-zinc-300">Strategic Tax Events Marginal Impact</h5>
+                <h5 className="text-[11px] font-bold uppercase tracking-widest mb-3 text-zinc-700 dark:text-zinc-300">Strategic Tax Events & Configuration</h5>
+                
+                {/* Inputs Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase">Roth Conversion</label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs text-zinc-400 font-bold">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full text-xs font-mono font-semibold bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-2 pl-6 border border-zinc-200 dark:border-zinc-850 rounded-lg outline-none transition-colors focus:border-blue-500"
+                        value={localRothConversion}
+                        onChange={e => setLocalRothConversion(e.target.value)}
+                        onBlur={() => updateDatabaseTaxPlanningEvents({ targetRothConversionAmount: Number(localRothConversion) })}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase">Rebalance Sale</label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs text-zinc-400 font-bold">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full text-xs font-mono font-semibold bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-2 pl-6 border border-zinc-200 dark:border-zinc-850 rounded-lg outline-none transition-colors focus:border-blue-500"
+                        value={localRebalancingSale}
+                        onChange={e => setLocalRebalancingSale(e.target.value)}
+                        onBlur={() => updateDatabaseTaxPlanningEvents({ taxableRebalancingSaleAmount: Number(localRebalancingSale) })}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase">Capital Gain %</label>
+                    <div className="relative">
+                      <span className="absolute right-2.5 top-2 text-xs text-zinc-400 font-bold">%</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        className="w-full text-xs font-mono font-semibold bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-2 pr-6 border border-zinc-200 dark:border-zinc-850 rounded-lg outline-none transition-colors focus:border-blue-500"
+                        value={localCapitalGainPercent}
+                        onChange={e => setLocalCapitalGainPercent(e.target.value)}
+                        onBlur={() => updateDatabaseTaxPlanningEvents({ rebalancingCapitalGainPercentage: Number(localCapitalGainPercent) })}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <h6 className="text-[10px] font-bold uppercase tracking-widest mb-2.5 text-zinc-500 dark:text-zinc-400">Calculated Marginal Tax Impact</h6>
                 {strategicTaxImpacts.hasEvents ? (
                   <div className="space-y-2.5">
                     {taxEvents.targetRothConversionAmount > 0 && (
@@ -614,9 +716,9 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
                   </div>
                 ) : (
                   <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center px-4 py-6 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50/20 dark:bg-zinc-950/10">
-                    <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">No active Strategic Tax Events found</p>
+                    <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 font-sans">No active Strategic Tax Events found</p>
                     <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-[240px] leading-relaxed">
-                      Add Roth Conversions or Taxable Rebalancing Sales in Planned Expenses to isolate and project their marginal tax impact.
+                      Enter a Roth Conversion target or Taxable Rebalancing Sale amount above to project their marginal tax impact in real time.
                     </p>
                   </div>
                 )}
@@ -631,6 +733,7 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
                 </div>
               )}
             </div>
+
 
             {/* Column 2: How the Tax Engine works */}
             <div className="p-4 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-900/30 text-sm">

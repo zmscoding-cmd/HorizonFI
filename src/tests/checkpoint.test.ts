@@ -55,7 +55,7 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
         endYear: 2031, // 5 years
         currentAge: 60,
         assets: [
-          { id: 'tira', name: 'Trad IRA', value: 1000000, type: 'traditional_ira', assetType: 'PRE_TAX', growthRate: 0.05, dividendYield: 0.02 }
+          { id: 'tira', name: 'Trad IRA', value: 1000000, type: 'traditional_ira', assetType: 'PRE_TAX', growthRate: 0.05, dividendYield: 0.02, expectedGrowthRate: 0.05, expectedDividendYield: 0.02 }
         ],
         liabilities: [],
         rrt1AmountAt67: 36000, // Railroad Retirement Tier 1

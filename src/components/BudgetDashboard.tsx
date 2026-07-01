@@ -1342,65 +1342,6 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
           {activeTab === 'expenses' && (
             <div className="space-y-6">
               
-              {/* Strategic Tax Events */}
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-4 lg:gap-8">
-                  <div className="flex-1 w-full flex flex-col">
-                    <h4 className="font-bold text-zinc-950 dark:text-zinc-50 mb-1">Strategic Tax Events</h4>
-                    <p className="text-xs text-zinc-500 mb-4">Proactive, user-defined taxable events for strategic tax planning per budget period.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-1.5 flex-1 w-full">
-                        <label className="text-xs font-bold text-zinc-400 uppercase">Target Roth Conversion</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-3 text-sm text-zinc-400 font-bold">$</span>
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-full text-sm font-mono font-semibold bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 pl-7 border border-zinc-100 dark:border-zinc-800 rounded-xl outline-none transition-colors focus:border-blue-500"
-                            value={targetRothConversionAmount || ''}
-                            onChange={e => setTargetRothConversionAmount(Number(e.target.value) || 0)}
-                            onBlur={() => updateDatabaseTaxPlanningEvents({ targetRothConversionAmount })}
-                          />
-                        </div>
-                        <p className="text-[10px] text-zinc-500">Triggers Ordinary Income</p>
-                      </div>
-                      <div className="space-y-1.5 flex-1 w-full">
-                        <label className="text-xs font-bold text-zinc-400 uppercase">Taxable Rebalancing Sale</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-3 text-sm text-zinc-400 font-bold">$</span>
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-full text-sm font-mono font-semibold bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 pl-7 border border-zinc-100 dark:border-zinc-800 rounded-xl outline-none transition-colors focus:border-blue-500"
-                            value={taxableRebalancingSaleAmount || ''}
-                            onChange={e => setTaxableRebalancingSaleAmount(Number(e.target.value) || 0)}
-                            onBlur={() => updateDatabaseTaxPlanningEvents({ taxableRebalancingSaleAmount })}
-                          />
-                        </div>
-                        <p className="text-[10px] text-zinc-500">Triggers Long-Term Capital Gains</p>
-                      </div>
-                      <div className="space-y-1.5 flex-1 w-full">
-                        <label className="text-xs font-bold text-zinc-400 uppercase">Assumed Capital Gain %</label>
-                        <div className="relative">
-                          <span className="absolute right-3 top-3 text-sm text-zinc-400 font-bold">%</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                            className="w-full text-sm font-mono font-semibold bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 pr-7 border border-zinc-100 dark:border-zinc-800 rounded-xl outline-none transition-colors focus:border-blue-500"
-                            value={rebalancingCapitalGainPercentage || ''}
-                            onChange={e => setRebalancingCapitalGainPercentage(Number(e.target.value) || 0)}
-                            onBlur={() => updateDatabaseTaxPlanningEvents({ rebalancingCapitalGainPercentage })}
-                          />
-                        </div>
-                        <p className="text-[10px] text-zinc-500">Portion of sale that is gain vs. basis</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* Planned Expenses Summaries */}
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4 lg:gap-8">

@@ -20,10 +20,13 @@ export type SimulationRequest = {
 export type SimulationResult = {
   yearIndex: number;
   startingBalance: number;
+  startingBalanceReal: number;
   marketGain: number;
+  marketGainReal: number;
   nominalWithdrawal: number;
   realWithdrawal: number;
   endingBalance: number;
+  endingBalanceReal: number;
   newCumulativeInflation: number;
   ruleApplied: string | null;
 };
@@ -549,6 +552,9 @@ export type NetWorthDatapoint = {
   netWorth10th: number;
   netWorth50th: number;
   netWorth90th: number;
+  netWorth10thReal: number;
+  netWorth50thReal: number;
+  netWorth90thReal: number;
   deferredTaxLiability: number;
 };
 
@@ -1089,10 +1095,13 @@ export function calculateDrawdownProfile(req: SimulationRequest): SimulationResu
   return {
     yearIndex,
     startingBalance: portfolioBalance,
+    startingBalanceReal: portfolioBalance / req.cumulativeInflation, // using the old cumulativeInflation because this is the start of the year
     marketGain,
+    marketGainReal: marketGain / newCumulativeInflation, // using new inflation because market gain happens across the year
     nominalWithdrawal: proposedNominalWithdrawal,
     realWithdrawal,
     endingBalance,
+    endingBalanceReal: endingBalance / newCumulativeInflation,
     newCumulativeInflation,
     ruleApplied
   };
@@ -1305,6 +1314,8 @@ export function simulateNetWorthProbabilistic(req: NetWorthSimRequest): NetWorth
     const p10Index = Math.min(sortedNetWorths.length - 1, Math.floor(0.10 * sortedNetWorths.length));
     const p50Index = Math.min(sortedNetWorths.length - 1, Math.floor(0.50 * sortedNetWorths.length));
     const p90Index = Math.min(sortedNetWorths.length - 1, Math.floor(0.90 * sortedNetWorths.length));
+    
+    const inflationFactor = Math.pow(1 + inflationRate, yearOffset);
 
     verboseDatapoints.push({
       year: calendarYear,
@@ -1312,6 +1323,9 @@ export function simulateNetWorthProbabilistic(req: NetWorthSimRequest): NetWorth
       netWorth10th: sortedNetWorths[p10Index],
       netWorth50th: sortedNetWorths[p50Index],
       netWorth90th: sortedNetWorths[p90Index],
+      netWorth10thReal: sortedNetWorths[p10Index] / inflationFactor,
+      netWorth50thReal: sortedNetWorths[p50Index] / inflationFactor,
+      netWorth90thReal: sortedNetWorths[p90Index] / inflationFactor,
       deferredTaxLiability: sortedDtls[p50Index]
     });
   }
@@ -1343,6 +1357,7 @@ export type MultiStageYearlySnapshot = {
   rrbIncome: number;
   taxDrag: number;
   endingBalance: number;
+  endingBalanceReal: number;
   assetBalances: Record<string, number>;
   uprrDivested: number;
   withdrawnDividends: number;
@@ -1353,10 +1368,15 @@ export type MultiStageYearlySnapshot = {
   pvFutureLiabilities: number;
   giftAmountUsed: number;
   targetBudgetNominal?: number;
+  targetBudgetReal?: number;
+  cumulativeInflation?: number;
   lifestyleShrinking?: boolean;
   bucket1Balance?: number;
+  bucket1BalanceReal?: number;
   bucket2Balance?: number;
+  bucket2BalanceReal?: number;
   bucket3Balance?: number;
+  bucket3BalanceReal?: number;
   expectedGrowth?: number;
   expectedYield?: number;
   changeInNetWorth?: number;
@@ -1926,6 +1946,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       rrbIncome,
       taxDrag: estimatedTaxDrag,
       endingBalance: finalBalance,
+      endingBalanceReal: finalBalance / cumInflation,
       assetBalances: astMap,
       uprrDivested: divestedAmount,
       withdrawnDividends,
@@ -1936,10 +1957,15 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       pvFutureLiabilities,
       giftAmountUsed,
       targetBudgetNominal: stageTargetBudgetNominal,
+      targetBudgetReal: stageTargetBudgetNominal / cumInflation,
+      cumulativeInflation: cumInflation,
       lifestyleShrinking,
       bucket1Balance,
+      bucket1BalanceReal: bucket1Balance / cumInflation,
       bucket2Balance,
+      bucket2BalanceReal: bucket2Balance / cumInflation,
       bucket3Balance,
+      bucket3BalanceReal: bucket3Balance / cumInflation,
       expectedGrowth: Math.round(growthAppreciation * 100) / 100,
       expectedYield: Math.round((paidOutYield + reinvestedYield) * 100) / 100,
       changeInNetWorth: Math.round((finalBalance - startAssets) * 100) / 100

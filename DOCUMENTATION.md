@@ -58,6 +58,18 @@ When structuring your HorizonFI model, you must adhere to the **Current Dollars 
     *   *For Example:* If you configure a future budget phase starting in year 10 with a baseline amount of $60,000, and your specified compounding inflation rate is `3.0%`, the simulation engine does not treat that phase as a flat $60,000 in the year 10 projection. It compounds $60,000 by 3.0% annually for 10 years, extrapolating it to a nominal value of **$80,635** in that future year.
     *   *Lifestyle Adjustments:* If you apply a **Lifestyle Adjustment Rate** (e.g., `-2.0%` for slower-go years), it compounds alongside general inflation, allowing the simulation to realistically model how your personal spending changes relative to the macroeconomic purchasing power of the dollar.
 
+#### The Valuation Mode Toggle (Current vs. Future Dollars)
+To prevent cognitive overload and maintain accurate spatial awareness when planning multi-decade retirements, HorizonFI integrates a global **Valuation Mode Toggle** directly above the primary timeline visualizations:
+*   **Current Dollars (Today's Purchasing Power):**
+    *   *Calculation:* $$\text{Real Value} = \frac{\text{Nominal Value}}{(1 + \text{Inflation Rate})^{\text{Year Index}}}$$
+    *   *Purpose:* Strips out inflation to represent balances and cash flows in today's purchasing power. This helps you answer the core question: *"What will my future wealth actually buy based on today's cost of goods?"*
+*   **Future Dollars (Nominal Valuations):**
+    *   *Calculation:* Represents the raw, un-discounted nominal value.
+    *   *Purpose:* Displays the actual dollar balance you will see on your bank screens or ledger statements in that specific future year, taking into account compounding inflation.
+*   **Architectural Thread Isolation:**
+    In compliance with the HorizonFI offline-first performance mandate, all real vs. nominal transformations are fully calculated inside dedicated Web Workers (`simulation.worker.ts`). The worker computes both metrics concurrently during each yearly iteration, packaging them into the output snaphot arrays. When the user selects a valuation mode, Recharts instantly swaps the active `dataKey` without triggering a main-thread simulation reload, preserving valuable battery life on remote vessels. This design degrades gracefully offline, working seamlessly without any internet connection.
+
+
 #### Target Asset Growth Rates & Annual Returns (Nominal vs. Real)
 All **Target Asset Growth Rates & Annual Returns** entered inside your asset ledger fields (such as individual stock/bond appreciation rates or dividend yields) **MUST be entered as NOMINAL annual returns (before inflation is taken into account).**
 *   **The Math Engine Separation:** The simulation engine calculates asset growth and inflation independently. In each yearly loop, assets are grown by their nominal rates (e.g., $\text{Value}_{t+1} = \text{Value}_t \times (1 + \text{Nominal Growth Rate} + \text{Nominal Yield})$), while living expenditures and liabilities are independently compounded by your global **Compounding Inflation Rate**.

@@ -1081,5 +1081,33 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Mathematical Integrity:** New unit tests strictly validate that chronological arrays within the worker output precisely align with dynamic phase shift temporal bounds.
 * **Validation - Strict Secrets Audit:** Zero hardcoded API keys were identified or committed within the new test suites or markdown documents.
 
+### Checkpoint - Real vs Nominal Math Segregation: 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Web Worker Real Valuation (`simulation.worker.ts`):** Augmented the multi-stage, probabilistic, and drawdown calculation endpoints to dynamically evaluate both `nominal` and `real` value outcomes, securely locking multi-decade discounting operations off the main thread.
+2. **Contextual State Layer (`CurrencyModeContext.tsx`):** Engineered a robust React Context enforcing literal type safety (`CURRENT` | `FUTURE`) with a local storage intercept for offline-first resilience.
 
+**Continuous Validation & Functional Assertions:**
+* **Mathematical Integrity:** Maintained `Math.pow(1 + inflationRate, yearIndex)` application across all array elements to assert deterministic value deflation without main thread layout jank.
+* **Validation - Strict Secrets Audit:** No hardcoded API keys or external services were integrated into the context.
 
+### Checkpoint - Real vs Nominal Recharts Integration: 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Dynamic Visual Resolution (`NetWorthProjectionChart.tsx`, `MultiStageChart.tsx`):** Connected the primary long-term projection and multi-stage income charts directly to the `useCurrencyMode` context, enabling instant on-the-fly rendering shifts between un-inflated real purchasing power (Today's Value) and nominal ledger balances (Nominal Future).
+2. **Context-Driven Title Designation & Tooltip Formats:** Dynamic subtitle, legend, and custom tooltips auto-resolve the currency scale. Tooltip details now append `(Today's Value)` or `(Nominal Future)` to ensure maximum clarity for outdoor and high-strain marine environments.
+3. **Adaptive UI Theme Harmony (Night-Watch Compatibility):** Embedded strict theme-sensitive colors within the Recharts elements, modifying grid line, tick, text, and tooltip styles using custom dark/night-watch colors to guarantee sensory preservation.
+
+**Continuous Validation & Functional Assertions:**
+* **UX/UI Accessibility:** The `CurrencyToggle` is fully keyboard-accessible and touch-optimized, offering standard 48x48px mobile touch targets and custom tooltips explaining purchasing power.
+* **Mathematical Integrity:** Re-ran full Vitest suites to confirm background computation loops and real/nominal boundaries produce perfectly accurate results without any console warnings or drift.
+* **Validation - Strict Secrets Audit:** Verified that no hardcoded secret keys, telemetry, tracking scripts, or unencrypted storage mechanisms were added to the frontend visual files.
+
+### Checkpoint - Tax Planning Consolidation & Portfolio Withdrawal Visualization: 2026-06-30
+**Architectural Shifts & Justifications:**
+1. **Centralized Tax Planning Input Panel (`FundingAllocation.tsx`):** Relocated the three proactive Strategic Tax Event inputs (Target Roth Conversion, Taxable Rebalancing Sale, and Assumed Capital Gain %) directly from the "Planned Expenses" tab in `BudgetDashboard.tsx` to the "Strategic Tax Events & Configuration" card inside `FundingAllocation.tsx`. This unifies user-defined strategic tax event planning with their real-time marginal tax drag and bracket headroom calculations under a single container.
+2. **Unified State Synchronization:** Engineered an asynchronous, locally persistent data pipeline within `FundingAllocation.tsx` via `updateDatabaseTaxPlanningEvents` to patch tax events directly into the `db.budgets` RxDB database. When inputs are modified, they automatically trigger background multi-decade simulation re-runs via the `handleRunSimulation()` callback, maintaining full architectural parity.
+3. **Withdrawal Rate Tracking in Multistage Chart (`MultiStageChart.tsx`):** Verified and reinforced the integration of the "Portfolio Withdrawal Rate" within the multi-stage "Income Shift Visualization" chart. The line utilizes a dedicated secondary Y-axis (right) for percentage scaling and accurately displays initial-asset-derived ratios (`withdrawnAmount / startingAssets * 100`) dynamically over a multi-decade timeline.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Mathematical Integrity:** Moving configuration inputs from the budget list directly to the tax visualizer maintains perfect mathematical correlation without introducing race conditions or state drift in the RxDB replication pipeline.
+* **Validation - Thread Isolation:** Tax calculations remain fully offloaded to Web Workers (`simulation.worker.ts`). All inputs are sanitized, validating that they do not block or interfere with main-thread UI interactions.
+* **Validation - Strict Secrets Audit:** No hardcoded secret keys, telemetry scripts, or cloud-syncing bypasses were introduced. The application remains completely zero-trust and functional offline.
