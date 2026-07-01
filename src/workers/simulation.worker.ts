@@ -1723,7 +1723,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     let actualNominalWithdrawal = remainingBudgetTarget;
     
     // --- 3-Bucket Strategy Waterfall & Guardrails ---
-    if (use3Bucket && payload.threeBuckets) {
+    if (use3Bucket) {
       let amountNeeded = remainingBudgetTarget;
       
       const currentTotalAssets = currentAssets.reduce((sum, a) => sum + a.value, 0);
@@ -1964,7 +1964,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     const finalBalance = currentAssets.reduce((sum, a) => sum + a.value, 0);
     
     // Abstract bucket growth and refill logic matching the portfolio's net changes
-    if (use3Bucket && payload.threeBuckets) {
+    if (use3Bucket) {
        const preGrowthBucketTotal = bucket1Balance + bucket2Balance + bucket3Balance;
        if (preGrowthBucketTotal > 0 && finalBalance > 0) {
           const factor = finalBalance / preGrowthBucketTotal;

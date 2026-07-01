@@ -2058,6 +2058,7 @@ export default function ScenarioBuilder({
                                     <select
                                       value={mType}
                                       onChange={async (e) => {
+                                        const newVal = e.target.value;
                                         const doc = await db.plans
                                           .findOne(plan.id)
                                           .exec();
@@ -2065,7 +2066,7 @@ export default function ScenarioBuilder({
                                           activeScenario.milestones || []
                                         ).map((ms: any, idx: number) =>
                                           idx === mIdx
-                                            ? { ...ms, type: e.target.value }
+                                            ? { ...ms, type: newVal }
                                             : ms,
                                         );
                                         const updatedScenarios =

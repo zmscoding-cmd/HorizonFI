@@ -1296,5 +1296,24 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Validation - Isolated Tab Logic:** Confirmed that switching navigation items displays only the requested section, with the ledger component mounting and unmounting cleanly.
 * **Validation - Complete Compilation & Linting Success:** Verified that full production-ready builds (`npm run build`) and type-checking pass flawlessly with zero warnings or errors.
 
+### Checkpoint - Simulation Worker Target Bucket Logic Decoupling: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Unblocked Abstract Bucket Scaling (`simulation.worker.ts`):** Identified and resolved a critical architectural deadlock where the 3-Bucket scaling and draining algorithms were completely bypassed if the `threeBuckets` toggle was disabled, even if `use3Bucket` was strictly mandated by the presence of a `cashBufferMultiplier` in the budget phases. Removed the highly coupled `&& payload.threeBuckets` condition, ensuring that the 3-Bucket abstraction layer correctly processes mathematical asset shifts and maintains correct historical `changeInNetWorth` telemetry for charting endpoints regardless of global toggle states.
+2. **Chart Tooltip Math Transparency (`NetWorthProjectionChart.tsx`):** The tooltip's Yearly Change calculations have been enhanced to provide granular visibility into the mathematical components of the change. Renamed "Expected Spend" to "Target Spend" and integrated explicit lines for "Actual Withdrawal" and "Taxes & Fees". This transparency perfectly bridges the mathematical gap between `Portfolio Growth + Yield` and the true net `Yearly Change` value, preserving user trust in the mathematical integrity of the engine.
+3. **Secrets Audit:** Ensured no environment configuration leaks were introduced during chart updates.
+
+**Continuous Validation & Functional Assertions:**
+* **Mathematical Integrity:** Re-ran worker tests ensuring the simulation now correctly modifies `bucket1Balance` and related assets throughout the multi-decade loops, instead of mathematically stalling out horizontally.
+* **Zero Trust:** Confirmed worker boundaries and message-passing protocols remain strictly isolated. No credentials involved.
+
+### Checkpoint - Fix Temporal Milestones Event Pooling: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Event Pooling Defense in React 18+ Asynchronous Handlers:** Identified and resolved an issue in `ScenarioBuilder.tsx` where React's `SyntheticEvent` properties (`e.target.value`) were being accessed after an asynchronous RxDB operation (`await db.plans.findOne()`). During the async tick, component re-renders and React's DOM node lifecycle could mutate or clear the underlying event target, preventing milestone drop-down updates. Extracted `e.target.value` synchronously into a variable before the `await` boundary, reinforcing robust state handling.
+2. **Secrets Audit:** Verified that no hardcoded credentials or API keys were introduced.
+
+**Continuous Validation & Functional Assertions:**
+* **Database Patching Integrity:** Confirmed that `doc.patch` correctly receives the synchronously extracted literal value, ensuring offline-first RxDB operations do not drop data.
+* **Schema Adherence:** Verified RxDB schema correctly propagates flexible enum-less arrays for `milestones`.
+
 
 

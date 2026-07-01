@@ -95,6 +95,8 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
         expectedSpend: (isCurrent ? snapshot.targetBudgetReal : snapshot.targetBudgetNominal) || 0,
         expectedGrowth: (snapshot.expectedGrowth || 0) / divisor,
         expectedYield: (snapshot.expectedYield || 0) / divisor,
+        actualSpend: (isCurrent ? snapshot.realWithdrawal : snapshot.nominalWithdrawal) || 0,
+        taxDrag: (snapshot.taxDrag || 0) / divisor,
         // We will compute accurate change below, pass nominal values for calculation
         _nominalTotal: nominalTotal,
         _nominalChange: snapshot.changeInNetWorth || 0,
@@ -215,9 +217,21 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
           </div>
           
           <div className="flex justify-between items-center gap-4">
-            <span className="text-zinc-600 dark:text-zinc-400">Expected Spend:</span>
-            <span className="font-mono text-zinc-800 dark:text-zinc-200">{formatCurrency(spend)}</span>
+            <span className="text-zinc-500 dark:text-zinc-500">Target Spend:</span>
+            <span className="font-mono text-zinc-500 dark:text-zinc-500">{formatCurrency(spend)}</span>
           </div>
+          
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-zinc-600 dark:text-zinc-400">Actual Withdrawal:</span>
+            <span className="font-mono text-rose-500 dark:text-rose-400">-{formatCurrency(dataObj.actualSpend)}</span>
+          </div>
+          
+          {dataObj.taxDrag > 0 && (
+            <div className="flex justify-between items-center gap-4">
+              <span className="text-zinc-600 dark:text-zinc-400">Taxes & Fees:</span>
+              <span className="font-mono text-rose-500 dark:text-rose-400">-{formatCurrency(dataObj.taxDrag)}</span>
+            </div>
+          )}
           
           <div className="flex justify-between items-center gap-4">
             <span className="text-zinc-600 dark:text-zinc-400">Portfolio Growth:</span>
