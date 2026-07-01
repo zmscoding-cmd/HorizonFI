@@ -1213,3 +1213,13 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 **Continuous Validation & Functional Assertions:**
 * **Validation - Mathematical Integrity:** Confirmed that numeric inputs support precise decimal adjustments (e.g., `step="0.1"`) and write successfully to RxDB and Cloud Firestore without losing fraction resolution.
 * **Validation - Strict Secrets Audit & Leak Sweep:** Verified that no hardcoded credentials, API keys, tracking telemetry, or local environment overrides were introduced. All operations are kept strictly secured within the local-first boundary.
+
+### Checkpoint - Chart Overlay Layering & Tooltip Z-Index Refinement: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Elevated Tooltip Layering (`MultiStageChart.tsx`):** Implemented an elevated z-index configuration (`wrapperStyle={{ zIndex: 1000 }}`) on the custom chart tooltip. This guarantees that when a user hovers over the multi-stage interactive visualization, the detailed information card draws cleanly *above* the absolute-positioned Legend elements at the bottom, removing visual obstruction.
+2. **Stutter-Free Mouse Traversals:** Integrated `pointerEvents: 'none'` on the tooltip container wrapper. This allows the user's cursor to glide across the chart seamlessly without triggering hover stutters or focus lockups as the tooltips move with the mouse.
+3. **Secrets Management & Zero-Trust Audit:** Conducted a comprehensive code scan on all newly introduced properties and configurations; confirmed zero hardcoded credentials, mock secrets, or tracing telemetry lines have been introduced.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation - Layout Integrity:** Verified that both light and dark/night-watch themes render the tooltip background and text with excellent color contrast ratios.
+* **Validation - Clean Build Compliance:** Validated that compiling and linting passes perfectly.

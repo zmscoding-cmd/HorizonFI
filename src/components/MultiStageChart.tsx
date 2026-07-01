@@ -119,6 +119,7 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
             tickFormatter={(val) => `${val.toFixed(1)}%`} 
           />
           <Tooltip 
+             wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
              content={({ active, payload, label }: any) => {
                if (active && payload && payload.length) {
                  const step = payload[0]?.payload;
