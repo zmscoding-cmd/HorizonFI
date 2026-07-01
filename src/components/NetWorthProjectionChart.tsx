@@ -80,6 +80,9 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
 
       const isCurrent = currencyMode === 'CURRENT';
       const divisor = isCurrent ? (snapshot.cumulativeInflation || 1) : 1;
+      
+      const nominalTotal = cash + taxable + preTax + roth;
+      const realTotal = Math.max(0, nominalTotal / divisor);
 
       return {
         year: snapshot.year,
@@ -88,11 +91,28 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
         TAXABLE: Math.max(0, taxable / divisor),
         PRE_TAX: Math.max(0, preTax / divisor),
         ROTH: Math.max(0, roth / divisor),
-        Total: Math.max(0, (cash + taxable + preTax + roth) / divisor),
+        Total: realTotal,
         expectedSpend: (isCurrent ? snapshot.targetBudgetReal : snapshot.targetBudgetNominal) || 0,
         expectedGrowth: (snapshot.expectedGrowth || 0) / divisor,
         expectedYield: (snapshot.expectedYield || 0) / divisor,
-        changeInNetWorth: (snapshot.changeInNetWorth || 0) / divisor
+        // We will compute accurate change below, pass nominal values for calculation
+        _nominalTotal: nominalTotal,
+        _nominalChange: snapshot.changeInNetWorth || 0,
+        _divisor: divisor
+      };
+    }).map((item, index, arr) => {
+      let changeInNetWorth = 0;
+      if (index === 0) {
+        // For the first year, starting real value uses divisor of 1.0 (base year)
+        const startingNominal = item._nominalTotal - item._nominalChange;
+        changeInNetWorth = item.Total - startingNominal;
+      } else {
+        changeInNetWorth = item.Total - arr[index - 1].Total;
+      }
+      
+      return {
+        ...item,
+        changeInNetWorth
       };
     });
   }, [data, assets, currencyMode]);

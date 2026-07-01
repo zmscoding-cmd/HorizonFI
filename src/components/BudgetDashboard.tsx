@@ -116,7 +116,7 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
   const [isComputing, setIsComputing] = useState(false);
 
   // Interactive Tab controls
-  const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'assets' | 'categories'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'actuals' | 'categories' | 'assets'>('overview');
 
   // Month Ledger selection for variance logging
   const [selectedLedgerMonth, setSelectedLedgerMonth] = useState<string>(() => {
@@ -966,7 +966,7 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                   : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
               }`}
             >
-              <FileText size={18} className="shrink-0" /> Overview & Ledger
+              <FileText size={18} className="shrink-0" /> Budget vs Actual
             </button>
             <button
               onClick={() => setActiveTab('expenses')}
@@ -976,17 +976,17 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                   : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
               }`}
             >
-              <DollarSign size={18} className="shrink-0" /> Planned Expenses ({expenses.length})
+              <DollarSign size={18} className="shrink-0" /> Planned Expenses & Taxes ({expenses.length})
             </button>
             <button
-              onClick={() => setActiveTab('assets')}
+              onClick={() => setActiveTab('actuals')}
               className={`flex-1 md:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 cursor-pointer min-h-[44px] ${
-                activeTab === 'assets'
+                activeTab === 'actuals'
                   ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
                   : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
               }`}
             >
-              <Briefcase size={18} className="shrink-0" /> Target Assets ({assets.length})
+              <PiggyBank size={18} className="shrink-0" /> Actual Expenses
             </button>
             <button
               onClick={() => setActiveTab('categories')}
@@ -997,6 +997,16 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
               }`}
             >
               <Layers size={18} className="shrink-0" /> Categories ({categories.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('assets')}
+              className={`flex-1 md:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 cursor-pointer min-h-[44px] ${
+                activeTab === 'assets'
+                  ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
+              }`}
+            >
+              <Briefcase size={18} className="shrink-0" /> Target Assets ({assets.length})
             </button>
           </div>
 
@@ -1132,7 +1142,12 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                   </ResponsiveContainer>
                 </div>
               </div>
+            </div>
+          )}
 
+          {/* ACTUAL EXPENSES PANEL - Actual Monthly Expenditure Ledger */}
+          {activeTab === 'actuals' && (
+            <div className="space-y-6">
               {/* Monthly ledger log form */}
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-3">

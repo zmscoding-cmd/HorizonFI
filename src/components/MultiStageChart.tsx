@@ -220,7 +220,7 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
           <Area yAxisId="left" type="monotone" dataKey="pensionIncome" name="Pension" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="rrbIncome" name="RRB Income" stackId="1" stroke="#d946ef" fill="#d946ef" fillOpacity={0.8} />
           
-          <Area yAxisId="left" type="monotone" dataKey="withdrawnDividends" name="Dividends" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.8} />
+          <Area yAxisId="left" type="monotone" dataKey="withdrawnDividends" name="Dividends" stackId="1" stroke="#34d399" fill="#34d399" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxable" name="Taxable Principal" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxAdvantaged" name="401k/IRA" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.8} />
           
@@ -240,7 +240,7 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
             type="stepAfter" 
             dataKey="targetBudgetGrowing" 
             name={`Target Budget (Increasing)${isCurrent ? ' - Real' : ' - Nominal'}`} 
-            stroke="#bef264" 
+            stroke="#14532d" 
             strokeWidth={4.5}
             dot={false}
             connectNulls={false}

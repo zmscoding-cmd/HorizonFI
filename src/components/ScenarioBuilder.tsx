@@ -1995,12 +1995,8 @@ export default function ScenarioBuilder({
                                         .exec();
                                       const updatedMilestones = (
                                         activeScenario.milestones || []
-                                      ).map((ms: any) =>
-                                        ms.id === m.id ||
-                                        (!ms.id &&
-                                          activeScenario.milestones.indexOf(
-                                            ms,
-                                          ) === mIdx)
+                                      ).map((ms: any, idx: number) =>
+                                        idx === mIdx
                                           ? { ...ms, name: newVal }
                                           : ms,
                                       );
@@ -2030,11 +2026,8 @@ export default function ScenarioBuilder({
                                       const updatedMilestones = (
                                         activeScenario.milestones || []
                                       ).filter(
-                                        (ms: any) =>
-                                          ms.id !== m.id &&
-                                          activeScenario.milestones.indexOf(
-                                            ms,
-                                          ) !== mIdx,
+                                        (ms: any, idx: number) =>
+                                          idx !== mIdx,
                                       );
                                       const updatedScenarios =
                                         plan.scenarios.map((s: any) =>
@@ -2070,12 +2063,8 @@ export default function ScenarioBuilder({
                                           .exec();
                                         const updatedMilestones = (
                                           activeScenario.milestones || []
-                                        ).map((ms: any) =>
-                                          ms.id === m.id ||
-                                          (!ms.id &&
-                                            activeScenario.milestones.indexOf(
-                                              ms,
-                                            ) === mIdx)
+                                        ).map((ms: any, idx: number) =>
+                                          idx === mIdx
                                             ? { ...ms, type: e.target.value }
                                             : ms,
                                         );
@@ -2143,12 +2132,8 @@ export default function ScenarioBuilder({
                                           .exec();
                                         const updatedMilestones = (
                                           activeScenario.milestones || []
-                                        ).map((ms: any) =>
-                                          ms.id === m.id ||
-                                          (!ms.id &&
-                                            activeScenario.milestones.indexOf(
-                                              ms,
-                                            ) === mIdx)
+                                        ).map((ms: any, idx: number) =>
+                                          idx === mIdx
                                             ? {
                                                 ...ms,
                                                 amount: val,
@@ -2196,12 +2181,8 @@ export default function ScenarioBuilder({
                                           .exec();
                                         const updatedMilestones = (
                                           activeScenario.milestones || []
-                                        ).map((ms: any) =>
-                                          ms.id === m.id ||
-                                          (!ms.id &&
-                                            activeScenario.milestones.indexOf(
-                                              ms,
-                                            ) === mIdx)
+                                        ).map((ms: any, idx: number) =>
+                                          idx === mIdx
                                             ? { ...ms, isTriggerByAge: isAge }
                                             : ms,
                                         );
@@ -2253,14 +2234,8 @@ export default function ScenarioBuilder({
                                           .exec();
                                         const updatedMilestones = (
                                           activeScenario.milestones || []
-                                        ).map((ms: any) => {
-                                          if (
-                                            ms.id === m.id ||
-                                            (!ms.id &&
-                                              activeScenario.milestones.indexOf(
-                                                ms,
-                                              ) === mIdx)
-                                          ) {
+                                        ).map((ms: any, idx: number) => {
+                                          if (idx === mIdx) {
                                             return isTriggerByAgeVal
                                               ? { ...ms, triggerAge: val }
                                               : {

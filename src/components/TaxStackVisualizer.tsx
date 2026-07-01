@@ -153,7 +153,23 @@ export default function TaxStackVisualizer({
 
   // Determine active reference line positions
   const ordinaryRefLimit = ordinaryLimits[targetOrdinaryBracket];
-  const ltcgRefLimit = ltcgLimits[targetLTCGBracket];
+  const ltcgRefLimit = targetLTCGBracket === 0.20 ? ltcgLimits[0.15] : ltcgLimits[targetLTCGBracket];
+
+  // Dynamic maximum domain value based on active reference limits and actual values to prevent clipping
+  const maxDomainVal = useMemo(() => {
+    const limits = [
+      160000,
+      grossOrdinaryIncome + totalLtcgGains + 20000,
+      STANDARD_DEDUCTION + 20000
+    ];
+    if (ordinaryRefLimit && ordinaryRefLimit !== Infinity) {
+      limits.push(ordinaryRefLimit + 20000);
+    }
+    if (ltcgRefLimit && ltcgRefLimit !== Infinity) {
+      limits.push(ltcgRefLimit + 40000); // 40k padding for readability
+    }
+    return Math.max(...limits);
+  }, [grossOrdinaryIncome, totalLtcgGains, ordinaryRefLimit, ltcgRefLimit]);
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm transition-colors mt-6">
@@ -293,7 +309,7 @@ export default function TaxStackVisualizer({
                   fontSize={10} 
                   stroke={tickStroke} 
                   tickFormatter={(val) => `$${(val / 1000).toFixed(0)}k`}
-                  domain={[0, Math.max(160000, grossOrdinaryIncome + totalLtcgGains + 20000)]}
+                  domain={[0, maxDomainVal]}
                 />
                 <YAxis 
                   type="category" 
@@ -351,7 +367,9 @@ export default function TaxStackVisualizer({
                     strokeDasharray="4 4" 
                     strokeWidth={1.5}
                     label={{ 
-                      value: `Target LTCG Limit (${ltcgBracketLabels[targetLTCGBracket]})`, 
+                      value: targetLTCGBracket === 0.20
+                        ? `Target 20% LTCG Threshold ($${(ltcgRefLimit / 1000).toFixed(0)}k)`
+                        : `Target LTCG Limit (${ltcgBracketLabels[targetLTCGBracket]})`, 
                       position: 'top', 
                       fill: '#10b981', 
                       fontSize: 9,
