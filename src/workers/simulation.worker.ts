@@ -1488,7 +1488,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
   const totalYears = payload.endYear - payload.startYear;
   
   // Initialize Buckets 1, 2, and 3 abstract layers
-  const use3Bucket = !!payload.threeBuckets;
+  const use3Bucket = !!payload.threeBuckets || !!payload.budgetPhases?.some(p => p.cashBufferMultiplier !== undefined);
   let bucket1Balance = 0;
   let bucket2Balance = 0;
   let bucket3Balance = 0;
@@ -1497,8 +1497,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     const totalAssets = currentAssets.reduce((sum, a) => sum + a.value, 0);
     const initialActivePhase = payload.budgetPhases?.find(p => payload.startYear >= p.startYear && payload.startYear <= p.endYear) || payload.budgetPhases?.[0];
     const initialTargetBudget = initialActivePhase?.baselineAmount || 0;
-    const b1Target = initialTargetBudget * (initialActivePhase?.cashBufferMultiplier ?? payload.threeBuckets!.bucket1LiquiditySecuredYears ?? 2.0);
-    const b2Target = initialTargetBudget * (payload.threeBuckets!.bucket2IncomeSecuredYears || 5);
+    const b1Target = initialTargetBudget * (initialActivePhase?.cashBufferMultiplier ?? payload.threeBuckets?.bucket1LiquiditySecuredYears ?? 2.0);
+    const b2Target = initialTargetBudget * (payload.threeBuckets?.bucket2IncomeSecuredYears || 5);
     
     bucket1Balance = Math.min(totalAssets, b1Target);
     bucket2Balance = Math.min(Math.max(0, totalAssets - bucket1Balance), b2Target);
@@ -1978,8 +1978,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
        }
        
        // Refill Buckets based on Target Configuration
-       const b1TargetMultiplier = activePhase?.cashBufferMultiplier ?? payload.threeBuckets.bucket1LiquiditySecuredYears ?? 2.0;
-       const b2TargetMultiplier = payload.threeBuckets.bucket2IncomeSecuredYears || 5;
+       const b1TargetMultiplier = activePhase?.cashBufferMultiplier ?? payload.threeBuckets?.bucket1LiquiditySecuredYears ?? 2.0;
+       const b2TargetMultiplier = payload.threeBuckets?.bucket2IncomeSecuredYears || 5;
        const b1Target = stageTargetBudgetNominal * b1TargetMultiplier;
        const b2Target = stageTargetBudgetNominal * b2TargetMultiplier;
        

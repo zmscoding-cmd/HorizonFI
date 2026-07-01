@@ -40,6 +40,7 @@ import { WealthVelocityChart } from "./WealthVelocityChart";
 import { InvestmentForm } from "./InvestmentForm";
 import { InvestmentList } from "./InvestmentList";
 import { NetWorthProjectionChart } from "./NetWorthProjectionChart";
+import { BucketWaterfallChart } from "./BucketWaterfallChart";
 import { AssetModel } from "../lib/db";
 import { CurrencyToggle } from "./CurrencyToggle";
 
@@ -400,6 +401,7 @@ export default function ScenarioBuilder({
             budgetDoc?.taxableRebalancingSaleAmount || 0,
           rebalancingCapitalGainPercentage:
             budgetDoc?.rebalancingCapitalGainPercentage || 0,
+          threeBuckets: scenario.threeBuckets || plan.threeBuckets,
         });
       }
     });
@@ -804,6 +806,25 @@ export default function ScenarioBuilder({
                 />
               </div>
             </div>
+
+            {(activeScenario?.threeBuckets || plan.threeBuckets || budgetDoc?.budgetPhases?.some((p: any) => p.cashBufferMultiplier !== undefined)) && (
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
+                <div>
+                  <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">
+                    Phase Cash Strategy Visualization (Three Buckets)
+                  </h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">
+                    Tracking dynamic allocation across Liquid Cash Buffer, Income, and Growth Assets.
+                  </p>
+                </div>
+                <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 flex-1 min-h-[400px] flex flex-col">
+                  <BucketWaterfallChart
+                    data={multiStageResults[activeScenarioId || ""] || []}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
               <div>
                 <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">
