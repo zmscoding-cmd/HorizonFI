@@ -193,7 +193,7 @@ const taxLotSchema = {
   version: 0,
   primaryKey: 'id',
   type: 'object',
-  keyCompression: true,
+  keyCompression: false,
   properties: {
     id: { type: 'string', maxLength: 100 },
     accountId: { type: 'string', maxLength: 100 },

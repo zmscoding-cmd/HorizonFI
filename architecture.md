@@ -1492,7 +1492,7 @@ Trigger: Implementation of granular tax lot accounting and bridge period plannin
 2. ARCHITECTURE.md Diff/Additions:
 [New Section 4.5. Tax Lot Tracking]
 - **Sub-Ledger Abstraction**: To support Specific Identification tax optimization, a secondary `tax_lots` collection exists alongside the primary `assets` collection.
-- **Key Compression**: The `tax_lots` schema forces `keyCompression: true` to prevent browser IndexedDB quota exhaustion when users import hundreds of discrete transaction lots.
+- **Key Compression**: The `tax_lots` schema has `keyCompression: false` due to RxDB UT5 error (plugin absent), will evaluate adding `RxDBKeyCompressionPlugin` later if indexedDB limits are hit.
 - **Migration Path**: `planSchema` has been bumped to version 13 with a non-destructive mapping strategy that initializes the new temporal targeting fields (`stockLiquidationStartYear`, `rothConversionStartYear`) to undefined, protecting all legacy user scenarios.
 
 3. Validation Status:
