@@ -1,10 +1,4 @@
-const fs = require('fs');
-const file = 'src/workers/simulation.worker.ts';
-let code = fs.readFileSync(file, 'utf8');
-
-const regex = /export function calculateOptimalMultiYearTaxPathDP\([\s\S]*?export function clearDPMemoCache/g;
-
-const newFunc = `export function calculateOptimalMultiYearTaxPathDP(
+export function calculateOptimalMultiYearTaxPathDP(
   state: DPOptimizationState,
   params: DPOptimizationParams,
   depth: number = 0
@@ -132,8 +126,3 @@ const newFunc = `export function calculateOptimalMultiYearTaxPathDP(
   dpMemoCache.set(stateKey, bestPath);
   return bestPath;
 }
-
-export function clearDPMemoCache`;
-
-code = code.replace(regex, newFunc);
-fs.writeFileSync(file, code);

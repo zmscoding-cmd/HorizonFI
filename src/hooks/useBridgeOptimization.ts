@@ -85,7 +85,7 @@ export function useBridgeOptimization(planId: string | undefined, scenarioId: st
 
         const params = {
           startAge,
-          endAge: scenario.bridgeOptimizationEndAge || 65,
+          endAge: scenario.bridgeOptimizationEndAge || 75,
           baseOrdinaryIncome: scenario.baseOrdinaryIncome || 50000,
           guytonKlingerTarget: scenario.guytonKlingerTarget || 50000,
           rrbTier1Benefits: 0,

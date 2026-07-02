@@ -1,5 +1,5 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/workers/simulation.worker.ts', 'utf8');
+let code = fs.readFileSync('target_func.txt', 'utf8');
 
 const target = `  let capitalGainsHarvested = 0;
   let liquidityGenerated = 0;
@@ -129,19 +129,23 @@ const replacement = `  let stockLiquidationTargets = [params.guytonKlingerTarget
 
 if (code.includes(target)) {
     code = code.replace(target, replacement);
-    // Add an extra closing brace for the new for loop
-    const target2 = `  dpMemoCache.set(stateKey, bestPath);
-  return bestPath;
-}`;
-    const replacement2 = `  }
-
-  dpMemoCache.set(stateKey, bestPath);
-  return bestPath;
-}`;
-    code = code.replace(target2, replacement2);
-    
-    fs.writeFileSync('src/workers/simulation.worker.ts', code);
-    console.log("Successfully patched simulation.worker.ts");
+    code = code.replace(/dpMemoCache\.set\(stateKey, bestPath\);\n  return bestPath;\n\}/g, "  }\n\n  dpMemoCache.set(stateKey, bestPath);\n  return bestPath;\n}");
+    fs.writeFileSync('replacement_func.txt', code);
+    console.log("Replacement generated successfully!");
 } else {
-    console.log("Target string not found!");
+    console.log("Error: target not found in target_func.txt");
+    
+    // Fallback: try doing a simpler split and replace if there are minor formatting differences
+    const idx1 = code.indexOf('let capitalGainsHarvested = 0;');
+    const idx2 = code.indexOf('for (const rothConversion of rothConversionOptions) {');
+    if (idx1 !== -1 && idx2 !== -1) {
+        console.log("Found boundaries using fallback method.");
+        const actualTarget = code.substring(idx1, idx2 + 'for (const rothConversion of rothConversionOptions) {'.length);
+        code = code.replace(actualTarget, replacement.substring(replacement.indexOf('  let stockLiquidationTargets =')));
+        code = code.replace(/dpMemoCache\.set\(stateKey, bestPath\);\n  return bestPath;\n\}/g, "  }\n\n  dpMemoCache.set(stateKey, bestPath);\n  return bestPath;\n}");
+        fs.writeFileSync('replacement_func.txt', code);
+        console.log("Fallback replacement generated successfully!");
+    } else {
+        console.log("Fallback failed as well.");
+    }
 }
