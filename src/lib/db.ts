@@ -134,6 +134,7 @@ export type SubScenario = {
   displayEndYear?: number;
   stockLiquidationStartYear?: number;
   rothConversionStartYear?: number;
+  bridgeOptimizationEnabled?: boolean;
 };
 
 export type PlanType = {

@@ -34,6 +34,10 @@ import { InvestmentList } from "./InvestmentList";
 import { NetWorthProjectionChart } from "./NetWorthProjectionChart";
 import { BucketWaterfallChart } from "./BucketWaterfallChart";
 import { AssetModel } from "../lib/db";
+
+import { BridgeOptimizationDashboard } from "./BridgeOptimizationDashboard";
+import { useBridgeOptimization } from "../hooks/useBridgeOptimization";
+import { MultistageModelingView } from "./MultistageModelingView";
 import { CurrencyToggle } from "./CurrencyToggle";
 import { TimeHorizonControls } from "./TimeHorizonControls";
 import { useTimeHorizonFilter } from "../hooks/useTimeHorizonFilter";
@@ -60,6 +64,9 @@ export default function ScenarioBuilder({
   const [simulationResults, setSimulationResults] = useState<
     Record<string, any[]>
   >({});
+  
+  const { data: bridgeData, loading: bridgeLoading } = useBridgeOptimization(activeScenarioId, db);
+
   const [multiStageResults, setMultiStageResults] = useState<
     Record<string, any[]>
   >({});
@@ -784,113 +791,18 @@ export default function ScenarioBuilder({
       )}
 
       {subModule === "stages" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 lg:overflow-hidden pb-8 lg:pb-0">
-          <div className="col-span-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/80 rounded-2xl p-4 flex flex-col gap-5 lg:overflow-y-auto shadow-sm transition-colors">
-            <h3 className="font-bold text-sm tracking-tight uppercase text-zinc-500 dark:text-zinc-400">
-              Multi-Stage Configuration
-            </h3>
-            {activeScenario && (
-              <StageConfigurator
-                activeScenario={activeScenario}
-                plan={plan}
-                db={db}
-                handleRunSimulation={handleRunSimulation}
-              />
-            )}
-          </div>
-          <div className="lg:col-span-2 flex flex-col gap-6 lg:overflow-y-auto pb-6">
-            <TimeHorizonControls db={db} planId={plan.id} scenarioId={activeScenarioId || ""} />
-
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">
-                    Long-Term Portfolio Projection
-                  </h3>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">
-                    Tracking projected net worth based on tax bucket and
-                    availability.
-                  </p>
-                </div>
-                <div className="flex justify-start sm:justify-end">
-                  <CurrencyToggle />
-                </div>
-              </div>
-              <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 flex-1 min-h-[400px] flex flex-col">
-                <NetWorthProjectionChart
-                  data={multiStageResults[activeScenarioId || ""] || []}
-                  assets={activeScenario?.assets || []}
-                  displayStartYear={displayStartYear}
-                  displayEndYear={displayEndYear}
-                />
-              </div>
-            </div>
-
-            {(activeScenario?.threeBuckets || plan.threeBuckets || activeScenario?.budget?.budgetPhases?.some((p: any) => p.cashBufferMultiplier !== undefined)) && (
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
-                <div>
-                  <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">
-                    Phase Cash Strategy Visualization (Three Buckets)
-                  </h3>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">
-                    Tracking dynamic allocation across Liquid Cash Buffer, Income, and Growth Assets.
-                  </p>
-                </div>
-                <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 flex-1 min-h-[400px] flex flex-col">
-                  <BucketWaterfallChart
-                    data={multiStageResults[activeScenarioId || ""] || []}
-                    displayStartYear={displayStartYear}
-                    displayEndYear={displayEndYear}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
-              <div>
-                <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">
-                  Income Shift Visualization
-                </h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">
-                  Tracking UPRR divestments and dynamic funding priority shifts.
-                </p>
-              </div>
-              <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 flex-1 min-h-[400px] flex flex-col">
-                <MultiStageChart
-                  data={multiStageResults[activeScenarioId || ""] || []}
-                  stages={activeScenario?.stages || []}
-                  displayStartYear={displayStartYear}
-                  displayEndYear={displayEndYear}
-                />
-              </div>
-            </div>
-
-            <FundedRatioTracker
-              data={multiStageResults[activeScenarioId || ""] || []}
-              stages={activeScenario?.stages || []}
-              activeScenario={activeScenario}
-              displayStartYear={displayStartYear}
-              displayEndYear={displayEndYear}
-              handleUpdateDiscountRate={async (rate) => {
-                if (!activeScenario) return;
-                const doc = await db.plans.findOne(plan.id).exec();
-                const updatedScenarios = plan.scenarios.map((s: any) =>
-                  s.id === activeScenario.id
-                    ? {
-                        ...s,
-                        budget: { ...s.budget, globalDiscountRate: rate },
-                      }
-                    : s,
-                );
-                await doc.patch({
-                  scenarios: updatedScenarios,
-                  updatedAt: Date.now(),
-                });
-                handleRunSimulation();
-              }}
-            />
-          </div>
-        </div>
+        <MultistageModelingView
+          plan={plan}
+          activeScenario={activeScenario}
+          activeScenarioId={activeScenarioId}
+          db={db}
+          handleRunSimulation={handleRunSimulation}
+          multiStageResults={multiStageResults}
+          displayStartYear={displayStartYear}
+          displayEndYear={displayEndYear}
+          bridgeData={bridgeData}
+          bridgeLoading={bridgeLoading}
+        />
       )}
 
       {subModule === "simulation" && (
@@ -2821,6 +2733,11 @@ export default function ScenarioBuilder({
                 </div>
               </div>
             )}
+            
+            {activeScenario?.bridgeOptimizationEnabled && (
+              <BridgeOptimizationDashboard data={bridgeData} />
+            )}
+
           </div>
 
           {/* Right Area - Comparative Analytics */}

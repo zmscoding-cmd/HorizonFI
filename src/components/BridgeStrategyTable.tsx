@@ -1,0 +1,83 @@
+import React from 'react';
+import { CheckCircle2 } from 'lucide-react';
+
+export interface BridgeOptimizationData {
+  year: number;
+  ordinaryIncome: number;
+  capitalGains: number;
+  stockLiquidation: number;
+  rothConversion: number;
+  effectiveMarginalRate: number;
+}
+
+interface BridgeStrategyTableProps {
+  data: BridgeOptimizationData[];
+  onApplyYearlyStrategy?: (year: number, stockLiquidation: number, rothConversion: number) => void;
+}
+
+export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({ 
+  data = [], 
+  onApplyYearlyStrategy 
+}) => {
+  return (
+    <div id="bridge-strategy-table-card" className="p-4 sm:p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm w-full overflow-hidden transition-colors">
+      <div className="mb-4">
+        <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">
+          Actionable Strategy Ledger
+        </h4>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+          Review dynamic-programming suggested targets for tax optimization per calendar year.
+        </p>
+      </div>
+
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+          <table className="min-w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Year</th>
+                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Stock Liquidation</th>
+                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Roth Conversion</th>
+                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Effective Tax Impact</th>
+                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-center">Execute</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+              {data.map((row) => (
+                <tr key={row.year} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                  <td className="py-3.5 px-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{row.year}</td>
+                  <td className="py-3.5 px-4 text-sm text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+                    ${row.stockLiquidation.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </td>
+                  <td className="py-3.5 px-4 text-sm text-blue-600 dark:text-blue-400 font-mono font-medium">
+                    ${row.rothConversion.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </td>
+                  <td className="py-3.5 px-4 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                    {(row.effectiveMarginalRate * 100).toFixed(1)}%
+                  </td>
+                  <td className="py-3.5 px-4 text-center">
+                    <button 
+                      type="button"
+                      onClick={() => onApplyYearlyStrategy?.(row.year, row.stockLiquidation, row.rothConversion)}
+                      className="min-w-[80px] min-h-[44px] px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500"
+                    >
+                      <CheckCircle2 size={14} />
+                      Apply
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {data.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    No optimization data available for the selected horizon.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
