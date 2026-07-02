@@ -25,6 +25,11 @@ export function TimeHorizonControls({ db, planId, scenarioId }: TimeHorizonContr
 
   const [error, setError] = useState<string | null>(null);
 
+  const [startInput, setStartInput] = useState<string>('');
+  const [endInput, setEndInput] = useState<string>('');
+  const [isEditingStart, setIsEditingStart] = useState(false);
+  const [isEditingEnd, setIsEditingEnd] = useState(false);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-4 text-xs font-mono text-zinc-500 animate-pulse">
@@ -110,9 +115,28 @@ export function TimeHorizonControls({ db, planId, scenarioId }: TimeHorizonContr
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <div className="flex-1 text-center font-mono font-bold text-sm text-zinc-800 dark:text-zinc-200">
-              {displayStartYear}
-            </div>
+            <input
+              type="text"
+              value={isEditingStart ? startInput : displayStartYear.toString()}
+              onChange={(e) => setStartInput(e.target.value)}
+              onFocus={() => {
+                setIsEditingStart(true);
+                setStartInput(displayStartYear.toString());
+              }}
+              onBlur={() => {
+                setIsEditingStart(false);
+                const parsed = parseInt(startInput, 10);
+                if (!isNaN(parsed)) {
+                  handleStartChange(parsed);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                }
+              }}
+              className="flex-1 w-full text-center font-mono font-bold text-sm text-zinc-800 dark:text-zinc-200 bg-transparent border-none outline-none focus:ring-0"
+            />
             <button
               type="button"
               id="start-year-increment"
@@ -140,9 +164,28 @@ export function TimeHorizonControls({ db, planId, scenarioId }: TimeHorizonContr
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <div className="flex-1 text-center font-mono font-bold text-sm text-zinc-800 dark:text-zinc-200">
-              {displayEndYear}
-            </div>
+            <input
+              type="text"
+              value={isEditingEnd ? endInput : displayEndYear.toString()}
+              onChange={(e) => setEndInput(e.target.value)}
+              onFocus={() => {
+                setIsEditingEnd(true);
+                setEndInput(displayEndYear.toString());
+              }}
+              onBlur={() => {
+                setIsEditingEnd(false);
+                const parsed = parseInt(endInput, 10);
+                if (!isNaN(parsed)) {
+                  handleEndChange(parsed);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                }
+              }}
+              className="flex-1 w-full text-center font-mono font-bold text-sm text-zinc-800 dark:text-zinc-200 bg-transparent border-none outline-none focus:ring-0"
+            />
             <button
               type="button"
               id="end-year-increment"

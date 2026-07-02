@@ -142,15 +142,6 @@ export default function TaxStackVisualizer({
   const tooltipBorder = isNightWatch ? '#4a0d1a' : (isDark ? '#3f3f46' : '#e4e4e7');
   const tooltipTexColor = isNightWatch ? '#fca5a5' : (isDark ? '#f4f4f5' : '#18181b');
 
-  if (loading) {
-    return (
-      <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center min-h-[300px]">
-        <div className="w-6 h-6 border-2 border-zinc-300 border-t-blue-600 rounded-full animate-spin mb-3"></div>
-        <p className="text-xs text-zinc-500">Loading tax optimization targets...</p>
-      </div>
-    );
-  }
-
   // Determine active reference line positions
   const ordinaryRefLimit = ordinaryLimits[targetOrdinaryBracket];
   const ltcgRefLimit = targetLTCGBracket === 0.20 ? ltcgLimits[0.15] : ltcgLimits[targetLTCGBracket];
@@ -170,6 +161,15 @@ export default function TaxStackVisualizer({
     }
     return Math.max(...limits);
   }, [grossOrdinaryIncome, totalLtcgGains, ordinaryRefLimit, ltcgRefLimit]);
+
+  if (loading) {
+    return (
+      <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center min-h-[300px]">
+        <div className="w-6 h-6 border-2 border-zinc-300 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+        <p className="text-xs text-zinc-500">Loading tax optimization targets...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm transition-colors mt-6">

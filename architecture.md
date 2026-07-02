@@ -1456,3 +1456,20 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
   * **Testing Suite Integration (`checkpoint.test.ts`)**: Implemented robust Vitest unit tests asserting that adjusting the time-horizon start and end year display parameters successfully slices the array length passed to Recharts but preserves the absolute values of the underlying data points and raw ledger calculations uncorrupted.
 * **Shift Justifications**: Transitioning the visual chart elements to a strictly "dumb" layout layer fulfills our Thread Isolation Principle. Moving multi-decade proportional allocations to the background simulation worker completely removes rendering performance bottlenecks and ensures that both the granular projection charts and longitudinal comparison charts consume identical, uncorrupted data records from the single source of truth.
 
+### Checkpoint: Time Horizon Controls Input Refactoring
+* **Hardcoded Secrets**: Verified. No credentials, private keys, or credentials exist in the updated files.
+* **Architecture Alignment**: Maintained full PWA compliance and mobile-friendly usability standards.
+* **Architecture Changes**:
+  * Refactored `TimeHorizonControls.tsx` to replace static `<div>` year displays with interactive `<input>` fields, enabling direct manual typing overrides in addition to chevron button increments.
+  * Preserved full error-handling boundaries and dynamic validation rules on `blur` and `Enter` keystroke actions.
+* **Shift Justifications**: Enhances the user experience by reducing manual click fatigue on long horizon adjustments, whilst maintaining strict internal bound validation.
+
+### Checkpoint: React Hook Rule Stabilization in TaxStackVisualizer
+* **Hardcoded Secrets**: Explicitly scanned `TaxStackVisualizer.tsx`; verified zero hardcoded secrets, API keys, or telemetry tracking configurations were introduced.
+* **Architecture Alignment**: Maintains strict adherence to React's rules of hooks, safeguarding the UI lifecycle and preventing crash scenarios in the offline-first environment.
+* **Architecture Changes**:
+  * Identified and resolved the root cause of React Minified Error #310 ("Rendered more hooks than during the previous render") when navigating to the Budget tab.
+  * Relocated the early-return `loading` state conditional in `src/components/TaxStackVisualizer.tsx` to sit below the `maxDomainVal` `useMemo` calculation block.
+* **Shift Justifications**: React strictly requires hooks to be called unconditionally at the top level of the function block. By ensuring the `loading` early return occurs after all hooks are evaluated, we guarantee the hook call graph remains identical across renders, structurally eliminating the error.
+
+
