@@ -132,6 +132,8 @@ export type SubScenario = {
   taxableAccountCostBasisPct?: number;
   displayStartYear?: number;
   displayEndYear?: number;
+  stockLiquidationStartYear?: number;
+  rothConversionStartYear?: number;
 };
 
 export type PlanType = {
@@ -176,8 +178,36 @@ export type HistoricalDatapointType = {
   updatedAt?: number;
 };
 
+
+export type TaxLot = {
+  id: string;
+  accountId: string;
+  ticker: string;
+  shares: number;
+  costBasisPerShare: number;
+  acquisitionDate: string;
+  isTargetConcentratedPosition: boolean;
+};
+
+const taxLotSchema = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  keyCompression: true,
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    accountId: { type: 'string', maxLength: 100 },
+    ticker: { type: 'string' },
+    shares: { type: 'number' },
+    costBasisPerShare: { type: 'number' },
+    acquisitionDate: { type: 'string' },
+    isTargetConcentratedPosition: { type: 'boolean' }
+  },
+  required: ['id', 'accountId', 'ticker', 'shares', 'costBasisPerShare', 'acquisitionDate', 'isTargetConcentratedPosition']
+};
+
 const planSchema = {
-  version: 12,
+  version: 13,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -333,7 +363,9 @@ const planSchema = {
           targetLTCGBracket: { type: 'number', default: 0.0 },
           taxableAccountCostBasisPct: { type: 'number', default: 0.75 },
           displayStartYear: { type: 'number' },
-          displayEndYear: { type: 'number' }
+          displayEndYear: { type: 'number' },
+          stockLiquidationStartYear: { type: 'number' },
+          rothConversionStartYear: { type: 'number' }
         }
       }
     },
@@ -882,8 +914,16 @@ export async function getDatabase() {
                 return sc;
               });
               return oldDoc;
+            },
+            13: function (oldDoc: any) {
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                // Initialize new start year targets as undefined/blank
+                return sc;
+              });
+              return oldDoc;
             }
           }
+
         };
       }
       if (!rxdb.collections.historical_datapoints) {
@@ -952,6 +992,10 @@ export async function getDatabase() {
           }
         }
       };
+
+      if (!rxdb.collections.tax_lots) {
+        collectionsToCreate.tax_lots = { schema: taxLotSchema };
+      }
       if (!rxdb.collections.categories) collectionsToCreate.categories = { schema: categorySchema };
       if (!rxdb.collections.links) collectionsToCreate.links = { schema: linkSchema };
 

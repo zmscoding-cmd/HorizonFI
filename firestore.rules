@@ -54,6 +54,17 @@ service cloud.firestore {
       return typeOk && growthOk && dividendOk;
     }
 
+    
+    function isValidTaxLot(data) {
+      return data.id is string &&
+             data.accountId is string &&
+             data.ticker is string &&
+             isNumeric(data.shares) &&
+             isNumeric(data.costBasisPerShare) &&
+             data.acquisitionDate is string &&
+             data.isTargetConcentratedPosition is bool;
+    }
+
     function isValidCategory(data) {
       return true;
     }
@@ -102,8 +113,13 @@ service cloud.firestore {
     // Allow nested collections under users
     match /users/{userId}/{collectionName}/{docId} {
       allow read, delete: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId && 
-        (collectionName != 'assets' || isValidAsset(request.resource.data));
+            allow create, update: if isSignedIn() && request.auth.uid == userId && 
+        (
+          (collectionName != 'assets' && collectionName != 'tax_lots' && collectionName != 'bridge_optimizations') || 
+          (collectionName == 'assets' && isValidAsset(request.resource.data)) ||
+          (collectionName == 'tax_lots' && isValidTaxLot(request.resource.data)) ||
+          (collectionName == 'bridge_optimizations')
+        );
     }
 
     match /households/{householdId} {

@@ -1481,3 +1481,77 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
   * Refactored the `optimization` `useMemo` block in `src/components/TaxStackVisualizer.tsx` to calculate `maxRecommendedStockSale` and `maxRecommendedRothConversion` independently based on the user's *baseline* income, rather than calculating capital gains capacity sequentially on top of a simulated maximized Roth conversion.
   * Updated the Informational Warning block to explicitly notify the user that these independent capacities are interdependent when actually executed.
 * **Shift Justifications**: The previous "greedy" sequence generated confusing UX loops where raising the target ordinary bracket would mysteriously zero out the taxable rebalancing capacity. Decoupling the guidance metrics ensures deterministic feedback.
+
+### Checkpoint: Specific Identification Tax Lot Sub-Ledger
+Trigger: Implementation of granular tax lot accounting and bridge period planning parameters.
+
+1. Architectural State Changes:
+- Expanded the local RxDB schema to include a dedicated `tax_lots` collection. This sub-ledger allows the application to track highly specific acquisition dates, share counts, and cost-basis data for individual investment lots without disrupting the legacy aggregated asset structures.
+- Integrated `stockLiquidationStartYear` and `rothConversionStartYear` into the `SubScenario` configuration to allow precise temporal targeting of multi-year financial maneuvers.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section 4.5. Tax Lot Tracking]
+- **Sub-Ledger Abstraction**: To support Specific Identification tax optimization, a secondary `tax_lots` collection exists alongside the primary `assets` collection.
+- **Key Compression**: The `tax_lots` schema forces `keyCompression: true` to prevent browser IndexedDB quota exhaustion when users import hundreds of discrete transaction lots.
+- **Migration Path**: `planSchema` has been bumped to version 13 with a non-destructive mapping strategy that initializes the new temporal targeting fields (`stockLiquidationStartYear`, `rothConversionStartYear`) to undefined, protecting all legacy user scenarios.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified when in dark mode
+[x] API Telemetry Logged
+
+### Checkpoint: Dynamic Programming Tax Optimization Engine
+Trigger: Implementation of mathematically intensive multi-year DP algorithm for optimal tax maneuvering.
+
+1. Architectural State Changes:
+- Added calculateOptimalMultiYearTaxPathDP to simulation.worker.ts.
+- Introduced a discretized state hashing algorithm mapped to a dpMemoCache to efficiently memoize utility values across multi-year evaluation trees without overwhelming the worker thread memory.
+- Implemented strict US tax code sequencing within the DP evaluation loops: stacking ordinary income (and Provisional Railroad Retirement Tier 1 taxation) at the bottom, and projecting Long-Term Capital Gains harvests on top to identify Tax Torpedo zones.
+- Hard constraints programmed for IRMAA thresholds to reject paths that trip Medicare cliffs by $1.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section 5.3. Dynamic Programming Tax Solver]
+- **Worker Isolation**: The DP algorithm runs exclusively within the simulation.worker.ts thread, preserving main-thread UI 60fps rendering limits.
+- **Memoization Strategy**: Evaluated states are rounded to the nearest $10k to drastically compress the state space size over multi-decade Monte Carlo projections.
+- **Tax Stacking Integrity**: LTCG brackets strictly evaluate against a base consisting of standard deductions + ordinary income + RRB tier 1 taxable percentages.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified when in dark mode
+[x] API Telemetry Logged
+
+### Checkpoint: Bridge Optimization UI Components
+Trigger: Implementation of reactive UI components to visualize decoupled bridge period optimization data.
+
+1. Architectural State Changes:
+- Created the `BridgeOptimizationDashboard` component to render the DP engine output.
+- Utilized Recharts to map the Tax Stack, demonstrating the dynamic thresholds of Ordinary Income and Capital Gains.
+- Built an Actionable Strategy Ledger to present year-by-year recommendations for Stock Liquidation and Roth Conversions, including their effective marginal tax rates.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section 6.4. Bridge Optimization Visualizer]
+- **Data Rendering Isolation**: The dashboard operates solely on the localized optimization output objects, preventing it from deeply coupling with the underlying legacy RxDB structures.
+- **Accessibility & Touch Constraints**: All execute buttons and interactive table rows adhere to the strict 44x44px minimum touch target size.
+- **Visual Design Rules**: The Tax Stack chart employs clear color-coding with distinct boundaries (using ReferenceLines) for the critical 12% Ordinary and 0% LTCG limits, directly guiding user comprehension of the Tax Torpedo.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified when in dark mode
+[x] API Telemetry Logged
+
+### Checkpoint: Security Hardening & DP Algorithm Fixes
+Trigger: Finalizing Bridge Period Optimization and DP tax engine with zero-trust security perimeters.
+
+1. Architectural State Changes:
+- Configured explicit rule constraints in `firestore.rules` for the new `tax_lots` collection. The sub-ledger inherits the same strict `request.auth.uid` zero-trust perimeter as the legacy `assets` collection.
+- Refined the Dynamic Programming memoized Tax Torpedo evaluation logic in `simulation.worker.ts` to properly assess 15% bracket penalties across all scenarios, correctly identifying when both partial and full ordinary income stacks push capital gains into higher brackets.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section 7.1. Database Security Perimeters]
+- **Zero-Trust Rule Matching**: `tax_lots` queries are strictly denied unless they explicitly match the authenticated `request.auth.uid`. A new `isValidTaxLot` schema validator function operates at the edge, rejecting malformed writes or injected payloads before they reach the Firestore backend.
+- **Worker Isolation & Testing**: The DP algorithm's Tax Torpedo edge cases have been fortified and verified via `vitest` assertions, ensuring that local offline calculations match expected US Tax Code behavior perfectly.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified when in dark mode
+[x] API Telemetry Logged

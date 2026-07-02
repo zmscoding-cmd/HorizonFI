@@ -523,3 +523,15 @@ The Time Horizon filter is especially useful for isolating critical transitional
 
 
 
+
+## 7. Advanced Tax Optimization
+
+### 7.1. The "Tax Torpedo"
+The **Tax Torpedo** is a colloquial term for the rapid spike in marginal tax rates that occurs when additional ordinary income (such as traditional IRA withdrawals or Roth conversions) pushes previously untaxed Long-Term Capital Gains (LTCG) into a taxable bracket. 
+In the US tax code, capital gains sit *on top* of ordinary income. If your ordinary income fills the space up to the 0% LTCG threshold (e.g., $98,900 for Married Filing Jointly in 2026), any additional ordinary income you realize will not only be taxed at your ordinary rate, but it will also push an equivalent amount of capital gains out of the 0% bracket and into the 15% bracket. This effectively creates a marginal tax rate that is significantly higher than your nominal bracket. HorizonFI's Bridge Optimization DP engine is specifically programmed to detect this exact interaction and halt Roth conversions before they trigger this torpedo.
+
+### 7.2. Provisional Income and Railroad Retirement/Social Security
+For retirees relying on Railroad Retirement Board (RRB) Tier 1 benefits or Social Security, benefits are not taxed straightaway. Instead, taxation is based on your **Provisional Income**, which is calculated as:
+`Modified Adjusted Gross Income (MAGI) + 50% of your RRB Tier 1 / Social Security Benefits`
+
+As your Provisional Income crosses specific statutory base amounts, the percentage of your benefits subject to federal income tax scales from 0% to 50% and ultimately up to 85%. This creates hidden marginal tax spikes where a single dollar of additional income (like a Roth conversion) can cause an additional 50 to 85 cents of your benefits to become taxable. HorizonFI simulates this Provisional Income curve exactly as the IRS calculates it, ensuring our recommendations never inadvertently trigger severe taxation on your retirement benefits.
