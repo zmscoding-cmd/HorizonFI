@@ -37,6 +37,7 @@ import { AssetModel } from "../lib/db";
 import { CurrencyToggle } from "./CurrencyToggle";
 import { TimeHorizonControls } from "./TimeHorizonControls";
 import { useTimeHorizonFilter } from "../hooks/useTimeHorizonFilter";
+import { useCurrencyMode } from "../contexts/CurrencyModeContext";
 
 export default function ScenarioBuilder({
   plan,
@@ -47,6 +48,7 @@ export default function ScenarioBuilder({
   db: any;
   onClose: () => void;
 }) {
+  const { currencyMode } = useCurrencyMode();
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(
     plan.scenarios?.[0]?.id || null,
   );
@@ -487,6 +489,7 @@ export default function ScenarioBuilder({
   if (Object.keys(multiStageResults).length > 0) {
     const firstScenarioId = Object.keys(multiStageResults)[0];
     const len = multiStageResults[firstScenarioId]?.length || 0;
+    const isCurrent = currencyMode === 'CURRENT';
     for (let i = 0; i < len; i++) {
       const year = multiStageResults[firstScenarioId][i].year;
       // Skip if outside display window
@@ -500,8 +503,16 @@ export default function ScenarioBuilder({
       Object.entries(multiStageResults).forEach(([id, res]) => {
         const scenarioName = plan.scenarios?.find((s) => s.id === id)?.name || id;
         if (res[i]) {
-          dataPoint[`${scenarioName} Balance`] = Math.round(res[i].totalNetWorth || res[i].endingBalance || 0);
-          dataPoint[`${scenarioName} Tax Drag`] = Math.round(res[i].taxDrag || 0);
+          let nominalBalance = res[i].totalNetWorth ?? res[i].endingBalance ?? 0;
+          let realBalance = res[i].endingBalanceReal ?? (nominalBalance / (res[i].cumulativeInflation || 1));
+          
+          if (res[i].cashNominal !== undefined) {
+             nominalBalance = (res[i].cashNominal ?? 0) + (res[i].taxableNominal ?? 0) + (res[i].preTaxNominal ?? 0) + (res[i].rothNominal ?? 0);
+             realBalance = (res[i].cashReal ?? 0) + (res[i].taxableReal ?? 0) + (res[i].preTaxReal ?? 0) + (res[i].rothReal ?? 0);
+          }
+          
+          dataPoint[`${scenarioName} Balance`] = Math.round(isCurrent ? realBalance : nominalBalance);
+          dataPoint[`${scenarioName} Tax Drag`] = Math.round((res[i].taxDrag || 0) / (isCurrent ? (res[i].cumulativeInflation || 1) : 1));
         }
       });
       combinedChartData.push(dataPoint);
