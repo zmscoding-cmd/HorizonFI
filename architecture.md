@@ -1555,3 +1555,55 @@ Trigger: Finalizing Bridge Period Optimization and DP tax engine with zero-trust
 [x] Offline Capability Verified
 [x] Night-Watch UI/UX Verified when in dark mode
 [x] API Telemetry Logged
+
+### Checkpoint: Currency Toggle in Comparative Analytics
+Trigger: Addition of the current/future dollars toggle to the long-term simulation Comparative Analytics view.
+
+1. Architectural State Changes:
+- Added `CurrencyToggle` to the `Comparative Analytics View` header.
+- This UI element allows users to toggle between real (inflation-adjusted) and nominal (future) dollars across all long-term longitudinal projections.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Currency Mode in Analytics]
+- **Shared State**: The Comparative Analytics view now properly interfaces with the `CurrencyModeContext` to control real vs nominal visualization for multi-decade Monte Carlo and deterministic runs.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified when in dark mode
+[x] API Telemetry Logged
+
+### Checkpoint: Bridge Optimization Adapter & Verification
+Trigger: QA verification and implementation of the Bridge Period Optimization module testing harness.
+
+1. Architectural State Changes:
+- Implemented and verified the decoupled Web Worker adapter (`simulation.worker.ts`) pattern. The UI payload seamlessly serializes via `postMessage` preventing main-thread UI blocking during expensive Guyton-Klinger tax DP runs.
+- Enhanced `firestore.rules` to strictly enforce zero-trust for `tax_lots` and `bridge_optimizations` collections under `request.auth.uid`. A new edge-validation function `isValidBridgeOptimization` was deployed to intercept malformed bridge payloads.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Decoupled Worker Adapter & Security Constraints]
+- **Worker Isolation Pattern**: `calculateOptimalMultiYearTaxPathDP` leverages strict immutable payload structures (`DPOptimizationState`) enforcing that expensive Monte Carlo loops occur purely in background workers.
+- **Zero-Trust Rule Matching**: Both `tax_lots` and `bridge_optimizations` inherit the `users/{userId}` security perimeter with granular edge type-checking, preventing corrupted optimization inputs.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified when in dark mode
+[x] API Telemetry Logged
+[x] Vitest Unit Harness Configured for Worker Adapter
+
+### Checkpoint: Bridge Optimization Documentation Update
+Trigger: UX and Documentation update for Bridge Period Optimization and TCJA permanent brackets.
+
+1. Architectural State Changes:
+- No new code introduced in this phase, only documentation updates.
+- Ensured `DOCUMENTATION.md` accurately reflects the new Bridge Period Optimization Module capabilities.
+- Removed outdated references to the TCJA sunset, aligning documentation with the previously implemented permanent brackets logic.
+
+2. ARCHITECTURE.md Diff/Additions:
+[Documentation Alignment]
+- **Documentation Parity**: Brought user-facing documentation into alignment with the offline-first Web Worker and DP engine capabilities, specifically calling out the exact RxDB JSON datastore and Web Worker offline features to end-users.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified when in dark mode
+[x] API Telemetry Logged
+[x] Documentation updated

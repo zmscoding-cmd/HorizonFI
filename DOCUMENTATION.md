@@ -236,10 +236,38 @@ To protect your retirement against catastrophic "sequence of returns" risks, Hor
 When modeling drawdowns, the mathematical simulation automatically attempts a trailing-year refill: trailing buckets organically transfer capital downwards to restore standard duration lengths (e.g., Bucket 3 drops capital into Bucket 2, which trickles down to establish 2 years in Bucket 1).
 *However*, if the simulation registers a negative market return year, the Capital Preservation Guardrail automatically triggers—**strictly halting all transfers from Bucket 3 (Equities)**. This guarantees that you never sell stocks at a depressed loss, forcing you to gracefully live off your isolated liquidity (Buckets 1 and 2) until the market rebounds.
 
-### 4. Tax & Transition Engine
+#
+### The Bridge Period Optimization Module
+The transition from early retirement to the onset of fixed pensions (like Railroad Retirement or Social Security) creates a critical window known as the "Bridge Period". Because your baseline ordinary income drops precipitously before these pensions begin, this window presents a massive opportunity for multi-year tax optimization.
+
+To navigate this, HorizonFI features an offline-first **Bridge Period Optimization Module**. Instead of relying on linear projections, this module deploys a mathematically intensive Dynamic Programming engine inside a background Web Worker to evaluate thousands of permutations of stock liquidations and Roth conversions over your entire retirement timeline. 
+
+By maximizing your terminal wealth at the end of the simulation, the algorithm inherently minimizes your lifetime tax drag.
+
+#### 1. Concentrated Stock Liquidation & Reallocation
+If you hold a disproportionate amount of wealth in a single company stock (e.g., from former employment), the optimizer helps you systematically unwind this idiosyncratic risk. 
+* **Specific Identification Accounting:** Instead of using the IRS default First-In, First-Out (FIFO) method, HorizonFI requires you to input your specific tax lots (acquisition dates, share counts, and cost bases). 
+* **Targeted Gain Engineering:** The algorithm targets exact shares to sell, pairing highly appreciated lots with high-basis lots to engineer a precise capital gain. It mathematically maps these sales to fill up the remainder of your 0% Long-Term Capital Gains bracket without spilling into the 15% penalty zone.
+* **Dividend ETF Reinvestment:** The proceeds are modeled as an immediate reinvestment into a dividend-yield ETF (specifically tracking the Schwab U.S. Dividend Equity ETF). The engine dynamically accounts for the ongoing qualified dividend tax drag this creates on your portfolio's compound annual growth rate.
+
+#### 2. Multi-Year Roth Conversion Engine
+Simultaneously, the engine calculates the exact dollar gap between your current baseline taxable income and the upper limit of your target tax bracket (e.g., the 24% bracket) to execute multi-year Roth conversions. 
+
+The Dynamic Programming engine treats strict legislative penalties as hard mathematical constraints:
+* **The Tax Torpedo:** The system calculates the phantom marginal tax rate. If an additional $1,000 of Roth conversion pushes $1,000 of capital gains from the 0% bracket into the 15% bracket, the true effective tax rate is much higher. The engine halts recommendations when this threshold is breached.
+* **IRMAA Cliffs:** Medicare Part B and D premium surcharges act as cliff penalties. The engine actively restricts Roth conversions to keep your Modified Adjusted Gross Income precisely below these cliffs.
+* **Provisional Income Suppression:** By executing conversions during the bridge period, the engine depletes your pre-tax balances, systematically suppressing future Required Minimum Distributions (RMDs). This keeps your future Provisional Income low, allowing your Tier 1 Railroad Retirement or Social Security benefits to remain largely tax-free.
+
+#### 3. Analyzing the Optimizer Outputs
+Because this module calculates massive datasets locally using an RxDB JSON database, the UI is highly reactive. You can view the engine's outputs in two primary formats:
+
+1.  **Multistage Stacked Area Chart:** This plots your comprehensive income sources and tax liabilities chronologically. The layers stack in the exact order the IRS taxes them: standard deductions at the base, ordinary income/Roth conversions in the middle, and capital gains/dividends at the top. Line overlays indicate permanent TCJA brackets and the 0% LTCG threshold.
+2.  **Reactive Action Table:** Directly beneath the chart, a detailed data grid details the exact dollar amount of specific stock lots to liquidate, the capital to allocate to the dividend ETF, the optimized Roth transfer amount, and your total estimated federal tax liability for the year.
+
+
+## 4. Tax & Transition Engine
 HorizonFI computes multi-decade liabilities on your behalf safely behind the scenes:
 
-*   **2026 TCJA Sunset Reversion:** The engine factors in the statutory expiration of the 2017 Tax Cuts and Jobs Act on December 31, 2025. In calendar year 2026, progressive tax rates automatically return to pre-sunset brackets (indexing ordinary brackets up to 39.6% and halving the standard deduction).
 *   **Roth Conversion Stacking:** To avoid the massive taxes triggered when withdrawing large sums later, the engine analyzes your pre-tax versus tax-free assets and model-schedules annual Roth conversions. It targets conversions to map perfectly up to the edge of the **0% Long-Term Capital Gains threshold** ($98,900 for Married Filing Jointly in 2026) to shield your gains from ordinary tax brackets.
 *   **Concentrated Equity Transition (UPRR to SCHD):** Cruisers often hold concentrated single-stock equity from prior employment (e.g., Union Pacific Railroad - UPRR). The asset transition engine models a multi-year tax-aware transition out of volatile single-stock equities into globally diversified high-yield dividend ETFs (e.g., Schwab US Dividend Equity ETF - SCHD), estimating the precise capital gains drag per year.
 *   **The "Tax Bomb" (Deferred Tax Liability):** Tax-deferred traditional balances are not fully yours—they bear a deferred tax liability. HorizonFI estimates this future tax burden based on progressive sunset-era tax brackets, representing this future liability as a virtual **contra-asset** to calculate your true post-tax net worth accurately.
@@ -332,7 +360,7 @@ To guarantee that your estimated net budget matches your actual cash in hand, th
 
 ### The Mechanics of Income Stacking
 
-Under the United States federal tax code (projected for the Post-TCJA 2026 sunset era), different types of income are taxed under distinct bracket structures. Crucially, these structures are not independent; they stack sequentially. The rate applied to your last dollar of capital gains depends entirely on the volume of ordinary income underneath it.
+Under the United States federal tax code (with permanent TCJA 2026 brackets), different types of income are taxed under distinct bracket structures. Crucially, these structures are not independent; they stack sequentially. The rate applied to your last dollar of capital gains depends entirely on the volume of ordinary income underneath it.
 
 ```
        ┌────────────────────────────────────────────────────────┐
@@ -357,7 +385,7 @@ The engine starts by applying the projected 2026 Married Filing Jointly (MFJ) st
 #### 2. Stacking Ordinary Income
 Ordinary income consists of baseline streams (such as pre-existing railroad retirement benefits, pensions, and non-portfolio income) plus your proactive, user-defined **Target Roth Conversion Amount** and traditional IRA distributions.
 $$\text{Taxable Ordinary Income} = \max(0, \text{Total Ordinary Income} - \$30,000)$$
-The engine then applies the progressive post-TCJA 2026 ordinary income tax brackets (starting at 10%, 12%, 22%, and 24%) directly to this taxable ordinary base:
+The engine then applies the progressive permanent TCJA 2026 ordinary income tax brackets (starting at 10%, 12%, 22%, and 24%) directly to this taxable ordinary base:
 $$\text{Ordinary Tax Liability} = f_{\text{progressive}}(\text{Taxable Ordinary Income})$$
 
 #### 3. Stacking Capital Gains (The Bracket Push)

@@ -1095,15 +1095,15 @@ function randomNormal(mean: number, stdDev: number): number {
 }
 
 // Post-TCJA Tax Bracket Helper
-const STANDARD_DEDUCTION_2026_EST = 15000;
-const TCJA_BRACKETS_2026 = [
-  { rate: 0.10, limit: 23000 },
-  { rate: 0.15, limit: 94000 },
-  { rate: 0.25, limit: 190000 },
-  { rate: 0.28, limit: 285000 },
-  { rate: 0.33, limit: 495000 },
-  { rate: 0.35, limit: 560000 },
-  { rate: 0.396, limit: Infinity },
+export const STANDARD_DEDUCTION_2026_EST = 30000;
+export const TCJA_BRACKETS_2026 = [
+  { rate: 0.10, limit: 23200 },
+  { rate: 0.12, limit: 94300 },
+  { rate: 0.22, limit: 201050 },
+  { rate: 0.24, limit: 383900 },
+  { rate: 0.32, limit: 487450 },
+  { rate: 0.35, limit: 731200 },
+  { rate: 0.37, limit: Infinity },
 ];
 
 function estimateOrdinaryIncomeTax(taxableOrdinaryIncome: number): number {

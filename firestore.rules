@@ -65,6 +65,14 @@ service cloud.firestore {
              data.isTargetConcentratedPosition is bool;
     }
 
+    
+    function isValidBridgeOptimization(data) {
+      return data.id is string &&
+             data.scenarioId is string &&
+             isNumeric(data.optimalRothConversion) &&
+             isNumeric(data.optimalLiquidation);
+    }
+
     function isValidCategory(data) {
       return true;
     }
@@ -118,7 +126,7 @@ service cloud.firestore {
           (collectionName != 'assets' && collectionName != 'tax_lots' && collectionName != 'bridge_optimizations') || 
           (collectionName == 'assets' && isValidAsset(request.resource.data)) ||
           (collectionName == 'tax_lots' && isValidTaxLot(request.resource.data)) ||
-          (collectionName == 'bridge_optimizations')
+          (collectionName == 'bridge_optimizations' && isValidBridgeOptimization(request.resource.data))
         );
     }
 

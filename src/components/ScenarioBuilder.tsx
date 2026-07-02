@@ -2825,14 +2825,19 @@ export default function ScenarioBuilder({
 
           {/* Right Area - Comparative Analytics */}
           <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 sm:p-6 flex flex-col gap-6 lg:overflow-y-auto shadow-sm transition-colors">
-            <div>
-              <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">
-                Comparative Analytics View
-              </h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">
-                Longitudinal trajectories simulating Guyton-Klinger, Tax engine
-                matching, and Mid-iteration Temporal Shifts.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">
+                  Comparative Analytics View
+                </h3>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">
+                  Longitudinal trajectories simulating Guyton-Klinger, Tax engine
+                  matching, and Mid-iteration Temporal Shifts.
+                </p>
+              </div>
+              <div className="flex justify-start sm:justify-end">
+                <CurrencyToggle />
+              </div>
             </div>
 
             <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 h-[320px] sm:h-[360px] flex flex-col transition-colors">
