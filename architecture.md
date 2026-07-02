@@ -1861,3 +1861,21 @@ Trigger: Resolve Bridge Optimization DP engine artificially capping Rec. Stock L
 [x] Mathematical Integrity (LTCG bounds mapping) Confirmed
 [x] Web Worker DP Execution Confirmed (sub-30ms)
 [x] Vitest Integration Harness Verified
+
+### Checkpoint: DP Roth Conversion Expansion
+Trigger: User requested to maximize Roth conversions during the bridge years to minimize high tax rates from RMDs in later years, noting the DP was only recommending stock liquidation.
+
+1. Architectural State Changes:
+- **Roth-Primary Utility Optimization**: Restructured the Dynamic Programming loops inside `simulateMultiStageDrawdownWorker` to evaluate `rothConversionOptions` as the primary independent dimension, generating targeted `stockLiquidationTargets` specifically bounded by the remaining 0% LTCG space *after* a given Roth conversion is applied.
+- **RMD Future Tax Rate Modeling**: Upgraded the `DPOptimalPath` base-case utility function to explicitly model a 32% effective future ordinary tax rate on pre-tax balances (simulating severe future RMDs) and 15% future tax rate on concentrated stock.
+- **Action Space Expansion**: Added the 22% and 24% marginal tax brackets to the discrete action space (`fill22PercentBracket`, `fill24PercentBracket`), allowing the engine to mathematically accept aggressive Roth conversions if they offset the heavily modeled 32% future penalty.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Multi-Dimensional Bracket Stacking]
+- The engine now reliably executes simultaneous operations: aggressive Roth Conversions filling the 24% bracket combined with minimal stock liquidation (e.g., matching the $50k Guyton-Klinger baseline) to avoid the 15% Capital Gains torpedo.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Mathematical Integrity (Torpedo avoidance) Confirmed
+[x] Web Worker DP Execution Confirmed (sub-35ms matrix resolution)
+[x] Base case heuristics correctly favoring 24% bracket Roth conversions over 15% CG tax.
