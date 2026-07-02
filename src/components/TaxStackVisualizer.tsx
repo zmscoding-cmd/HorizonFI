@@ -91,13 +91,12 @@ export default function TaxStackVisualizer({
     const remainingOrdinaryCapacity = Math.max(0, targetOrdinaryGrossLimit - grossOrdinaryIncome);
     const maxRecommendedRothConversion = remainingOrdinaryCapacity;
 
-    // Stack simulated conversion
-    const simulatedOrdinaryIncome = grossOrdinaryIncome + maxRecommendedRothConversion;
-    const simulatedTaxableOrdinaryIncome = Math.max(0, simulatedOrdinaryIncome - STANDARD_DEDUCTION);
+    // Calculate baseline taxable ordinary income (WITHOUT simulated conversion)
+    const baselineTaxableOrdinaryIncome = Math.max(0, grossOrdinaryIncome - STANDARD_DEDUCTION);
 
     // LTCG limits (taxable limits)
     const targetLtcgLimitTaxable = targetLTCGBracket === 0.00 ? 98900 : (targetLTCGBracket === 0.15 ? 613700 : Infinity);
-    const combinedTaxableIncome = simulatedTaxableOrdinaryIncome + totalLtcgGains;
+    const combinedTaxableIncome = baselineTaxableOrdinaryIncome + totalLtcgGains;
     const remainingLtcgCapacity = Math.max(0, targetLtcgLimitTaxable - combinedTaxableIncome);
 
     // Calculate Max Stock Sale using the scenario-specific estimated cost basis pct
@@ -110,7 +109,7 @@ export default function TaxStackVisualizer({
       maxRecommendedStockSale,
       remainingOrdinaryCapacity,
       remainingLtcgCapacity,
-      simulatedTaxableOrdinaryIncome,
+      simulatedTaxableOrdinaryIncome: baselineTaxableOrdinaryIncome,
       combinedTaxableIncome,
       targetOrdinaryGrossLimit,
       targetLtcgGrossLimit: STANDARD_DEDUCTION + targetLtcgLimitTaxable,
@@ -467,7 +466,7 @@ export default function TaxStackVisualizer({
         <div className="mt-4 p-3 rounded-xl border border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 flex items-start gap-2.5 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
           <Info size={14} className="text-blue-500 mt-0.5 shrink-0" />
           <div>
-            <span className="font-bold text-zinc-700 dark:text-zinc-300">Strategy Insight:</span> Ordinary income is stacked first, acting as the bedrock of your tax structure. Because ordinary income fills the lower brackets, every dollar of traditional distribution or Roth conversion directly reduces the remaining 0% LTCG limit room. Prioritize Roth conversions up to the 12% Ordinary limit first, then harvest LTCG gains in the remaining headroom.
+            <span className="font-bold text-zinc-700 dark:text-zinc-300">Strategy Insight:</span> The recommended maximums above are calculated independently based on your current baseline income. Because ordinary income and capital gains stack together to fill your tax brackets, executing a Roth conversion will directly reduce your remaining Taxable Rebalancing Capacity (and vice-versa).
           </div>
         </div>
       </div>

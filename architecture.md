@@ -1473,3 +1473,11 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Shift Justifications**: React strictly requires hooks to be called unconditionally at the top level of the function block. By ensuring the `loading` early return occurs after all hooks are evaluated, we guarantee the hook call graph remains identical across renders, structurally eliminating the error.
 
 
+
+### Checkpoint: Decoupled Tax Optimization Guidance
+* **Hardcoded Secrets**: Explicitly scanned `TaxStackVisualizer.tsx`; verified zero hardcoded secrets, API keys, or credentials were introduced.
+* **Architecture Alignment**: Maintains mathematical accuracy according to the sequence-of-stacking rules for US tax code while improving user comprehensibility of the Optimizer Guidance Panel.
+* **Architecture Changes**:
+  * Refactored the `optimization` `useMemo` block in `src/components/TaxStackVisualizer.tsx` to calculate `maxRecommendedStockSale` and `maxRecommendedRothConversion` independently based on the user's *baseline* income, rather than calculating capital gains capacity sequentially on top of a simulated maximized Roth conversion.
+  * Updated the Informational Warning block to explicitly notify the user that these independent capacities are interdependent when actually executed.
+* **Shift Justifications**: The previous "greedy" sequence generated confusing UX loops where raising the target ordinary bracket would mysteriously zero out the taxable rebalancing capacity. Decoupling the guidance metrics ensures deterministic feedback.
