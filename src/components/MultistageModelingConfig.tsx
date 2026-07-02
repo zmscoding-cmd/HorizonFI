@@ -230,7 +230,7 @@ export function MultistageModelingConfig({ activeScenario, plan, db, handleRunSi
         
         <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 space-y-5">
           <ToggleSwitch
-            checked={activeScenario.bridgeOptimizationEnabled ?? false}
+            checked={activeScenario.bridgeOptimizationEnabled !== false}
             onChange={async (val) => {
               const doc = await db.plans.findOne(plan.id).exec();
               const updatedScenarios = plan.scenarios.map((s) =>
@@ -243,7 +243,7 @@ export function MultistageModelingConfig({ activeScenario, plan, db, handleRunSi
             description="Use DP Web Worker to optimize Roth conversions and stock liquidations."
           />
 
-          {activeScenario.bridgeOptimizationEnabled && (
+          {activeScenario.bridgeOptimizationEnabled !== false && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-zinc-200 dark:border-zinc-800">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 block">Stock Liquidation Start Year</label>

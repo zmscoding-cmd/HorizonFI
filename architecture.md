@@ -1706,3 +1706,35 @@ Trigger: Integrate the visual chart and interactive table components into Multis
 [x] Night-Watch UI/UX Verified
 [x] Web Worker Isolation Confirmed
 [x] Vitest Integration Harness Verified (bridge-optimization-integration.test.ts passing)
+
+### Checkpoint: Bridge Optimization UX/UI Visibility & Documentation Alignment
+Trigger: Correct default UI state visibility and ensure User Help Guide reflects the Bridge Optimization features.
+
+1. Architectural State Changes:
+- **Default State Modification**: Updated `useBridgeOptimization`, `MultistageModelingConfig.tsx`, and `MultistageModelingView.tsx` to default the Bridge Optimization Module to `true` (enabled) when the `bridgeOptimizationEnabled` flag is `undefined`. This ensures the requested charts and strategy ledger are immediately visible for existing user scenarios without manual intervention.
+- **In-App Help Guide Alignment**: Injected the "Bridge Period Optimization" explanatory block directly into the `HelpGuideModal.tsx` (Features tab), mirroring the documentation in `DOCUMENTATION.md` to provide users with direct, on-device guidance for the new tool.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Progressive Enhancement & Visibility]
+- **Implicit Enablement**: The UI now implicitly treats the absence of a negative configuration flag (`!== false`) as active, guaranteeing that advanced computational modules surface themselves automatically post-release, maximizing feature discovery while preserving the ability to manually disable them.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified
+[x] Web Worker Isolation Confirmed
+
+### Checkpoint: Bridge Optimization UX/UI Visibility & Documentation Alignment
+Trigger: Correct default UI state visibility and ensure User Help Guide reflects the Bridge Optimization features.
+
+1. Architectural State Changes:
+- **Default State Modification**: Updated `useBridgeOptimization`, `MultistageModelingConfig.tsx`, and `MultistageModelingView.tsx` to default the Bridge Optimization Module to `true` (enabled) when the `bridgeOptimizationEnabled` flag is `undefined`. This ensures the requested charts and strategy ledger are immediately visible for existing user scenarios without manual intervention.
+- **In-App Help Guide Alignment**: Injected the "Bridge Period Optimization" explanatory block directly into the `HelpGuideModal.tsx` (Features tab), mirroring the documentation in `DOCUMENTATION.md` to provide users with direct, on-device guidance for the new tool.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Progressive Enhancement & Visibility]
+- **Implicit Enablement**: The UI now implicitly treats the absence of a negative configuration flag (`!== false`) as active, guaranteeing that advanced computational modules surface themselves automatically post-release, maximizing feature discovery while preserving the ability to manually disable them.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified
+[x] Web Worker Isolation Confirmed

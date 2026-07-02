@@ -2734,7 +2734,7 @@ export default function ScenarioBuilder({
               </div>
             )}
             
-            {activeScenario?.bridgeOptimizationEnabled && (
+            {activeScenario?.bridgeOptimizationEnabled !== false && (
               <BridgeOptimizationDashboard data={bridgeData} />
             )}
 

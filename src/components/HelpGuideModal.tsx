@@ -144,6 +144,15 @@ export default function HelpGuideModal({ isOpen, onClose }: HelpGuideModalProps)
 
             <div className="space-y-1">
               <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Bridge Period Optimization
+              </h4>
+              <p className="text-xs text-zinc-550 dark:text-zinc-400 leading-relaxed pl-3.5">
+                This dynamic-programming engine is located in the <strong>Multistage Modeling</strong> view. It provides year-by-year recommendations for the optimal amount of stock liquidation and Roth conversions to execute during your bridge period. It features an interactive chart and an actionable strategy table that illustrates the associated tax impact for each year while automatically avoiding the 15% capital gains "tax torpedo".
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Dashboard Visualizations
               </h4>
               <p className="text-xs text-zinc-550 dark:text-zinc-400 leading-relaxed pl-3.5">

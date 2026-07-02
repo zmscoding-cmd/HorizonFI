@@ -127,7 +127,7 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
         </div>
 
         {/* 4. Bridge Period Optimization (Rendered directly under Income Shift) */}
-        {activeScenario?.bridgeOptimizationEnabled && (
+        {activeScenario?.bridgeOptimizationEnabled !== false && (
           <div id="bridge-optimization-view-wrapper" className="flex flex-col gap-6 shrink-0">
             {bridgeLoading ? (
               <div className="p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-zinc-500 min-h-[300px] transition-colors">

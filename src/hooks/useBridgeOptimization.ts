@@ -17,7 +17,7 @@ export function useBridgeOptimization(planId: string | undefined, scenarioId: st
         if (!scenario) return;
 
         // Extract optimization params from scenario if they exist, or use defaults
-        const bridgeEnabled = scenario.bridgeOptimizationEnabled;
+        const bridgeEnabled = scenario.bridgeOptimizationEnabled !== false;
         if (!bridgeEnabled) {
           setData([]);
           return;
