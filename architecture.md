@@ -1371,3 +1371,88 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 
 
 
+
+### Checkpoint - Recharts Dimension & Hook Render Stabilization: 2026-07-02
+**Architectural Shifts & Justifications:**
+1. **Responsive Container Dimension Bounds:** Intercepted a fatal React runtime crash (Minified error #310) caused by Recharts `ResponsiveContainer` dynamically injecting negative internal dimensions (e.g., width `-1`, height `-1`) during initial unpainted tab renders (specifically targeting the Granular Budget and Variance view).
+2. **Explicit Dimension Pre-allocation:** Implemented the `initialDimension={{ width: 800, height: 400 }}` initialization parameter uniformly across all Recharts `<ResponsiveContainer>` wrappers (in `BudgetDashboard.tsx`, `MultiStageChart.tsx`, `NetWorthChart.tsx`, etc.). This forces the initial React render pass to measure a positive bounded area, preventing Recharts from conditionally bypassing internal hooks and violating React's strict render sequence rules.
+3. **Secrets Scan:** Explicitly scanned all UI component modifications. Zero credentials, API keys, or sensitive backend endpoints are exposed.
+
+**Continuous Validation & Functional Assertions:**
+* **Tab-Switching Stability:** Confirmed that navigating conditionally rendered components within `ScenarioBuilder` (e.g. from Funding Allocation to Granular Budget) mounts charts reliably without dropping hooks.
+* **Build Integrity:** Verified that `npm run build` succeeds seamlessly and the mathematical integrity tests remain structurally sound in `simulation.worker.test.ts`.
+
+
+### Checkpoint - Time Horizon Chart Filter Schema & State Extension: 2026-07-02
+**Architectural Shifts & Justifications:**
+1. **RxDB Schema & Interface Expansion (`src/lib/db.ts`):** Upgraded `planSchema` to version 12 and extended the `SubScenario` type definition to include optional `displayStartYear` and `displayEndYear` fields. This provides persistent, offline-first client-side chart range filtering settings on a per-scenario basis.
+2. **Backward-Compatible Migration Strategy (`db.ts`):** Registered migration strategy `12` to seamlessly upgrade existing user plans to version 12, maintaining full database hygiene and compatibility across all local and Cloud Firestore databases.
+3. **Reactive Custom State Hook (`src/hooks/useTimeHorizonFilter.ts`):** Developed a custom `useTimeHorizonFilter` React hook to subscribe to active scenario document streams reactively. It isolates local filtering preferences, falls back gracefully to default bounds (`new Date().getFullYear()` to `scenario.targetEndYear`), and exposes robust transactional setter methods.
+4. **Boundary Validation Guardrails:** The validation layer inside the setter methods strictly blocks temporal inversions (`displayStartYear > displayEndYear`) and prevents either parameter from violating the absolute boundaries of the simulated dataset, ensuring full UI stability.
+5. **Secrets Scan:** Audited all files edited in this turn; zero private tokens, credentials, or keys are exposed or hardcoded.
+
+**Continuous Validation & Functional Assertions:**
+* **Type-Safe Compilation:** Confirmed that type assertions and structural bindings pass the strict `tsc --noEmit` build checklist.
+* **Build Integrity:** Successfully compiled the production applet via `npm run build` with zero issues or warning flags.
+
+
+### Checkpoint - Time Horizon Chart Filter Control Component: 2026-07-02
+**Architectural Shifts & Justifications:**
+1. **Interactive Control Panel (`src/components/TimeHorizonControls.tsx`):** Designed a responsive, mobile-first controller card that exposes interactive selection of display start and end years. This acts as a centralized sandbox control above primary visualization containers.
+2. **Accessible Form Factors:** Adhered strictly to PWA requirements by designing increment/decrement elements with touch targets of at least 44x44px, ensuring full responsiveness and usability on touch-first layouts.
+3. **Reactive Bound Synchronization:** Outfitted the component with robust error fallback banners and a single-click "Reset to Simulation Bounds" action, allowing users to restore default bounds at will.
+4. **Secrets Scan:** Scanned all UI files for hardcoded values. No credentials, client keys, or authentication secrets are exposed.
+
+**Continuous Validation & Functional Assertions:**
+* **Validation Response:** Verified that entering invalid bounds dynamically triggers the local validation error alert block and prevents database commits.
+* **Full-Suite Compilation:** Successfully verified all linter rules and checked that `npm run build` succeeds seamlessly.
+
+
+### Checkpoint - Time Horizon Chart Filter Recharts Refactoring: 2026-07-02
+**Architectural Shifts & Justifications:**
+1. **Slicing Logic Utility (`src/lib/chart-utils.ts`):** Created a centralized, generic data-slicing utility function `filterSimulationDataForView(data, start, end)` to filter simulation timelines. This decouples calculation from presentation, keeping the simulation worker fully unburdened by display-only slice bounds.
+2. **Recharts Synchronization Refactoring (`NetWorthProjectionChart.tsx`, `MultiStageChart.tsx`, `BucketWaterfallChart.tsx`, `FundedRatioTracker.tsx`):** Upgraded all four primary multi-decade projection charts to consume the new filtering parameters.
+3. **X-Axis Scale Integrity:** Configured the `<XAxis>` component on all charts with explicit numeric boundaries (`type="number" domain={['dataMin', 'dataMax']}`) and configured standard tick formatters. This guarantees that visual axes scale perfectly to match active filtered boundaries, preventing rendering anomalies on custom ranges.
+4. **Minified Error #310 Prevention:** Retained all positive dimension pre-allocations (`initialDimension={{ width: 800, height: 400 }}`) on `<ResponsiveContainer>` wrappers across all charts. This blocks React lifecycle crashes when the underlying data array length is dynamically sliced.
+5. **Dashboard Orchestration (`ScenarioBuilder.tsx`):** Integrated the custom `useTimeHorizonFilter` hook and rendered the `<TimeHorizonControls />` component directly above the charts column, creating a centralized, real-time reactive command deck.
+6. **Secrets Scan:** Audited all modified charting layers. The application remains 100% secure with zero hardcoded API keys or private tokens.
+
+**Continuous Validation & Functional Assertions:**
+* **Build Integrity:** Verified that `npm run build` compiles 100% cleanly.
+* **Syntactic Verification:** Confirmed that `npm run lint` passes with no type-checking, declaration, or dependency warnings.
+
+
+### Checkpoint - Time Horizon Testing & QA Verification: 2026-07-02
+**Architectural Shifts & Justifications:**
+1. **Vitest Verification Suite (`src/tests/time-horizon-filter.test.ts`):** Created a dedicated testing module to assert that setting `displayStartYear` and `displayEndYear` successfully trims the dataset for Recharts rendering while preserving the original array elements mutatively and retaining underlying projection values identically.
+2. **User Guide Expansion (`DOCUMENTATION.md`):** Supplemented user-facing guides with deep strategic insights on how to isolate bridging phases (pre-Social Security gaps) and RMD-driven marginal tax brackets.
+3. **a11y & Touch-Target Verification:** Confirmed all interactive control buttons conform to standard 44x44px minimum touch target dimensions, ensuring touch precision on mobile-first environments.
+4. **Secrets Scan & Code Alignment:** Performed a full scan on all newly added code and verified no hardcoded credentials or API keys were introduced.
+
+**Continuous Validation & Functional Assertions:**
+* **Unit Testing Success:** Added test module checks pass perfectly within the Vitest suite.
+* **Production Build Integrity:** Successfully completed full verification using `npm run lint` and `npm run build`.
+
+
+
+
+### Checkpoint: Single Source of Truth Enforcement (Temporal Projections)
+* **Hardcoded Secrets**: Scanned and verified. No hardcoded credentials, keys, or secrets are present in the worker or temporal engine logic.
+* **Architecture Alignment**: Maintained strict thread isolation by enforcing that all multi-decade calculations happen within the Web Worker via `simulateMultiStageDrawdownWorker`. The worker now returns a unified `chronologicalLedger` array.
+* **Architecture Changes**:
+  * Removed legacy and obsolete parallel calculation loops (`calculateDrawdownProfile`, `simulateNetWorthProbabilistic`) from `simulation.worker.ts` that were generating mismatched outputs.
+  * Re-routed the "Portfolio Longevity" chart in `ScenarioBuilder.tsx` to derive its data exclusively from `multiStageResults`, aligning the UI with the worker's output.
+  * Updated `MultiStageYearlySnapshot` type with an explicit `totalNetWorth` metric that perfectly sums `Taxable + Pre-Tax + Roth + Cash` across the chronological ledger.
+* **Shift Justifications**: This refactor consolidates all projection rendering to a Single Source of Truth. By dismantling the parallel `temporal-engine` local evaluation loop, we eliminate discrepancies between the granular asset charts and the longitudinal longevity chart, securing absolute parity in the application's mathematical model.
+
+
+### Checkpoint: Dumb Visualization Layer and Categorized Asset Refactoring
+* **Hardcoded Secrets**: Verified. No credentials, private keys, or credentials exist in the updated files.
+* **Architecture Alignment**: Aligns with secure, high-performance offline PWA standards. The React components are now purely visual layers with zero local calculation burden, conserving client processing frames and battery life.
+* **Architecture Changes**:
+  * **Categorized Asset Projections (`simulation.worker.ts`)**: Upgraded the background Web Worker simulation loop to pre-calculate the nominal and real balances of every asset category (Cash, Taxable, Pre-Tax, Roth) for each yearly snapshot. This encapsulates all mathematical and proportional-splitting calculations within the isolated worker thread.
+  * **Dumb Visualization Charts (`NetWorthProjectionChart.tsx`)**: Refactored the Long-Term Portfolio Projection area chart to directly map over the pre-calculated nominal or real category states (`cashNominal`/`cashReal`, `taxableNominal`/`taxableReal`, `preTaxNominal`/`preTaxReal`, `rothNominal`/`rothReal`) from the worker's unified chronological ledger, completely stripping out the legacy local math, asset splitting, and real-to-nominal division loops.
+  * **Display Filters Synchronized (`ScenarioBuilder.tsx`)**: Configured the comparative dashboard data points (`combinedChartData`) to filter reactively based on the user's selected `displayStartYear` and `displayEndYear` boundaries. This allows the user to seamlessly zoom in on specific retirement phases (such as pre-pension bridge gaps) without altering or corrupting the underlying multi-decade calculations.
+  * **Testing Suite Integration (`checkpoint.test.ts`)**: Implemented robust Vitest unit tests asserting that adjusting the time-horizon start and end year display parameters successfully slices the array length passed to Recharts but preserves the absolute values of the underlying data points and raw ledger calculations uncorrupted.
+* **Shift Justifications**: Transitioning the visual chart elements to a strictly "dumb" layout layer fulfills our Thread Isolation Principle. Moving multi-decade proportional allocations to the background simulation worker completely removes rendering performance bottlenecks and ensures that both the granular projection charts and longitudinal comparison charts consume identical, uncorrupted data records from the single source of truth.
+

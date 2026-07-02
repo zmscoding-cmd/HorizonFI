@@ -11,26 +11,33 @@ import {
 } from 'recharts';
 import { useTheme } from './ThemeProvider';
 import { MultiStageYearlySnapshot } from '../workers/simulation.worker';
+import { filterSimulationDataForView } from '../lib/chart-utils';
 
 export interface BucketWaterfallChartProps {
   data: MultiStageYearlySnapshot[];
+  displayStartYear?: number;
+  displayEndYear?: number;
 }
 
-export const BucketWaterfallChart: React.FC<BucketWaterfallChartProps> = ({ data }) => {
+export const BucketWaterfallChart: React.FC<BucketWaterfallChartProps> = ({ data, displayStartYear, displayEndYear }) => {
   const { theme } = useTheme();
   const isNightWatch = theme === 'night-watch';
   const isDark = theme === 'dark' || theme === 'night-watch';
 
+  const filteredData = useMemo(() => {
+    return filterSimulationDataForView(data, displayStartYear, displayEndYear);
+  }, [data, displayStartYear, displayEndYear]);
+
   // Format data for stacked area chart
   const formattedData = useMemo(() => {
-    return data.map((d) => ({
+    return filteredData.map((d) => ({
       year: d.year,
       label: `${d.year}`,
       bucket1: Math.round(d.bucket1Balance || 0),
       bucket2: Math.round(d.bucket2Balance || 0),
       bucket3: Math.round(d.bucket3Balance || 0),
     }));
-  }, [data]);
+  }, [filteredData]);
 
   const gridKeyline = isNightWatch ? '#2e0910' : (isDark ? '#27272a' : '#f4f4f5');
   const tickStroke = isNightWatch ? '#7f1d1d' : (isDark ? '#52525b' : '#a1a1aa');
@@ -64,7 +71,7 @@ export const BucketWaterfallChart: React.FC<BucketWaterfallChartProps> = ({ data
       </div>
 
       <div className="flex-1 w-full min-h-[300px] h-[350px]">
-        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+        <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%" minHeight={300}>
           <ComposedChart data={formattedData} margin={{ top: 15, right: 0, left: -10, bottom: 0 }}>
             <defs>
               <linearGradient id="colorB1" x1="0" y1="0" x2="0" y2="1">
@@ -84,12 +91,15 @@ export const BucketWaterfallChart: React.FC<BucketWaterfallChartProps> = ({ data
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridKeyline} />
 
             <XAxis 
-              dataKey="label" 
+              dataKey="year" 
+              type="number"
+              domain={['dataMin', 'dataMax']}
               fontSize={10} 
               tickLine={false} 
               axisLine={false} 
               stroke={tickStroke}
               tick={{ fill: textFill }}
+              tickFormatter={(val) => String(val)}
             />
 
             <YAxis 

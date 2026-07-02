@@ -122,6 +122,21 @@ Sailing in remote regions requires preparing for any contingency. HorizonFI prov
 *   **Comparative Charts:** A responsive Recharts dashboard overlays multiple longevity scenarios side-by-side, detailing exactly when and where asset paths begin to diverge over a 40+ year timeline.
 *   **Strict Structural Integrity:** The database enforces a safeguard preventing the deletion of the final remaining scenario in your plan, guaranteeing every model retains a structural baseline benchmark.
 
+### Time Horizon Controls (Phase Zooming)
+Analyzing a multi-decade trajectory can sometimes make it difficult to evaluate short-term operational phases, such as the critical "bridge" years between early retirement and pension eligibility (e.g., bridging the gap before Social Security or Railroad Retirement at age 67). 
+
+To solve this, HorizonFI provides interactive **Time Horizon Controls** that allow you to zoom the visual display dynamically:
+*   **Zooming vs. Simulating:** Adjusting the `displayStartYear` and `displayEndYear` controls changes the subset of the year array passed to the Recharts visualizer. This is a purely visual filter on the front-end thread.
+*   **Preserving Mathematical Integrity:** Critically, visual filtering **DOES NOT alter the underlying multi-decade calculations** running in the background Web Worker (`simulation.worker.ts`). The worker always runs the complete chronological simulation from your starting year to your final end year. This guarantees that whether you are zoomed in on a 5-year bridge window or viewing the full 40-year landscape, the compound growth, tax stacking, and drawdown waterfall trajectories remain 100% mathematically consistent and uncorrupted.
+*   **Actionable Usage:** Use the slider controls in the active scenario toolbar to isolate specific phases (e.g., setting the window to 2026–2035) to examine cash buffer depletion rates, early tax-bracket margins, and dividend reinvestment yields before pre-tax retirement accounts or pensions unlock.
+
+### Unified Bottom-Up Computational Engine
+To prevent any possibility of data drift or temporal misalignment across different visual metrics, HorizonFI enforces a strict **Single Source of Truth** architecture:
+*   **Asset-Level Calculation Core:** All visualizations (including the "Long-Term Portfolio Projection" stacked area chart, the "Portfolio Longevity" comparative line chart, and the "Wealth Velocity" chart) draw their dataset from the exact same chronological ledger compiled by the background Web Worker (`simulation.worker.ts`).
+*   **Absolute Mathematical Identity:** The worker processes the mathematical drawdown, bucket harvesting, and growth algorithms on an asset-by-asset basis, summing them directly to construct both the granular categories (Cash, Taxable, Pre-Tax, Roth) and the overarching net worth metric. In every simulation snapshot, the sum of these visual category balances is guaranteed to match the overarching Net Worth balance.
+*   **Zero-Drift Synchronization:** Because both charts pull directly from the same unified array of snapshots, any scenario shift, budget change, or market shock is immediately and identically reflected across all dashboard charts simultaneously.
+
+
 ---
 
 ```
@@ -483,6 +498,28 @@ During the annual simulation stepping process, the Web Worker iterates through e
 
 *   **Precision:** An aggressive growth ETF (10% growth, 0% yield) behaves mathematically differently under tax drag and drawdown pressure than a stable municipal bond fund (0% growth, 4% yield). 
 *   **Requirement:** You must carefully audit your asset list. If an asset is left with default 0% parameters, it will correctly generate zero growth in the simulation, significantly altering your projected outcomes. Ensure all assets reflect your true market expectations.
+
+
+## 11. Dynamic Time Horizon Chart Filtering
+
+To allow users to visualize specific sections of their multi-decade projections without altering the underlying mathematical simulations, HorizonFI implements **Dynamic Time Horizon Chart Filtering**.
+
+### 1. Separate Calculation and Display Layers
+*   **Web Worker Integrity:** The background computation thread (`simulation.worker.ts`) continues to model the full, multi-decade projection (from the current year to the final `targetEndYear` of the active scenario) to guarantee that tax bracket conversions, RMD schedules, and compounding effects remain mathematically continuous and correct.
+*   **UI Projection Filter:** The user interface reads the custom `displayStartYear` and `displayEndYear` boundaries from your active scenario, dynamically trimming and rendering the Recharts lines exclusively within your selected slice.
+
+### 2. Default & Boundary Validation Logic
+*   **Graceful Defaults:** If display parameters are not customized or are left empty (null/undefined), the system automatically defaults your view's `displayStartYear` to the current calendar year, and your `displayEndYear` to the scenario's `targetEndYear`.
+*   **Boundary Enforcement:** When adjusting the timeline filters, the custom state hook enforces rigorous safety checks. The system strictly blocks you from:
+    1. Setting a start year that is strictly greater than the end year.
+    2. Attempting to set filters that exceed the absolute limits of the calculated simulation array bounds (earliest year through `targetEndYear`).
+
+### 3. Zooming in on Specific Retirement Phases
+The Time Horizon filter is especially useful for isolating critical transitional periods in your financial plan without losing full historical simulation context:
+*   **The Bridging Gap:** Zoom in on early retirement years to analyze the decumulation rate, taxable account drawdowns, and Roth Conversion Stacking *before* Social Security or corporate pensions kick in.
+*   **RMD Influx Analysis:** Narrow the filter to age 73 through 85 to closely examine the impact of Required Minimum Distributions (RMDs) on your marginal tax brackets and net worth velocity.
+*   **Resetting to Full Bounds:** You can easily snap back to view the entire multi-decade compounding trajectory at any point by clicking the **Reset to Simulation Bounds** button.
+
 
 
 

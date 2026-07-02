@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
+import { filterSimulationDataForView } from '../lib/chart-utils';
 
-export function FundedRatioTracker({ data, stages, activeScenario, handleUpdateDiscountRate }: { data: any[], stages: any[], activeScenario: any, handleUpdateDiscountRate: (rate: number) => void }) {
-  if (!data || data.length === 0) {
+export function FundedRatioTracker({ data, stages, activeScenario, handleUpdateDiscountRate, displayStartYear, displayEndYear }: { data: any[], stages: any[], activeScenario: any, handleUpdateDiscountRate: (rate: number) => void, displayStartYear?: number, displayEndYear?: number }) {
+  const filteredData = useMemo(() => {
+    return filterSimulationDataForView(data, displayStartYear, displayEndYear);
+  }, [data, displayStartYear, displayEndYear]);
+
+  if (!filteredData || filteredData.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-zinc-500 font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
-        Run simulation to view Funded Ratio.
+        No simulation data in selected time horizon.
       </div>
     );
   }
@@ -14,14 +19,14 @@ export function FundedRatioTracker({ data, stages, activeScenario, handleUpdateD
 
   const getStageAreas = () => {
     const areas = [];
-    let currentStageId = data[0]?.activeStageId;
-    let startYear = data[0]?.year;
+    let currentStageId = filteredData[0]?.activeStageId;
+    let startYear = filteredData[0]?.year;
 
-    for (let i = 1; i < data.length; i++) {
-        const point = data[i];
-        if (point.activeStageId !== currentStageId || i === data.length - 1) {
+    for (let i = 1; i < filteredData.length; i++) {
+        const point = filteredData[i];
+        if (point.activeStageId !== currentStageId || i === filteredData.length - 1) {
             const stage = stages.find((s: any) => s.id === currentStageId);
-            const endYear = i === data.length - 1 ? point.year : point.year - 1;
+            const endYear = i === filteredData.length - 1 ? point.year : point.year - 1;
             areas.push({
                 startYear,
                 endYear,
@@ -63,11 +68,13 @@ export function FundedRatioTracker({ data, stages, activeScenario, handleUpdateD
       </div>
 
       <div className="w-full flex-1">
-        <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
+        <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height={400}>
+          <LineChart data={filteredData} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#525252" opacity={0.2} />
             <XAxis 
               dataKey="year" 
+              type="number"
+              domain={['dataMin', 'dataMax']}
               fontSize={12} 
               tickLine={false} 
               axisLine={false} 

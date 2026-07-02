@@ -96,8 +96,8 @@ describe('Web Worker - 3-Bucket Mathematical Integrity', () => {
     // The negative return guards B3 from refilling B1/B2
     expect(snap.bucket1Balance).toBe(0);
     expect(snap.bucket2Balance).toBe(0);
-    // Remaining assets was B3 (200k), which then suffers -15% = 170k.
-    expect(snap.bucket3Balance).toBeCloseTo(170000, 0);
+    // Remaining assets was B3 (200k), which is reduced by total portfolio's 15% growth loss on 300k (-45k) and 100k withdrawal, leaving 155k in total.
+    expect(snap.bucket3Balance).toBeCloseTo(155000, 0);
   });
 
   // 3. Validate that the Web Worker strictly throws boundary errors if array size limits or invalid inflation/withdrawal rates are injected.

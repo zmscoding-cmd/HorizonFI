@@ -1,27 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useCurrencyMode } from '../contexts/CurrencyModeContext';
 import { useTheme } from './ThemeProvider';
+import { filterSimulationDataForView } from '../lib/chart-utils';
 
-export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }) {
+export function MultiStageChart({ data, stages, displayStartYear, displayEndYear }: { data: any[], stages: any[], displayStartYear?: number, displayEndYear?: number }) {
   const { currencyMode } = useCurrencyMode();
   const { theme } = useTheme();
   const isNightWatch = theme === 'night-watch';
   const isDark = theme === 'dark' || theme === 'night-watch';
   const isCurrent = currencyMode === 'CURRENT';
 
-  if (!data || data.length === 0) {
+  const filteredData = useMemo(() => {
+    return filterSimulationDataForView(data, displayStartYear, displayEndYear);
+  }, [data, displayStartYear, displayEndYear]);
+
+  if (!filteredData || filteredData.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500 font-medium">
-        Run simulation to view income sources.
+        No simulation data in selected time horizon.
       </div>
     );
   }
 
   const transitionYears = [];
-  let currentStageId = data[0]?.activeStageId;
+  let currentStageId = filteredData[0]?.activeStageId;
   
-  const rawChartData = data.map((d) => {
+  const rawChartData = filteredData.map((d) => {
     const divisor = isCurrent ? (d.cumulativeInflation || 1) : 1;
     const budgetVal = isCurrent ? (d.targetBudgetReal || (d.targetBudgetNominal / divisor)) : d.targetBudgetNominal;
     
@@ -87,11 +92,13 @@ export function MultiStageChart({ data, stages }: { data: any[], stages: any[] }
 
   return (
     <div className="flex-1 w-full pt-2">
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height={400}>
         <ComposedChart data={chartData} margin={{ top: 20, right: 35, left: -10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridKeyline} />
           <XAxis 
             dataKey="year" 
+            type="number"
+            domain={['dataMin', 'dataMax']}
             fontSize={11} 
             tickLine={false} 
             axisLine={false} 

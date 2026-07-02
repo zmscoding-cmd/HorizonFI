@@ -130,6 +130,8 @@ export type SubScenario = {
   targetOrdinaryBracket?: number;
   targetLTCGBracket?: number;
   taxableAccountCostBasisPct?: number;
+  displayStartYear?: number;
+  displayEndYear?: number;
 };
 
 export type PlanType = {
@@ -175,7 +177,7 @@ export type HistoricalDatapointType = {
 };
 
 const planSchema = {
-  version: 11,
+  version: 12,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -329,7 +331,9 @@ const planSchema = {
           },
           targetOrdinaryBracket: { type: 'number', default: 0.12 },
           targetLTCGBracket: { type: 'number', default: 0.0 },
-          taxableAccountCostBasisPct: { type: 'number', default: 0.75 }
+          taxableAccountCostBasisPct: { type: 'number', default: 0.75 },
+          displayStartYear: { type: 'number' },
+          displayEndYear: { type: 'number' }
         }
       }
     },
@@ -868,6 +872,13 @@ export async function getDatabase() {
                 if (sc.budget) {
                   delete sc.budget.targetConstantMarketReturn;
                 }
+                return sc;
+              });
+              return oldDoc;
+            },
+            12: function (oldDoc: any) {
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                // Initialize optional display years as undefined / blank
                 return sc;
               });
               return oldDoc;

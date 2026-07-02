@@ -1042,7 +1042,7 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                 </div>
 
                 <div id="budget-chart-container" className="w-full h-96 min-h-[300px] overflow-hidden">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
                     <ComposedChart data={chartData} margin={{ top: 10, right: -5, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridKeyline} />
                       <XAxis
@@ -1442,7 +1442,7 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                   </div>
                   {expensesByCategory.length > 0 && (
                     <div className="w-full sm:w-[320px] lg:w-[360px] h-[280px] shrink-0 mx-auto sm:mx-0">
-                       <ResponsiveContainer width="100%" height="100%">
+                       <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
                           <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                             <Pie
                               data={expensesByCategory}

@@ -297,7 +297,7 @@ export default function TaxStackVisualizer({
           </div>
 
           <div className="h-[220px] sm:h-[240px] w-full min-h-0 min-w-0 bg-zinc-50/25 dark:bg-zinc-950/10 rounded-xl p-2 border border-zinc-150 dark:border-zinc-850/40">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
               <BarChart
                 data={chartData}
                 layout="vertical"

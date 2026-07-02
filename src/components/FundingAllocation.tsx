@@ -547,7 +547,7 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
           )}
           {chartData.length > 0 ? (
             <div className="flex-1 w-full min-h-0 min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
                 <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                   <Pie
                     data={chartData}

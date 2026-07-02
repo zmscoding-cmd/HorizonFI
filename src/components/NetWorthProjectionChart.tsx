@@ -13,12 +13,16 @@ import { AssetModel } from '../lib/db';
 import { useTheme } from './ThemeProvider';
 import { useCurrencyMode } from '../contexts/CurrencyModeContext';
 
+import { filterSimulationDataForView } from '../lib/chart-utils';
+
 interface NetWorthProjectionChartProps {
   data: any[];
   assets: AssetModel[];
+  displayStartYear?: number;
+  displayEndYear?: number;
 }
 
-export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChartProps) {
+export function NetWorthProjectionChart({ data, assets, displayStartYear, displayEndYear }: NetWorthProjectionChartProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark' || theme === 'night-watch';
   const { currencyMode } = useCurrencyMode();
@@ -26,86 +30,39 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    return data.map((snapshot) => {
-      let cash = 0;
-      let taxable = 0;
-      let preTax = 0;
-      let roth = 0;
+    const filtered = filterSimulationDataForView(data, displayStartYear, displayEndYear);
 
-      if (snapshot.bucket1Balance !== undefined && snapshot.bucket2Balance !== undefined && snapshot.bucket3Balance !== undefined) {
-        cash = Number(snapshot.bucket1Balance) || 0;
-        taxable = Number(snapshot.bucket2Balance) || 0;
-        
-        // Split bucket3Balance proportionally between PRE_TAX and ROTH based on actual asset values
-        let rawPreTax = 0;
-        let rawRoth = 0;
-        if (snapshot.assetBalances) {
-          for (const [assetId, balance] of Object.entries(snapshot.assetBalances)) {
-            const asset = assets.find((a) => a.id === assetId);
-            const val = Number(balance) || 0;
-            if (asset) {
-              if (asset.assetType === 'PRE_TAX') rawPreTax += val;
-              else if (asset.assetType === 'ROTH') rawRoth += val;
-            }
-          }
-        }
-        
-        const totalRawGrowth = rawPreTax + rawRoth;
-        const b3Val = Number(snapshot.bucket3Balance) || 0;
-        if (totalRawGrowth > 0) {
-          preTax = b3Val * (rawPreTax / totalRawGrowth);
-          roth = b3Val * (rawRoth / totalRawGrowth);
-        } else {
-          preTax = b3Val;
-        }
-      } else if (snapshot.assetBalances) {
-        for (const [assetId, balance] of Object.entries(snapshot.assetBalances)) {
-          const asset = assets.find((a) => a.id === assetId);
-          const val = Number(balance) || 0;
-          if (asset) {
-            if (asset.assetType === 'CASH') cash += val;
-            else if (asset.assetType === 'TAXABLE') taxable += val;
-            else if (asset.assetType === 'PRE_TAX') preTax += val;
-            else if (asset.assetType === 'ROTH') roth += val;
-            else taxable += val; // Fallback
-          } else {
-            // Fallback for legacy items without asset mapping
-            taxable += val;
-          }
-        }
-      } else {
-        // Fallback if assetBalances doesn't exist yet (e.g. older workers)
-        taxable += snapshot.endingBalance || 0;
-      }
-
+    return filtered.map((snapshot) => {
       const isCurrent = currencyMode === 'CURRENT';
       const divisor = isCurrent ? (snapshot.cumulativeInflation || 1) : 1;
       
-      const nominalTotal = cash + taxable + preTax + roth;
-      const realTotal = Math.max(0, nominalTotal / divisor);
+      const cash = isCurrent ? (snapshot.cashReal ?? 0) : (snapshot.cashNominal ?? 0);
+      const taxable = isCurrent ? (snapshot.taxableReal ?? 0) : (snapshot.taxableNominal ?? 0);
+      const preTax = isCurrent ? (snapshot.preTaxReal ?? 0) : (snapshot.preTaxNominal ?? 0);
+      const roth = isCurrent ? (snapshot.rothReal ?? 0) : (snapshot.rothNominal ?? 0);
+      
+      const total = cash + taxable + preTax + roth;
 
       return {
         year: snapshot.year,
         age: snapshot.age,
-        CASH: Math.max(0, cash / divisor),
-        TAXABLE: Math.max(0, taxable / divisor),
-        PRE_TAX: Math.max(0, preTax / divisor),
-        ROTH: Math.max(0, roth / divisor),
-        Total: realTotal,
+        CASH: Math.max(0, cash),
+        TAXABLE: Math.max(0, taxable),
+        PRE_TAX: Math.max(0, preTax),
+        ROTH: Math.max(0, roth),
+        Total: total,
         expectedSpend: (isCurrent ? snapshot.targetBudgetReal : snapshot.targetBudgetNominal) || 0,
         expectedGrowth: (snapshot.expectedGrowth || 0) / divisor,
         expectedYield: (snapshot.expectedYield || 0) / divisor,
         actualSpend: (isCurrent ? snapshot.realWithdrawal : snapshot.nominalWithdrawal) || 0,
         taxDrag: (snapshot.taxDrag || 0) / divisor,
-        // We will compute accurate change below, pass nominal values for calculation
-        _nominalTotal: nominalTotal,
+        _nominalTotal: snapshot.totalNetWorth ?? (cash + taxable + preTax + roth),
         _nominalChange: snapshot.changeInNetWorth || 0,
         _divisor: divisor
       };
     }).map((item, index, arr) => {
       let changeInNetWorth = 0;
       if (index === 0) {
-        // For the first year, starting real value uses divisor of 1.0 (base year)
         const startingNominal = item._nominalTotal - item._nominalChange;
         changeInNetWorth = item.Total - startingNominal;
       } else {
@@ -117,7 +74,7 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
         changeInNetWorth
       };
     });
-  }, [data, assets, currencyMode]);
+  }, [data, assets, currencyMode, displayStartYear, displayEndYear]);
 
   if (!data || data.length === 0) {
     return (
@@ -256,7 +213,7 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
 
   return (
     <div className="w-full h-full relative" style={{ minHeight: '300px' }}>
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
         <AreaChart
           data={chartData}
           margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
@@ -287,11 +244,14 @@ export function NetWorthProjectionChart({ data, assets }: NetWorthProjectionChar
           />
           <XAxis
             dataKey="year"
+            type="number"
+            domain={['dataMin', 'dataMax']}
             className="text-xs font-mono"
             tick={{ fill: isDark ? '#a1a1aa' : '#71717a' }}
             tickLine={false}
             axisLine={false}
             minTickGap={30}
+            tickFormatter={(val) => String(val)}
           />
           <YAxis
             tickFormatter={formatYAxis}

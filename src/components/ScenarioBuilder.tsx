@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { PlanType, generateUUID } from "../lib/db";
-import {
-  runMultiDecadeSimulation,
-  TemporalConfig,
-  YearlySimResult,
-} from "../lib/temporal-engine";
-import {
-  LineChart,
-  Line,
-  XAxis,
+import { LineChart, Line, XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
@@ -43,6 +35,8 @@ import { NetWorthProjectionChart } from "./NetWorthProjectionChart";
 import { BucketWaterfallChart } from "./BucketWaterfallChart";
 import { AssetModel } from "../lib/db";
 import { CurrencyToggle } from "./CurrencyToggle";
+import { TimeHorizonControls } from "./TimeHorizonControls";
+import { useTimeHorizonFilter } from "../hooks/useTimeHorizonFilter";
 
 export default function ScenarioBuilder({
   plan,
@@ -56,8 +50,13 @@ export default function ScenarioBuilder({
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(
     plan.scenarios?.[0]?.id || null,
   );
+  
+  const {
+    displayStartYear,
+    displayEndYear,
+  } = useTimeHorizonFilter(db, plan.id, activeScenarioId || "");
   const [simulationResults, setSimulationResults] = useState<
-    Record<string, YearlySimResult[]>
+    Record<string, any[]>
   >({});
   const [multiStageResults, setMultiStageResults] = useState<
     Record<string, any[]>
@@ -238,8 +237,7 @@ export default function ScenarioBuilder({
     : ["#2563eb", "#16a34a", "#dc2626", "#d97706", "#9333ea"];
 
   const handleRunSimulation = () => {
-    const newResults: Record<string, YearlySimResult[]> = {};
-    plan.scenarios?.forEach((scenario) => {
+        plan.scenarios?.forEach((scenario) => {
       const budget: any = scenario.budget || {};
       const currentAge =
         budget.currentAge !== undefined ? Number(budget.currentAge) : 48;
@@ -285,7 +283,7 @@ export default function ScenarioBuilder({
           : 0.9;
 
       // Create config from scenario
-      const config: TemporalConfig = {
+      const config: any = {
         currentAge,
         startYear: new Date().getFullYear(),
         endYear: targetEndYear,
@@ -372,9 +370,6 @@ export default function ScenarioBuilder({
           budgetDoc?.rebalancingCapitalGainPercentage || 0,
       };
 
-      const results = runMultiDecadeSimulation(config);
-      newResults[scenario.id] = results;
-
       // Dispatch to Web Worker for Multi-Stage specific rendering
       if (workerRef.current) {
         workerRef.current.postMessage({
@@ -412,7 +407,7 @@ export default function ScenarioBuilder({
         });
       }
     });
-    setSimulationResults(newResults);
+    
   };
 
   useEffect(() => {
@@ -489,22 +484,24 @@ export default function ScenarioBuilder({
 
   // Combine data for comparative charts
   const combinedChartData = [];
-  if (Object.keys(simulationResults).length > 0) {
-    const firstScenarioId = Object.keys(simulationResults)[0];
-    const len = simulationResults[firstScenarioId]?.length || 0;
+  if (Object.keys(multiStageResults).length > 0) {
+    const firstScenarioId = Object.keys(multiStageResults)[0];
+    const len = multiStageResults[firstScenarioId]?.length || 0;
     for (let i = 0; i < len; i++) {
+      const year = multiStageResults[firstScenarioId][i].year;
+      // Skip if outside display window
+      if (displayStartYear && year < displayStartYear) continue;
+      if (displayEndYear && year > displayEndYear) continue;
+
       const dataPoint: any = {
-        year: simulationResults[firstScenarioId][i].calendarYear,
-        age: simulationResults[firstScenarioId][i].age,
+        year: year,
+        age: multiStageResults[firstScenarioId][i].age,
       };
-      Object.entries(simulationResults).forEach(([id, res]) => {
-        const scenarioName =
-          plan.scenarios?.find((s) => s.id === id)?.name || id;
+      Object.entries(multiStageResults).forEach(([id, res]) => {
+        const scenarioName = plan.scenarios?.find((s) => s.id === id)?.name || id;
         if (res[i]) {
-          dataPoint[`${scenarioName} Balance`] = Math.round(
-            res[i].endingBalance,
-          );
-          dataPoint[`${scenarioName} Tax Drag`] = Math.round(res[i].taxDrag);
+          dataPoint[`${scenarioName} Balance`] = Math.round(res[i].totalNetWorth || res[i].endingBalance || 0);
+          dataPoint[`${scenarioName} Tax Drag`] = Math.round(res[i].taxDrag || 0);
         }
       });
       combinedChartData.push(dataPoint);
@@ -711,7 +708,7 @@ export default function ScenarioBuilder({
                 : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
             }`}
           >
-            Granular Budget & Variance
+            Budget
           </button>
           <button
             onClick={() => setSubModule("stages")}
@@ -791,6 +788,8 @@ export default function ScenarioBuilder({
             )}
           </div>
           <div className="lg:col-span-2 flex flex-col gap-6 lg:overflow-y-auto pb-6">
+            <TimeHorizonControls db={db} planId={plan.id} scenarioId={activeScenarioId || ""} />
+
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -810,6 +809,8 @@ export default function ScenarioBuilder({
                 <NetWorthProjectionChart
                   data={multiStageResults[activeScenarioId || ""] || []}
                   assets={activeScenario?.assets || []}
+                  displayStartYear={displayStartYear}
+                  displayEndYear={displayEndYear}
                 />
               </div>
             </div>
@@ -827,6 +828,8 @@ export default function ScenarioBuilder({
                 <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 flex-1 min-h-[400px] flex flex-col">
                   <BucketWaterfallChart
                     data={multiStageResults[activeScenarioId || ""] || []}
+                    displayStartYear={displayStartYear}
+                    displayEndYear={displayEndYear}
                   />
                 </div>
               </div>
@@ -845,6 +848,8 @@ export default function ScenarioBuilder({
                 <MultiStageChart
                   data={multiStageResults[activeScenarioId || ""] || []}
                   stages={activeScenario?.stages || []}
+                  displayStartYear={displayStartYear}
+                  displayEndYear={displayEndYear}
                 />
               </div>
             </div>
@@ -853,6 +858,8 @@ export default function ScenarioBuilder({
               data={multiStageResults[activeScenarioId || ""] || []}
               stages={activeScenario?.stages || []}
               activeScenario={activeScenario}
+              displayStartYear={displayStartYear}
+              displayEndYear={displayEndYear}
               handleUpdateDiscountRate={async (rate) => {
                 if (!activeScenario) return;
                 const doc = await db.plans.findOne(plan.id).exec();
@@ -2822,7 +2829,7 @@ export default function ScenarioBuilder({
                 Portfolio Longevity (Ending Balance across Decades)
               </h4>
               <div className="flex-1 w-full min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
                   <LineChart
                     data={combinedChartData}
                     margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
@@ -2903,7 +2910,7 @@ export default function ScenarioBuilder({
                 Tax Drag Implications
               </h4>
               <div className="flex-1 w-full min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
                   <AreaChart
                     data={combinedChartData}
                     margin={{ top: 5, right: 10, left: -10, bottom: 5 }}

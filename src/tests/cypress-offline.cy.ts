@@ -60,8 +60,8 @@ describe('Cypress Offline Hard-Start Test - Budget Dashboard Hydration', () => {
       }
     });
 
-    // 3. Trigger navigation to the Granular Budget & Variance view
-    cy.contains('button', 'Granular Budget & Variance')
+    // 3. Trigger navigation to the Budget view
+    cy.contains('button', 'Budget')
       .should('be.visible')
       .click();
 

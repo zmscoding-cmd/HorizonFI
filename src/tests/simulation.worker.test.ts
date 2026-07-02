@@ -621,3 +621,56 @@ describe('Web Worker - Bottom-up Asset Growth and Yield', () => {
   });
 });
 
+describe('Web Worker - Visual Chart Single Source of Truth Alignment', () => {
+  it('should guarantee that totalNetWorth and endingBalance are strictly identical over a multi-decade simulation', () => {
+    const payload: any = {
+      type: 'MULTI_STAGE_DRAWDOWN',
+      startYear: 2026,
+      endYear: 2066, // 40-year multi-decade horizon
+      currentAge: 45,
+      assets: [
+        { id: 'ast1', value: 1000000, type: 'taxable_brokerage', assetType: 'TAXABLE', expectedGrowthRate: 0.06, expectedDividendYield: 0.02, dividendReinvestment: 'reinvest' },
+        { id: 'ast2', value: 500000, type: 'traditional_ira', assetType: 'PRE_TAX', expectedGrowthRate: 0.05, expectedDividendYield: 0.01, dividendReinvestment: 'reinvest' }
+      ],
+      stages: [
+        { id: 'stg1', fundingPriorities: ['TAXABLE', 'PRE_TAX'] }
+      ],
+      milestones: [],
+      inflationRate: 0.025,
+      budgetPhases: [
+        { phaseId: 'p1', startYear: 2026, endYear: 2100, baselineAmount: 80000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }
+      ],
+      maxRealWithdrawal: 1000000,
+      liquidBufferYears: 0
+    };
+
+    const results = simulateMultiStageDrawdownWorker(payload);
+
+    // Verify multi-decade length (2026 to 2066 inclusive = 41 years)
+    expect(results.length).toBe(41);
+
+    // Verify each year's snapshot maintains absolute identity between Net Worth and Ending Balance
+    results.forEach((snapshot) => {
+      // 1. Assert that totalNetWorth is strictly equal to endingBalance
+      expect(snapshot.totalNetWorth).toBe(snapshot.endingBalance);
+
+      // 2. Assert that both nominal and real metrics derive from the exact same basis
+      const nominalSumOfCategories = (snapshot.cashNominal ?? 0) + 
+                                     (snapshot.taxableNominal ?? 0) + 
+                                     (snapshot.preTaxNominal ?? 0) + 
+                                     (snapshot.rothNominal ?? 0);
+      
+      // Allow extremely minor floating-point rounding tolerance on categorization sum, but confirm mathematical identity
+      expect(nominalSumOfCategories).toBeCloseTo(snapshot.totalNetWorth, 1);
+      
+      // Confirm that the real conversion matches perfectly across variables
+      expect(snapshot.endingBalanceReal).toBe(snapshot.endingBalance / snapshot.cumulativeInflation);
+    });
+
+    // Check the final year specifically
+    const finalYearIndex = results.length - 1;
+    expect(results[finalYearIndex].year).toBe(2066);
+    expect(results[finalYearIndex].totalNetWorth).toBe(results[finalYearIndex].endingBalance);
+  });
+});
+

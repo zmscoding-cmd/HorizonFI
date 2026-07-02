@@ -1063,11 +1063,7 @@ workerGlobal.onmessage = (e: MessageEvent<any>) => {
       throw new Error("Invalid request payload. Expected an object.");
     }
 
-    if (e.data.type === 'COMPUTE_NET_WORTH') {
-      const safeReq = sanitizeNetWorthRequest(e.data);
-      const result = simulateNetWorthProbabilistic(safeReq);
-      self.postMessage({ success: true, type: 'COMPUTE_NET_WORTH', data: result });
-    } else if (e.data.type === 'MULTI_STAGE_DRAWDOWN') {
+    if (e.data.type === 'MULTI_STAGE_DRAWDOWN') {
       const safePayload = sanitizeMultiStageDrawdownPayload(e.data);
       const result = simulateMultiStageDrawdownWorker(safePayload);
       self.postMessage({ success: true, type: 'MULTI_STAGE_DRAWDOWN', scenarioId: (safePayload as any).scenarioId || (e.data as any).scenarioId, data: result });
@@ -1076,10 +1072,7 @@ workerGlobal.onmessage = (e: MessageEvent<any>) => {
       const result = computeBudgetSimulation(safePayload.expenses || [], safePayload.assets || []);
       self.postMessage({ success: true, type: 'BUDGET_SIMULATION', data: result });
     } else {
-      // Default to old drawdown simulation behavior
-      const safeReq = sanitizeInput(e.data as SimulationRequest);
-      const result = calculateDrawdownProfile(safeReq);
-      self.postMessage({ success: true, result });
+      throw new Error('Unsupported or removed simulation type: ' + e.data.type);
     }
   } catch (error: any) {
     self.postMessage({ 
@@ -1093,95 +1086,6 @@ workerGlobal.onmessage = (e: MessageEvent<any>) => {
 /**
  * Executes a single year of the Guyton-Klinger drawdown simulation.
  */
-export function calculateDrawdownProfile(req: SimulationRequest): SimulationResult {
-  const {
-    yearIndex,
-    portfolioBalance,
-    marketReturn,
-    inflationRate,
-    lifestyleCreepRate = 0.02,
-    previousNominalWithdrawal,
-    initialWithdrawalRate,
-    maxRealWithdrawal,
-    upperGuardrailMultiplier = 0.80,
-    lowerGuardrailMultiplier = 1.20,
-    guardrailUpwardFactor = 1.10,
-    guardrailDownwardFactor = 0.90,
-  } = req;
-
-  // Next year's cumulative inflation tracker
-  const newCumulativeInflation = req.cumulativeInflation * (1 + inflationRate);
-  
-  let proposedNominalWithdrawal = previousNominalWithdrawal;
-  let ruleApplied: string | null = null;
-
-  // 1. Base Adjustment & Capital Preservation Rule
-  if (marketReturn < 0) {
-    // Suspend inflation and lifestyle adjustments during negative market returns
-    proposedNominalWithdrawal = previousNominalWithdrawal;
-    ruleApplied = "Capital Preservation Rule (Freeze)";
-  } else {
-    // Normal growth: automatically compound by inflation + lifestyle creep
-    proposedNominalWithdrawal = previousNominalWithdrawal * (1 + inflationRate) * (1 + lifestyleCreepRate);
-    
-    // Check max real growth threshold cap
-    const proposedRealWithdrawal = proposedNominalWithdrawal / newCumulativeInflation;
-    if (proposedRealWithdrawal > maxRealWithdrawal) {
-      // Scale only nominally for inflation at the threshold limit
-      proposedNominalWithdrawal = maxRealWithdrawal * newCumulativeInflation;
-      ruleApplied = "Max Real Withdrawal Cap reached";
-    }
-  }
-
-  // 2. Guardrails Logic
-  // Calculate Current Withdrawal Rate prior to deducting
-  const currentWithdrawalRate = proposedNominalWithdrawal / portfolioBalance;
-
-  // Upper Guardrail: Excess wealth (Withdrawal rate falls below threshold)
-  if (currentWithdrawalRate < initialWithdrawalRate * upperGuardrailMultiplier) {
-    // Permanently increase baseline spending
-    proposedNominalWithdrawal *= guardrailUpwardFactor;
-    const pct = Math.round((guardrailUpwardFactor - 1) * 100);
-    ruleApplied = ruleApplied ? ruleApplied + ` + Upper Guardrail (+${pct}% bump)` : `Upper Guardrail (+${pct}% bump)`;
-  } 
-  // Lower Guardrail: Portfolio depletion risk (Withdrawal rate rises above threshold)
-  else if (currentWithdrawalRate > initialWithdrawalRate * lowerGuardrailMultiplier) {
-    // Force spending cut
-    proposedNominalWithdrawal *= guardrailDownwardFactor;
-    const pct = Math.round((1 - guardrailDownwardFactor) * 100);
-    ruleApplied = ruleApplied ? ruleApplied + ` + Lower Guardrail (-${pct}% cut)` : `Lower Guardrail (-${pct}% cut)`;
-  }
-
-  // Ensure Withdrawal does not drop below 0 or exceed available balance
-  proposedNominalWithdrawal = Math.max(0, Math.min(proposedNominalWithdrawal, portfolioBalance));
-
-  // 3. Process Portfolio
-  const balanceAfterWithdrawal = portfolioBalance - proposedNominalWithdrawal;
-  const marketGain = balanceAfterWithdrawal * marketReturn;
-  let endingBalance = balanceAfterWithdrawal + marketGain;
-  
-  // Guard against negative balance
-  if (endingBalance < 0) {
-    endingBalance = 0;
-  }
-
-  const realWithdrawal = proposedNominalWithdrawal / newCumulativeInflation;
-
-  return {
-    yearIndex,
-    startingBalance: portfolioBalance,
-    startingBalanceReal: portfolioBalance / req.cumulativeInflation, // using the old cumulativeInflation because this is the start of the year
-    marketGain,
-    marketGainReal: marketGain / newCumulativeInflation, // using new inflation because market gain happens across the year
-    nominalWithdrawal: proposedNominalWithdrawal,
-    realWithdrawal,
-    endingBalance,
-    endingBalanceReal: endingBalance / newCumulativeInflation,
-    newCumulativeInflation,
-    ruleApplied
-  };
-}
-
 // Box-Muller transform for normal distributions
 function randomNormal(mean: number, stdDev: number): number {
   let u = 0, v = 0;
@@ -1221,211 +1125,6 @@ function estimateOrdinaryIncomeTax(taxableOrdinaryIncome: number): number {
 /**
  * Probabilistic multidimensional Net Worth simulation handling Railroad Retirement and Deferred Taxes.
  */
-export function simulateNetWorthProbabilistic(req: NetWorthSimRequest): NetWorthDatapoint[] {
-  const {
-    assets,
-    liabilities,
-    startYear,
-    endYear,
-    currentAge,
-    pensionAmountAt65,
-    rrt1AmountAt67,
-    rrt2AmountAt67,
-    inflationRate,
-    numPaths = 100
-  } = req;
-
-  const targetEndYear = req.targetEndYear ?? endYear;
-  const totalYears = targetEndYear - startYear;
-  const totalMonths = totalYears * 12;
-  
-  // Outer matrix: [monthIndex] -> array of path net worths
-  const monthlyNetWorthPaths: number[][] = Array.from({ length: totalMonths + 1 }, () => []);
-  const monthlyDtlPaths: number[][] = Array.from({ length: totalMonths + 1 }, () => []);
-
-  // Run Monte Carlo simulations
-  for (let path = 0; path < numPaths; path++) {
-    // Clone starting balances for this path
-    const pathAssets = assets.map(a => ({ ...a }));
-    const pathLiabilities = liabilities.map(a => ({ ...a }));
-
-    // Precalculate amortization factors for liabilities
-    const amortPayments = liabilities.map(lib => {
-      if (lib.value <= 0) return 0;
-      const r = lib.interestRate / 12;
-      const n = 360; // Assume 30 year standard amortization terms
-      if (r === 0) return lib.value / n;
-      return lib.value * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-    });
-
-    for (let m = 0; m <= totalMonths; m++) {
-      const yearOffset = Math.floor(m / 12);
-      const currentYear = startYear + yearOffset;
-      if (currentYear > targetEndYear) {
-        break;
-      }
-      const age = currentAge + (m / 12);
-
-      // 1. Calculate values of Assets (with volatility)
-      let preTaxBalance = 0;
-      let totalAssetVal = 0;
-
-      pathAssets.forEach((asset) => {
-        if (m > 0) {
-          const isReinvest = (asset.dividendReinvestment ?? 'reinvest') === 'reinvest';
-          const yieldRate = isReinvest ? (asset.dividendYield ?? 0) : 0;
-          const annualRate = asset.growthRate + yieldRate;
-          const monthlyRate = annualRate / 12;
-          
-          // Introduce equity volatility for tax-advantaged and brokerage accounts (e.g. standard 15% annual)
-          let volatility = 0;
-          if (asset.type === 'taxable_brokerage' || asset.type === 'traditional_ira' || asset.type === 'roth_ira') {
-            volatility = 0.15; // 15% standard market dev
-          }
-          
-          const monthlyStd = volatility / Math.sqrt(12);
-          const growthFactor = 1 + randomNormal(monthlyRate, monthlyStd);
-          asset.value = Math.max(0, asset.value * growthFactor);
-        }
-
-        totalAssetVal += asset.value;
-        if (asset.type === 'traditional_ira') {
-          preTaxBalance += asset.value;
-        }
-      });
-
-      // 2. Calculate values of Liabilities (constant amortization payments)
-      let totalLiabilityVal = 0;
-      pathLiabilities.forEach((lib, idx) => {
-        if (m > 0 && lib.value > 0) {
-          const monthlyRate = lib.interestRate / 12;
-          const interestCharge = lib.value * monthlyRate;
-          const payment = Math.min(lib.value + interestCharge, amortPayments[idx]);
-          lib.value = Math.max(0, lib.value + interestCharge - payment);
-        }
-        totalLiabilityVal += lib.value;
-      });
-
-      // 3. Dynamic Deferred Tax Liability calculation ("The Tax Bomb")
-      // Pre-tax traditional balance distribution modeling (estimating 4% annual structured distributions)
-      const estimatedAnnualDistribution = preTaxBalance * 0.04;
-      
-      let pension = 0;
-      let tier1 = 0;
-      let tier2 = 0;
-
-      if (req.milestones && req.milestones.length > 0) {
-        req.milestones.forEach((m: any) => {
-          const isTriggered = m.isTriggerByAge
-            ? age >= (m.triggerAge ?? 65)
-            : currentYear >= (m.triggerYear ?? 2030);
-
-          if (isTriggered && m.type !== 'capex') {
-            if (m.type === 'pension') {
-              pension += m.amount;
-            } else if (m.type === 'rrt1') {
-              tier1 += m.amount;
-            } else if (m.type === 'rrt2') {
-              tier2 += m.amount;
-            } else if (m.type === 'other_income') {
-              pension += m.amount;
-            }
-          }
-        });
-      } else {
-        // Fallback to legacy triggers
-        if (age >= 65) pension = pensionAmountAt65;
-        if (age >= 67) {
-          tier1 = rrt1AmountAt67;
-          tier2 = rrt2AmountAt67;
-        }
-      }
-
-      let otherMagi = estimatedAnnualDistribution + pension + tier2;
-
-      // Provisional Income matching for Railroad Retirement Tax stacking
-      const provisionalIncome = otherMagi + 0.5 * tier1;
-      let taxableTier1 = 0;
-      const base1 = 32000;
-      const base2 = 44000;
-
-      if (provisionalIncome > base2) {
-        const amtOverBase2 = provisionalIncome - base2;
-        const betweenBases = base2 - base1;
-        taxableTier1 = (0.85 * amtOverBase2) + Math.min(0.50 * betweenBases, 0.50 * tier1);
-      } else if (provisionalIncome > base1) {
-        taxableTier1 = 0.50 * (provisionalIncome - base1);
-      }
-      taxableTier1 = Math.min(taxableTier1, 0.85 * tier1);
-
-      // Standard Deduction adjusting for inflation
-      const adjustedStandardDeduction = STANDARD_DEDUCTION_2026_EST * Math.pow(1 + inflationRate, yearOffset);
-      const taxableOrdinaryIncome = Math.max(0, (otherMagi + taxableTier1) - adjustedStandardDeduction);
-      const estimatedIncomeTax = estimateOrdinaryIncomeTax(taxableOrdinaryIncome);
-
-      // Determine dynamic effective tax rate on withdrawals
-      const totalTaxedInflow = otherMagi + taxableTier1;
-      const taxRate = totalTaxedInflow > 0 ? Math.min(0.40, estimatedIncomeTax / totalTaxedInflow) : 0.15;
-      
-      // Deferred Tax Liability (explicit contra-asset/liability)
-      const deferredTaxLiability = preTaxBalance * taxRate;
-
-      // Foundational Aggregation Formula matching guidelines
-      // NetWorth_t = Sum(Asset_t) - Sum(Liability_t) - DeferredTaxLiability_t
-      const netWorth = totalAssetVal - totalLiabilityVal - deferredTaxLiability;
-
-      monthlyNetWorthPaths[m].push(netWorth);
-      monthlyDtlPaths[m].push(deferredTaxLiability);
-    }
-  }
-
-  // Aggregate path outcomes into percentiles per month index
-  const verboseDatapoints: NetWorthDatapoint[] = [];
-  for (let m = 0; m <= totalMonths; m++) {
-    const yearOffset = Math.floor(m / 12);
-    const calendarYear = startYear + yearOffset;
-    const age = currentAge + (m / 12);
-
-    const sortedNetWorths = [...monthlyNetWorthPaths[m]].sort((a, b) => a - b);
-    const sortedDtls = [...monthlyDtlPaths[m]].sort((a, b) => a - b);
-
-    // Standard percentile positions
-    const p10Index = Math.min(sortedNetWorths.length - 1, Math.floor(0.10 * sortedNetWorths.length));
-    const p50Index = Math.min(sortedNetWorths.length - 1, Math.floor(0.50 * sortedNetWorths.length));
-    const p90Index = Math.min(sortedNetWorths.length - 1, Math.floor(0.90 * sortedNetWorths.length));
-    
-    const inflationFactor = Math.pow(1 + inflationRate, yearOffset);
-
-    verboseDatapoints.push({
-      year: calendarYear,
-      age: Math.round(age * 10) / 10,
-      netWorth10th: sortedNetWorths[p10Index],
-      netWorth50th: sortedNetWorths[p50Index],
-      netWorth90th: sortedNetWorths[p90Index],
-      netWorth10thReal: sortedNetWorths[p10Index] / inflationFactor,
-      netWorth50thReal: sortedNetWorths[p50Index] / inflationFactor,
-      netWorth90thReal: sortedNetWorths[p90Index] / inflationFactor,
-      deferredTaxLiability: sortedDtls[p50Index]
-    });
-  }
-
-  // Embed decimation algorithm for memory management (maximum 600 points limit)
-  if (verboseDatapoints.length <= 600) {
-    return verboseDatapoints;
-  }
-
-  const decimatedDatapoints: NetWorthDatapoint[] = [];
-  const totalPoints = verboseDatapoints.length;
-  const decimationStep = totalPoints / 600;
-
-  for (let i = 0; i < 600; i++) {
-    const idx = Math.min(totalPoints - 1, Math.floor(i * decimationStep));
-    decimatedDatapoints.push(verboseDatapoints[idx]);
-  }
-
-  return decimatedDatapoints;
-}
-
 export type MultiStageYearlySnapshot = {
   year: number;
   age: number;
@@ -1461,6 +1160,15 @@ export type MultiStageYearlySnapshot = {
   expectedGrowth?: number;
   expectedYield?: number;
   changeInNetWorth?: number;
+  totalNetWorth: number;
+  cashNominal?: number;
+  cashReal?: number;
+  taxableNominal?: number;
+  taxableReal?: number;
+  preTaxNominal?: number;
+  preTaxReal?: number;
+  rothNominal?: number;
+  rothReal?: number;
 };
 
 export function computePresentValue(
@@ -1487,7 +1195,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     throw new Error('Inflation rate out of bounds. Must be between -20% and 100%.');
   }
 
-  const snapshots: MultiStageYearlySnapshot[] = [];
+  const chronologicalLedger: MultiStageYearlySnapshot[] = [];
   
   // Clone assets to prevent reference mutation
   let currentAssets = payload.assets.map(a => ({ ...a }));
@@ -2071,7 +1779,46 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     const astMap: Record<string, number> = {};
     currentAssets.forEach(a => astMap[a.id] = a.value);
 
-    snapshots.push({
+    // Calculate categorical nominal and real totals for dumb UI rendering
+    let cashNominal = 0;
+    let taxableNominal = 0;
+    let preTaxNominal = 0;
+    let rothNominal = 0;
+
+    if (use3Bucket) {
+      cashNominal = bucket1Balance;
+      taxableNominal = bucket2Balance;
+
+      let rawPreTax = 0;
+      let rawRoth = 0;
+      currentAssets.forEach(a => {
+        if (a.assetType === 'PRE_TAX') rawPreTax += a.value;
+        else if (a.assetType === 'ROTH') rawRoth += a.value;
+      });
+
+      const totalRawGrowth = rawPreTax + rawRoth;
+      if (totalRawGrowth > 0) {
+        preTaxNominal = bucket3Balance * (rawPreTax / totalRawGrowth);
+        rothNominal = bucket3Balance * (rawRoth / totalRawGrowth);
+      } else {
+        preTaxNominal = bucket3Balance;
+      }
+    } else {
+      currentAssets.forEach(a => {
+        if (a.assetType === 'CASH') cashNominal += a.value;
+        else if (a.assetType === 'TAXABLE') taxableNominal += a.value;
+        else if (a.assetType === 'PRE_TAX') preTaxNominal += a.value;
+        else if (a.assetType === 'ROTH') rothNominal += a.value;
+        else taxableNominal += a.value; // Fallback
+      });
+    }
+
+    const cashReal = cashNominal / cumInflation;
+    const taxableReal = taxableNominal / cumInflation;
+    const preTaxReal = preTaxNominal / cumInflation;
+    const rothReal = rothNominal / cumInflation;
+
+    chronologicalLedger.push({
       year: currentYear,
       age: Math.round(currentAge * 10) / 10,
       activeStageId: activeStage?.id || 'default',
@@ -2105,11 +1852,20 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       bucket3BalanceReal: bucket3Balance / cumInflation,
       expectedGrowth: Math.round(growthAppreciation * 100) / 100,
       expectedYield: Math.round((paidOutYield + reinvestedYield) * 100) / 100,
-      changeInNetWorth: Math.round((finalBalance - startAssets) * 100) / 100
+      changeInNetWorth: Math.round((finalBalance - startAssets) * 100) / 100,
+      totalNetWorth: finalBalance,
+      cashNominal,
+      cashReal,
+      taxableNominal,
+      taxableReal,
+      preTaxNominal,
+      preTaxReal,
+      rothNominal,
+      rothReal
     });
     
     cumInflation *= (1 + payload.inflationRate);
   }
   
-  return snapshots;
+  return chronologicalLedger;
 }

@@ -14,10 +14,13 @@ import {
 import { format, parseISO } from 'date-fns';
 import { HistoricalDatapointType } from '../lib/db';
 import { useTheme } from './ThemeProvider';
+import { filterSimulationDataForView } from '../lib/chart-utils';
 
 export interface NetWorthChartProps {
   datapoints: HistoricalDatapointType[];
   currentAge: number;
+  displayStartYear?: number;
+  displayEndYear?: number;
 }
 
 interface Benchmark {
@@ -44,7 +47,7 @@ export function getAgeCohortBenchmarks(age: number): Benchmark {
   }
 }
 
-export const NetWorthChart: React.FC<NetWorthChartProps> = ({ datapoints, currentAge }) => {
+export const NetWorthChart: React.FC<NetWorthChartProps> = ({ datapoints, currentAge, displayStartYear, displayEndYear }) => {
   const { theme } = useTheme();
   const isNightWatch = theme === 'night-watch';
   const isDark = theme === 'dark' || theme === 'night-watch';
@@ -79,7 +82,7 @@ export const NetWorthChart: React.FC<NetWorthChartProps> = ({ datapoints, curren
   const chartData = useMemo(() => {
     if (!datapoints || datapoints.length === 0) return [];
 
-    return [...datapoints]
+    const mapped = [...datapoints]
       .sort((a, b) => a.date.localeCompare(b.date))
       .map(dp => {
         let timestamp: number;
@@ -119,7 +122,9 @@ export const NetWorthChart: React.FC<NetWorthChartProps> = ({ datapoints, curren
           cashAndOther,
         };
       });
-  }, [datapoints]);
+
+    return filterSimulationDataForView(mapped, displayStartYear, displayEndYear);
+  }, [datapoints, displayStartYear, displayEndYear]);
 
   // Retrieve current benchmarks based on current age
   const benchmarks = useMemo(() => getAgeCohortBenchmarks(currentAge), [currentAge]);
@@ -173,7 +178,7 @@ export const NetWorthChart: React.FC<NetWorthChartProps> = ({ datapoints, curren
         </div>
         
         <div className="flex-1 w-full min-h-0">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorBrokerage" x1="0" y1="0" x2="0" y2="1">
