@@ -45,14 +45,27 @@ export function useBridgeOptimization(planId: string | undefined, scenarioId: st
 
         // Construct payload from scenario data
         // Find PreTax and taxable lots
-        const preTaxAsset = scenario.assets?.find((a: any) => a.assetType === 'PRE_TAX') || { currentBalance: 0 };
-        const rothAsset = scenario.assets?.find((a: any) => a.assetType === 'ROTH') || { currentBalance: 0 };
-        const taxableLots = scenario.taxLots || [];
+        const preTaxAsset = scenario.assets?.find((a: any) => a.assetType === 'PRE_TAX') || { value: 0 };
+        const rothAsset = scenario.assets?.find((a: any) => a.assetType === 'ROTH') || { value: 0 };
+        
+        let taxableLots = scenario.taxLots || [];
+        if (taxableLots.length === 0 && scenario.assets) {
+          taxableLots = scenario.assets
+            .filter((a: any) => a.assetType === 'TAXABLE')
+            .map((a: any) => ({
+              id: a.id,
+              shares: a.value, // $1 per share mock
+              currentPrice: 1,
+              costBasisPerShare: 0.6, // 60% cost basis mock
+              acquisitionDate: a.availableDate || '2020-01-01',
+              isTargetConcentratedPosition: !!a.isLiquidationTarget
+            }));
+        }
 
         const state = {
           age: scenario.currentAge || 55,
-          preTaxBalance: preTaxAsset.currentBalance,
-          rothBalance: rothAsset.currentBalance,
+          preTaxBalance: preTaxAsset.value,
+          rothBalance: rothAsset.value,
           taxableLots: taxableLots.map((l: any) => ({
             id: l.id || Math.random().toString(),
             shares: l.shares || 100,

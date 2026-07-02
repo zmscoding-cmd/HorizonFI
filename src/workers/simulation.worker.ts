@@ -1472,22 +1472,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       lifestyleFlat = true;
     }
     
-    // 3. UPRR Divestment Logic (Convert concentrated UPRR into SCHD ETF)
     let divestedAmount = 0;
-    const uprrAsset = currentAssets.find(a => a.id === payload.uprrId);
-    const schdAsset = currentAssets.find(a => a.id === payload.dividendEtfId);
-    
-    if (uprrAsset && schdAsset && payload.uprrDivestmentAnnualAmount > 0) {
-      const divestAmount = Math.min(uprrAsset.value, payload.uprrDivestmentAnnualAmount);
-      if (divestAmount > 0) {
-        uprrAsset.value -= divestAmount;
-        // Capital Gains tax drag on divestment (estimate 15%)
-        const estimatedCGTax = divestAmount * 0.15;
-        schdAsset.value += (divestAmount - estimatedCGTax);
-        divestedAmount = divestAmount;
-      }
-    }
-    
     // 5. Income gaps and Drawdown logic
     let activeGiftAmount = 0;
     if (payload.nonTaxableGifts) {
@@ -1757,8 +1742,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
        remainingGrossNeed.DIVIDENDS -= takeGross;
     }
     
-    if (availableDividendsCash > 0 && schdAsset) {
-      schdAsset.value += availableDividendsCash;
+    if (availableDividendsCash > 0 && divDestAsset) {
+      divDestAsset.value += availableDividendsCash;
     }
 
     if (activeStage?.fundingPriorities) {

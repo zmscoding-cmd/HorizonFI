@@ -23,9 +23,10 @@ export interface BridgeOptimizationData {
 
 interface BridgeOptimizationDashboardProps {
   data: BridgeOptimizationData[];
+  onApplyYearlyStrategy?: (year: number, stockLiquidation: number, rothConversion: number) => void;
 }
 
-export const BridgeOptimizationDashboard: React.FC<BridgeOptimizationDashboardProps> = ({ data = [] }) => {
+export const BridgeOptimizationDashboard: React.FC<BridgeOptimizationDashboardProps> = ({ data = [], onApplyYearlyStrategy }) => {
   // 2026 Tax Brackets (MFJ)
   const STANDARD_DEDUCTION = 30000;
   const ORDINARY_12_LIMIT = 94300 + STANDARD_DEDUCTION; // 124,300
@@ -146,7 +147,9 @@ export const BridgeOptimizationDashboard: React.FC<BridgeOptimizationDashboardPr
                     {(row.effectiveMarginalRate * 100).toFixed(1)}%
                   </td>
                   <td className="py-3 px-4 text-center">
-                     <button className="min-w-[44px] min-h-[44px] px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-bold transition-colors inline-flex items-center justify-center gap-2">
+                     <button 
+                       onClick={() => onApplyYearlyStrategy && onApplyYearlyStrategy(row.year, row.stockLiquidation, row.rothConversion)}
+                       className="min-w-[44px] min-h-[44px] px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-bold transition-colors inline-flex items-center justify-center gap-2">
                        <CheckCircle2 size={14} />
                        Apply
                      </button>

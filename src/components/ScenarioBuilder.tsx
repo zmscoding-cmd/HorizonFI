@@ -2735,7 +2735,29 @@ export default function ScenarioBuilder({
             )}
             
             {activeScenario?.bridgeOptimizationEnabled !== false && (
-              <BridgeOptimizationDashboard data={bridgeData} />
+              <BridgeOptimizationDashboard 
+                data={bridgeData} 
+                onApplyYearlyStrategy={async (year, stockLiquidation, rothConversion) => {
+                  const doc = await db.plans.findOne(plan.id).exec();
+                  const updatedScenarios = plan.scenarios.map((s: any) =>
+                    s.id === activeScenario.id
+                      ? {
+                          ...s,
+                          budget: {
+                            ...s.budget,
+                            targetRothConversionAmount: rothConversion,
+                            taxableRebalancingSaleAmount: stockLiquidation,
+                          },
+                        }
+                      : s,
+                  );
+                  await doc.patch({
+                    scenarios: updatedScenarios,
+                    updatedAt: Date.now(),
+                  });
+                  handleRunSimulation();
+                }}
+              />
             )}
 
           </div>
