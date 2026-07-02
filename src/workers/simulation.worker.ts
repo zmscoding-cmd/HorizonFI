@@ -256,7 +256,9 @@ function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
           type: a?.type,
           growthRate: a?.growthRate !== undefined ? Number(a.growthRate) : undefined,
           dividendYield: a?.dividendYield !== undefined ? Number(a.dividendYield) : undefined,
-          dividendReinvestment: ['reinvest', 'payout'].includes(a?.dividendReinvestment) ? a.dividendReinvestment : undefined
+          dividendReinvestment: ['reinvest', 'payout'].includes(a?.dividendReinvestment) ? a.dividendReinvestment : undefined,
+          isLiquidationTarget: a?.isLiquidationTarget !== undefined ? !!a.isLiquidationTarget : undefined,
+          isDividendDestination: a?.isDividendDestination !== undefined ? !!a.isDividendDestination : undefined
         };
       })
     : [];
@@ -416,6 +418,8 @@ export type NetWorthAssetInput = {
   expectedGrowthRate: number;
   expectedDividendYield: number;
   availableDate?: string;
+  isLiquidationTarget?: boolean;
+  isDividendDestination?: boolean;
   type?: string;
   growthRate?: number;
   dividendYield?: number;
@@ -1174,6 +1178,10 @@ export type MultiStageYearlySnapshot = {
   preTaxReal?: number;
   rothNominal?: number;
   rothReal?: number;
+  liquidationTargetBalance?: number;
+  dividendDestinationBalance?: number;
+  liquidationTargetSaleAmount?: number;
+  liquidationTaxPaid?: number;
 };
 
 export function computePresentValue(
@@ -1508,6 +1516,105 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     let remainingBudgetTarget = Math.max(0, remainingFundingNeed - appliedGlobalIncome);
     let actualNominalWithdrawal = remainingBudgetTarget;
     
+    // --- Concentrated Stock Liquidation & Transfer Logic ---
+    let liquidationTargetSaleAmount = 0;
+    let liquidationTaxPaid = 0;
+    
+    const liqTargetAsset = currentAssets.find(a => a.isLiquidationTarget);
+    const divDestAsset = currentAssets.find(a => a.isDividendDestination);
+    
+    if (liqTargetAsset && divDestAsset && liqTargetAsset.value > 0) {
+      // 1. Calculate Taxable Ordinary Income this year (excluding capital gains)
+      const ordinaryIncomeThisYear = pensionIncome + rrbIncome + otherIncome + currentFutureIncome + (payload.targetRothConversionAmount || 0);
+      const taxableOrdinaryIncomeThisYear = Math.max(0, ordinaryIncomeThisYear - STANDARD_DEDUCTION_2026_EST);
+      
+      // 2. Pre-existing LTCG this year
+      const preExistingLTCG = (paidOutYield + reinvestedYield) + 
+        ((payload.taxableRebalancingSaleAmount || 0) * ((payload.rebalancingCapitalGainPercentage || 0) / 100));
+        
+      // 3. Calculate remaining 0% LTCG capacity
+      const remaining0PercentLtcgSpace = Math.max(0, 98900 - (taxableOrdinaryIncomeThisYear + preExistingLTCG));
+      
+      // 4. Calculate gain ratio of liquidation target (using standard 60% cost basis)
+      const costBasisPercentage = 60;
+      const gainRatio = Math.max(0, Math.min(1, 1 - (costBasisPercentage / 100))); // 0.40
+      
+      // 5. Max sale amount that stays within 0% LTCG space
+      const maxSaleFor0PercentLtcg = gainRatio > 0 ? (remaining0PercentLtcgSpace / gainRatio) : 0;
+      
+      // 6. Overriding cash flow required to fund baseline budget
+      // Calculate value of ALL eligible drawdown assets OTHER than the liquidation target
+      const otherEligibleAssetsValue = currentAssets
+        .filter(a => {
+          if (a.value <= 0 || a.isLiquidationTarget) return false;
+          // Apply same lockout and pre-tax availability checks if we want to be fully accurate
+          if (a.assetType === 'PRE_TAX') {
+            const assetNameLower = (a.name || '').toLowerCase();
+            const isCorrie = assetNameLower.includes('corrie');
+            const isJesse = assetNameLower.includes('jesse') || !isCorrie;
+            if (isJesse && jessePreTaxTriggerYear !== -1 && currentYear < jessePreTaxTriggerYear) return false;
+            if (isCorrie && corriePreTaxTriggerYear !== -1 && currentYear < corriePreTaxTriggerYear) return false;
+          }
+          if (a.availableDate) {
+            if (a.availableDate.includes('-')) {
+              const availableYear = parseInt(a.availableDate.split('-')[0]);
+              if (currentYear < availableYear) return false;
+            } else if (a.availableDate.toLowerCase().startsWith('age:')) {
+               const triggerAge = parseFloat(a.availableDate.split(':')[1]);
+               if (currentAge < triggerAge) return false;
+            } else {
+               const availableYear = parseInt(a.availableDate);
+               if (!isNaN(availableYear) && currentYear < availableYear) return false;
+            }
+          }
+          return true;
+        })
+        .reduce((sum, a) => sum + a.value, 0);
+        
+      const baselineBudgetShortfall = Math.max(0, remainingBudgetTarget - otherEligibleAssetsValue);
+      
+      // 7. Optimal sale amount: Maximize 0% LTCG space, but cover budget shortfall if required
+      let optimalSaleAmount = Math.max(maxSaleFor0PercentLtcg, baselineBudgetShortfall);
+      optimalSaleAmount = Math.min(liqTargetAsset.value, optimalSaleAmount);
+      
+      if (optimalSaleAmount > 0) {
+        // 8. Subtract liquidated amount from the target asset
+        liqTargetAsset.value -= optimalSaleAmount;
+        
+        // 9. Calculate capital gains tax progressively
+        const capitalGainsGenerated = optimalSaleAmount * gainRatio;
+        
+        const calculateLtcgTaxForGains = (newGains: number, existingTaxableIncomeAndGains: number): number => {
+          const start = existingTaxableIncomeAndGains;
+          const end = existingTaxableIncomeAndGains + newGains;
+          let tax = 0;
+          
+          const start15 = Math.max(98900, start);
+          const end15 = Math.min(613700, end);
+          if (end15 > start15) {
+            tax += (end15 - start15) * 0.15;
+          }
+          
+          const start20 = Math.max(613700, start);
+          const end20 = Math.max(613700, end);
+          if (end20 > start20) {
+            tax += (end20 - start20) * 0.20;
+          }
+          
+          return tax;
+        };
+        
+        const taxOwedOnThisSale = calculateLtcgTaxForGains(capitalGainsGenerated, taxableOrdinaryIncomeThisYear + preExistingLTCG);
+        const netProceeds = optimalSaleAmount - taxOwedOnThisSale;
+        
+        // 10. Add net proceeds directly to dividend destination
+        divDestAsset.value += netProceeds;
+        
+        liquidationTargetSaleAmount = optimalSaleAmount;
+        liquidationTaxPaid = taxOwedOnThisSale;
+      }
+    }
+    
     // --- 3-Bucket Strategy Waterfall & Guardrails ---
     if (use3Bucket) {
       let amountNeeded = remainingBudgetTarget;
@@ -1823,6 +1930,11 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     const preTaxReal = preTaxNominal / cumInflation;
     const rothReal = rothNominal / cumInflation;
 
+    const finalLiqTarget = currentAssets.find(a => a.isLiquidationTarget);
+    const finalDivDest = currentAssets.find(a => a.isDividendDestination);
+    const liquidationTargetBalance = finalLiqTarget ? finalLiqTarget.value : 0;
+    const dividendDestinationBalance = finalDivDest ? finalDivDest.value : 0;
+
     chronologicalLedger.push({
       year: currentYear,
       age: Math.round(currentAge * 10) / 10,
@@ -1866,7 +1978,11 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       preTaxNominal,
       preTaxReal,
       rothNominal,
-      rothReal
+      rothReal,
+      liquidationTargetBalance,
+      dividendDestinationBalance,
+      liquidationTargetSaleAmount,
+      liquidationTaxPaid
     });
     
     cumInflation *= (1 + payload.inflationRate);

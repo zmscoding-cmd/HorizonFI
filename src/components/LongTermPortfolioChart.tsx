@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import {
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,20 +13,27 @@ import {
 import { AssetModel } from '../lib/db';
 import { useTheme } from './ThemeProvider';
 import { useCurrencyMode } from '../contexts/CurrencyModeContext';
-
 import { filterSimulationDataForView } from '../lib/chart-utils';
 
-interface NetWorthProjectionChartProps {
+interface LongTermPortfolioChartProps {
   data: any[];
   assets: AssetModel[];
   displayStartYear?: number;
   displayEndYear?: number;
 }
 
-export function NetWorthProjectionChart({ data, assets, displayStartYear, displayEndYear }: NetWorthProjectionChartProps) {
+export function LongTermPortfolioChart({ data, assets, displayStartYear, displayEndYear }: LongTermPortfolioChartProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark' || theme === 'night-watch';
   const { currencyMode } = useCurrencyMode();
+
+  const hasLiquidationTarget = useMemo(() => {
+    return assets.some(a => a.isLiquidationTarget);
+  }, [assets]);
+
+  const hasDividendDestination = useMemo(() => {
+    return assets.some(a => a.isDividendDestination);
+  }, [assets]);
   
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -43,19 +51,34 @@ export function NetWorthProjectionChart({ data, assets, displayStartYear, displa
       
       const total = cash + taxable + preTax + roth;
 
+      const liquidationTarget = isCurrent 
+        ? (snapshot.liquidationTargetBalance ?? 0) / divisor
+        : (snapshot.liquidationTargetBalance ?? 0);
+        
+      const dividendDestination = isCurrent
+        ? (snapshot.dividendDestinationBalance ?? 0) / divisor
+        : (snapshot.dividendDestinationBalance ?? 0);
+
+      // Remaining assets grouped into other investments
+      const otherAssets = Math.max(0, total - liquidationTarget - dividendDestination);
+
       return {
         year: snapshot.year,
         age: snapshot.age,
-        CASH: Math.max(0, cash),
-        TAXABLE: Math.max(0, taxable),
-        PRE_TAX: Math.max(0, preTax),
-        ROTH: Math.max(0, roth),
         Total: total,
+        LIQUIDATION_TARGET: Math.max(0, liquidationTarget),
+        DIVIDEND_DESTINATION: Math.max(0, dividendDestination),
+        OTHER_ASSETS: Math.max(0, otherAssets),
+        // Absolute (non-stacked) values for overlaying comparative lines
+        LIQUIDATION_TARGET_LINE: Math.max(0, liquidationTarget),
+        DIVIDEND_DESTINATION_LINE: Math.max(0, dividendDestination),
         expectedSpend: (isCurrent ? snapshot.targetBudgetReal : snapshot.targetBudgetNominal) || 0,
         expectedGrowth: (snapshot.expectedGrowth || 0) / divisor,
         expectedYield: (snapshot.expectedYield || 0) / divisor,
         actualSpend: (isCurrent ? snapshot.realWithdrawal : snapshot.nominalWithdrawal) || 0,
         taxDrag: (snapshot.taxDrag || 0) / divisor,
+        liquidationTargetSaleAmount: (snapshot.liquidationTargetSaleAmount || 0) / divisor,
+        liquidationTaxPaid: (snapshot.liquidationTaxPaid || 0) / divisor,
         _nominalTotal: snapshot.totalNetWorth ?? (cash + taxable + preTax + roth),
         _nominalChange: snapshot.changeInNetWorth || 0,
         _divisor: divisor
@@ -79,7 +102,7 @@ export function NetWorthProjectionChart({ data, assets, displayStartYear, displa
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500 font-medium">
-        Run simulation to view net worth projection.
+        Run simulation to view long-term portfolio projection.
       </div>
     );
   }
@@ -102,11 +125,11 @@ export function NetWorthProjectionChart({ data, assets, displayStartYear, displa
     const dataObj = payload[0].payload;
     const year = dataObj.year;
     const age = dataObj.age;
-    const cash = dataObj.CASH;
-    const taxable = dataObj.TAXABLE;
-    const preTax = dataObj.PRE_TAX;
-    const roth = dataObj.ROTH;
     const total = dataObj.Total;
+    
+    const liqVal = dataObj.LIQUIDATION_TARGET;
+    const divVal = dataObj.DIVIDEND_DESTINATION;
+    const otherVal = dataObj.OTHER_ASSETS;
     
     const spend = dataObj.expectedSpend;
     const growth = dataObj.expectedGrowth;
@@ -115,7 +138,7 @@ export function NetWorthProjectionChart({ data, assets, displayStartYear, displa
 
     const isChangePositive = change >= 0;
     const isCurrent = currencyMode === 'CURRENT';
-    const currencySuffix = isCurrent ? ' (Today\'s Value)' : ' (Nominal Future)';
+    const currencySuffix = isCurrent ? " (Today's Value)" : " (Nominal Future)";
 
     return (
       <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-xl text-xs max-w-xs transition-colors space-y-3.5">
@@ -131,41 +154,63 @@ export function NetWorthProjectionChart({ data, assets, displayStartYear, displa
         {/* Asset Classes Breakdown */}
         <div className="space-y-1.5">
           <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">
-            Portfolio Balances {currencySuffix}
+            Portfolio Breakdown {currencySuffix}
           </div>
+          
+          {hasLiquidationTarget && (
+            <div className="flex justify-between gap-8 items-center">
+              <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                Liquidation Target
+              </span>
+              <span className="font-mono font-semibold text-zinc-850 dark:text-zinc-100">{formatCurrency(liqVal)}</span>
+            </div>
+          )}
+
+          {hasDividendDestination && (
+            <div className="flex justify-between gap-8 items-center">
+              <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                Div Destination
+              </span>
+              <span className="font-mono font-semibold text-zinc-850 dark:text-zinc-100">{formatCurrency(divVal)}</span>
+            </div>
+          )}
+
           <div className="flex justify-between gap-8 items-center">
             <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              Cash
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              Other Assets
             </span>
-            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-100">{formatCurrency(cash)}</span>
+            <span className="font-mono font-semibold text-zinc-850 dark:text-zinc-100">{formatCurrency(otherVal)}</span>
           </div>
-          <div className="flex justify-between gap-8 items-center">
-            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
-              <span className="w-2 h-2 rounded-full bg-purple-500" />
-              Taxable
-            </span>
-            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-100">{formatCurrency(taxable)}</span>
-          </div>
-          <div className="flex justify-between gap-8 items-center">
-            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
-              <span className="w-2 h-2 rounded-full bg-orange-500" />
-              Pre-Tax
-            </span>
-            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-100">{formatCurrency(preTax)}</span>
-          </div>
-          <div className="flex justify-between gap-8 items-center">
-            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Roth
-            </span>
-            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-100">{formatCurrency(roth)}</span>
-          </div>
+
           <div className="flex justify-between gap-8 items-center border-t border-zinc-100 dark:border-zinc-850/60 pt-1.5 mt-1 font-bold">
             <span className="text-zinc-900 dark:text-zinc-50">Total Net Worth</span>
             <span className="font-mono text-zinc-900 dark:text-white">{formatCurrency(total)}</span>
           </div>
         </div>
+
+        {/* Transition Metrics */}
+        {hasLiquidationTarget && (dataObj.liquidationTargetSaleAmount > 0 || dataObj.liquidationTaxPaid > 0) && (
+          <div className="border-t border-zinc-100 dark:border-zinc-800/85 pt-3 space-y-1.5">
+            <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 mb-1.5">
+              Concentrated Liquidation {currencySuffix}
+            </div>
+            {dataObj.liquidationTargetSaleAmount > 0 && (
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-zinc-600 dark:text-zinc-400">Target Shares Sold:</span>
+                <span className="font-mono text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(dataObj.liquidationTargetSaleAmount)}</span>
+              </div>
+            )}
+            {dataObj.liquidationTaxPaid > 0 && (
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-zinc-600 dark:text-zinc-400">Cap Gains Tax Paid:</span>
+                <span className="font-mono text-rose-500 dark:text-rose-400 font-semibold">-{formatCurrency(dataObj.liquidationTaxPaid)}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Dynamic Yearly Details */}
         <div className="border-t border-zinc-100 dark:border-zinc-800/85 pt-3.5 space-y-2">
@@ -214,24 +259,20 @@ export function NetWorthProjectionChart({ data, assets, displayStartYear, displa
   return (
     <div className="w-full h-full relative" style={{ minHeight: '300px' }}>
       <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
-        <AreaChart
+        <ComposedChart
           data={chartData}
           margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
         >
           <defs>
-            <linearGradient id="colorCash" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="colorOther" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
               <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
             </linearGradient>
-            <linearGradient id="colorTaxable" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1} />
+            <linearGradient id="colorLiquidation" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1} />
             </linearGradient>
-            <linearGradient id="colorPreTax" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#f97316" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="#f97316" stopOpacity={0.1} />
-            </linearGradient>
-            <linearGradient id="colorRoth" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="colorDividend" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
               <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
             </linearGradient>
@@ -266,47 +307,72 @@ export function NetWorthProjectionChart({ data, assets, displayStartYear, displa
             verticalAlign="top"
             height={36}
             iconType="circle"
-            wrapperStyle={{ fontSize: '12px', fontWeight: 500, color: isDark ? '#a1a1aa' : '#71717a' }}
+            wrapperStyle={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#a1a1aa' : '#71717a' }}
           />
 
+          {/* 1. Stacked Areas representing Net Worth breakdown */}
           <Area
             type="monotone"
-            dataKey="CASH"
-            name="Cash"
+            dataKey="OTHER_ASSETS"
+            name="Other Assets"
             stackId="1"
             stroke="#3b82f6"
-            fill="url(#colorCash)"
+            fill="url(#colorOther)"
             activeDot={{ r: 4, strokeWidth: 0 }}
           />
-          <Area
-            type="monotone"
-            dataKey="TAXABLE"
-            name="Taxable"
-            stackId="1"
-            stroke="#8b5cf6"
-            fill="url(#colorTaxable)"
-            activeDot={{ r: 4, strokeWidth: 0 }}
-          />
-          <Area
-            type="monotone"
-            dataKey="PRE_TAX"
-            name="Pre-Tax"
-            stackId="1"
-            stroke="#f97316"
-            fill="url(#colorPreTax)"
-            activeDot={{ r: 4, strokeWidth: 0 }}
-          />
-          <Area
-            type="monotone"
-            dataKey="ROTH"
-            name="Roth"
-            stackId="1"
-            stroke="#10b981"
-            fill="url(#colorRoth)"
-            activeDot={{ r: 4, strokeWidth: 0 }}
-          />
-        </AreaChart>
+          
+          {hasDividendDestination && (
+            <Area
+              type="monotone"
+              dataKey="DIVIDEND_DESTINATION"
+              name="Div Destination Stack"
+              stackId="1"
+              stroke="#10b981"
+              fill="url(#colorDividend)"
+              activeDot={{ r: 4, strokeWidth: 0 }}
+            />
+          )}
+
+          {hasLiquidationTarget && (
+            <Area
+              type="monotone"
+              dataKey="LIQUIDATION_TARGET"
+              name="Liquidation Target Stack"
+              stackId="1"
+              stroke="#f59e0b"
+              fill="url(#colorLiquidation)"
+              activeDot={{ r: 4, strokeWidth: 0 }}
+            />
+          )}
+
+          {/* 2. Overlaid Absolute Lines to clearly visualize absolute crossover points */}
+          {hasLiquidationTarget && (
+            <Line
+              type="monotone"
+              dataKey="LIQUIDATION_TARGET_LINE"
+              name="🎯 Liquidation Target (Absolute)"
+              stroke="#ef4444"
+              strokeWidth={3}
+              dot={false}
+              activeDot={{ r: 6 }}
+            />
+          )}
+
+          {hasDividendDestination && (
+            <Line
+              type="monotone"
+              dataKey="DIVIDEND_DESTINATION_LINE"
+              name="📥 Div Destination (Absolute)"
+              stroke="#10b981"
+              strokeWidth={3}
+              dot={false}
+              activeDot={{ r: 6 }}
+            />
+          )}
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
 }
+
+export default LongTermPortfolioChart;

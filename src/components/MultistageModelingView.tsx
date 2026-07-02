@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PlanType } from '../lib/db';
 import { MultistageModelingConfig } from './MultistageModelingConfig';
 import { TimeHorizonControls } from './TimeHorizonControls';
-import { NetWorthProjectionChart } from './NetWorthProjectionChart';
+import { LongTermPortfolioChart } from './LongTermPortfolioChart';
 import { BucketWaterfallChart } from './BucketWaterfallChart';
 import { MultiStageChart } from './MultiStageChart';
 import { FundedRatioTracker } from './FundedRatioTracker';
@@ -76,7 +76,7 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
             </div>
           </div>
           <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 flex-1 min-h-[400px] flex flex-col transition-colors">
-            <NetWorthProjectionChart
+            <LongTermPortfolioChart
               data={currentResults}
               assets={activeScenario?.assets || []}
               displayStartYear={displayStartYear}

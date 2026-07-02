@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { AssetModel, generateUUID } from '../lib/db';
-import { ShieldAlert, AlertTriangle, Coins, Lock, Info, Landmark, CheckCircle } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, Coins, Lock, Info, Landmark, CheckCircle, Target, Download } from 'lucide-react';
 
 interface InvestmentFormProps {
   initialAsset?: AssetModel | null;
+  siblingAssets?: AssetModel[];
   onSave: (asset: AssetModel) => void;
   onCancel: () => void;
 }
 
-export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFormProps) {
+export function InvestmentForm({ initialAsset, siblingAssets = [], onSave, onCancel }: InvestmentFormProps) {
   const [name, setName] = useState(initialAsset?.name || '');
   const [value, setValue] = useState(initialAsset?.value?.toString() || '0');
   const [assetType, setAssetType] = useState<AssetModel['assetType']>(initialAsset?.assetType || 'TAXABLE');
@@ -16,6 +17,11 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
   const [expectedDividendYield, setExpectedDividendYield] = useState(((initialAsset?.expectedDividendYield ?? 0.02) * 100).toString());
   const [availableDate, setAvailableDate] = useState(initialAsset?.availableDate || '');
   const [dividendReinvestment, setDividendReinvestment] = useState(initialAsset?.dividendReinvestment || 'reinvest');
+  const [isLiquidationTarget, setIsLiquidationTarget] = useState(!!initialAsset?.isLiquidationTarget);
+  const [isDividendDestination, setIsDividendDestination] = useState(!!initialAsset?.isDividendDestination);
+
+  const otherLiquidationTarget = siblingAssets.find(a => a.id !== initialAsset?.id && a.isLiquidationTarget);
+  const otherDividendDestination = siblingAssets.find(a => a.id !== initialAsset?.id && a.isDividendDestination);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,14 +34,16 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
       expectedGrowthRate: parseFloat(expectedGrowthRate) / 100 || 0,
       expectedDividendYield: parseFloat(expectedDividendYield) / 100 || 0,
       availableDate: availableDate.trim() ? availableDate : undefined,
-      dividendReinvestment
+      dividendReinvestment,
+      isLiquidationTarget,
+      isDividendDestination
     };
 
     onSave(asset);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-sm space-y-6">
+    <form id="investment-configuration-form" onSubmit={handleSubmit} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-sm space-y-6">
       <div className="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-800 pb-4">
         <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
           {initialAsset ? 'Edit Investment' : 'Add Investment'}
@@ -47,6 +55,7 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
         <div className="space-y-1.5 sm:col-span-2">
           <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Investment Name</label>
           <input
+            id="input-asset-name"
             type="text"
             required
             value={name}
@@ -59,6 +68,7 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
         <div className="space-y-1.5 sm:col-span-2">
           <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Current Balance ($)</label>
           <input
+            id="input-asset-balance"
             type="number"
             required
             min="0"
@@ -80,6 +90,7 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
               { type: 'CASH', label: 'Cash', icon: <Coins size={16} /> }
             ].map((option) => (
               <button
+                id={`btn-classification-${option.type.toLowerCase()}`}
                 key={option.type}
                 type="button"
                 onClick={() => setAssetType(option.type as AssetModel['assetType'])}
@@ -111,6 +122,7 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Expected Growth (%)</label>
           <input
+            id="input-asset-growth"
             type="number"
             step="0.01"
             value={expectedGrowthRate}
@@ -122,6 +134,7 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Expected Yield (%)</label>
           <input
+            id="input-asset-yield"
             type="number"
             step="0.01"
             value={expectedDividendYield}
@@ -134,6 +147,7 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
         <div className="space-y-1.5 sm:col-span-2">
           <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Yield Strategy</label>
           <select
+            id="select-asset-yield-strategy"
             value={dividendReinvestment}
             onChange={(e) => setDividendReinvestment(e.target.value)}
             className="w-full min-h-[44px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -149,10 +163,11 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
             <Lock size={14} />
             Availability Lockout (Optional)
           </label>
-          <p className="text-xs text-zinc-500 dark:text-zinc-500 mb-2">
+          <p className="text-xs text-zinc-500 dark:text-zinc-550 mb-2">
             Enter a calendar year (e.g. <code>2035</code>) or an age trigger (e.g. <code>age:59.5</code>) when this asset becomes available for drawdown without penalty. Leave blank if fully liquid now.
           </p>
           <input
+            id="input-asset-lockout"
             type="text"
             value={availableDate}
             onChange={(e) => setAvailableDate(e.target.value)}
@@ -160,11 +175,68 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
             className="w-full min-h-[44px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono"
           />
         </div>
+
+        {/* Long-Term Strategy Designations */}
+        <div className="space-y-3 sm:col-span-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+          <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+            <Target size={14} />
+            Long-Term Strategy Designations
+          </label>
+          
+          <div className="space-y-3">
+            {/* Concentrated Liquidation Target Toggle */}
+            <button
+              id="toggle-liquidation-target"
+              type="button"
+              role="switch"
+              aria-checked={isLiquidationTarget}
+              onClick={() => setIsLiquidationTarget(!isLiquidationTarget)}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 w-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all text-left min-h-[44px] cursor-pointer"
+            >
+              <div className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isLiquidationTarget ? 'bg-blue-600' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isLiquidationTarget ? 'translate-x-5' : 'translate-x-0'}`} />
+              </div>
+              <div className="flex-1">
+                <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Concentrated Liquidation Target</span>
+                <span className="block text-xs text-zinc-500 dark:text-zinc-400">Designate this asset as the primary source for stock liquidations during drawdown.</span>
+                {isLiquidationTarget && otherLiquidationTarget && (
+                  <span id="warning-other-liquidation-target" className="block text-xs text-amber-600 dark:text-amber-400 mt-1 font-medium">
+                    ⚠️ Saving will unset <strong>{otherLiquidationTarget.name}</strong> as the Concentrated Liquidation Target.
+                  </span>
+                )}
+              </div>
+            </button>
+
+            {/* Dividend Destination Fund Toggle */}
+            <button
+              id="toggle-dividend-destination"
+              type="button"
+              role="switch"
+              aria-checked={isDividendDestination}
+              onClick={() => setIsDividendDestination(!isDividendDestination)}
+              className="flex items-center gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 w-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all text-left min-h-[44px] cursor-pointer"
+            >
+              <div className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isDividendDestination ? 'bg-blue-600' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isDividendDestination ? 'translate-x-5' : 'translate-x-0'}`} />
+              </div>
+              <div className="flex-1">
+                <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Dividend Destination Fund</span>
+                <span className="block text-xs text-zinc-500 dark:text-zinc-400">Designate this asset as the target recipient for cash-flow dividends from other investments.</span>
+                {isDividendDestination && otherDividendDestination && (
+                  <span id="warning-other-dividend-destination" className="block text-xs text-amber-600 dark:text-amber-400 mt-1 font-medium">
+                    ⚠️ Saving will unset <strong>{otherDividendDestination.name}</strong> as the Dividend Destination Fund.
+                  </span>
+                )}
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
         <button
+          id="btn-cancel-investment"
           type="button"
           onClick={onCancel}
           className="min-h-[44px] px-5 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
@@ -172,6 +244,7 @@ export function InvestmentForm({ initialAsset, onSave, onCancel }: InvestmentFor
           Cancel
         </button>
         <button
+          id="btn-save-investment"
           type="submit"
           className="min-h-[44px] px-6 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-medium rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center gap-2"
         >

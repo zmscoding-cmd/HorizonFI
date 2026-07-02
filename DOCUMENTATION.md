@@ -45,6 +45,14 @@ Navigate to the **Target Assets** tab inside the **Budget Dashboard** to registe
 *   **Cash Reserves / Capital Buffers:** Non-volatile cash assets used as a market shock absorber.
 *   **Depreciating Assets (Physical Vessel / Vehicles):** You can input your physical cruising sailboat or yacht, assigning custom *negative appreciation rates* (e.g., `-5%` to `-10%` annually) to accurately simulate asset decay and boat maintenance expenditures over time.
 
+#### Designated Simulation Roles (Liquidation Targets & Dividend Destinations)
+To model complex, multi-stage wealth transition strategies, HorizonFI allows you to assign specific roles to individual assets inside a scenario:
+*   **Concentrated Liquidation Target (🎯):** Designate one taxable account to act as the primary, concentrated target for divesting holdings. This allows the simulation to prioritize drawing down or unwinding specific volatile or highly concentrated single-equity accounts before general pro-rata liquidations.
+*   **Dividend Destination Fund (📥):** Designate one asset as the primary recipient for qualified dividend payouts or interest distributions. This lets you simulate automatic cash flows being routed directly to a stable cash reserve or dividend-reinvestment ETF (e.g., SCHD).
+*   **Strict Single-Designation Constraint:** To preserve simulation consistency, **only one asset can carry the role of Concentrated Liquidation Target, and only one can carry the role of Dividend Destination Fund** at any time. When you toggle a role to "Active" on any asset, HorizonFI automatically de-allocates that role from all sibling assets inside the active scenario, preventing double-allocations and keeping your NoSQL schema clean.
+*   **Visual Status Badges:** Active roles are displayed directly on the investment cards in the asset list with intuitive, high-visibility badges to provide instant feedback.
+
+
 ### Step 3: Configure Your Baseline Budget & Economics
 Input your projected baseline cost of living and global plan parameters:
 1.  Enter your target monthly or annual baseline living expenditures (e.g., *"Marina dues, provisions, sails, and fuel"*).
@@ -245,10 +253,11 @@ To navigate this, HorizonFI features an offline-first **Bridge Period Optimizati
 By maximizing your terminal wealth at the end of the simulation, the algorithm inherently minimizes your lifetime tax drag.
 
 #### 1. Concentrated Stock Liquidation & Reallocation
-If you hold a disproportionate amount of wealth in a single company stock (e.g., from former employment), the optimizer helps you systematically unwind this idiosyncratic risk. 
-* **Specific Identification Accounting:** Instead of using the IRS default First-In, First-Out (FIFO) method, HorizonFI requires you to input your specific tax lots (acquisition dates, share counts, and cost bases). 
-* **Targeted Gain Engineering:** The algorithm targets exact shares to sell, pairing highly appreciated lots with high-basis lots to engineer a precise capital gain. It mathematically maps these sales to fill up the remainder of your 0% Long-Term Capital Gains bracket without spilling into the 15% penalty zone.
-* **Dividend ETF Reinvestment:** The proceeds are modeled as an immediate reinvestment into a dividend-yield ETF (specifically tracking the Schwab U.S. Dividend Equity ETF). The engine dynamically accounts for the ongoing qualified dividend tax drag this creates on your portfolio's compound annual growth rate.
+If you hold a disproportionate amount of wealth in a single company stock, the background Web Worker (`simulation.worker.ts`) automatically optimizes its transition to reduce idiosyncratic risk:
+* **Tax Bracket Space Mapping:** The background simulation loop dynamically scans the active scenario's asset list to find your designated **Concentrated Liquidation Target (🎯)** and **Dividend Destination Fund (📥)**.
+* **0% LTCG Space Maximization:** Every year, the engine calculates your remaining 0% Long-Term Capital Gains (LTCG) bracket space ($98,900 for MFJ in 2026) after accounting for all ordinary income (pensions, Social Security, and planned Roth conversions) and pre-existing investment dividend yields.
+* **Progressive Capital Gains Tax:** The algorithm calculates the optimal amount of stock to liquidate to completely fill the 0% LTCG space based on a standard 60% cost basis (40% gain ratio). It calculates and subtracts the progressive federal capital gains tax (0%, 15%, 20%) dynamically, transferring the net proceeds directly into the Dividend Destination Fund balance.
+* **Overriding Budget Shortfall Safeguard:** If a severe budget deficit exists that cannot be covered by other available liquid assets, the engine executes an overriding cash flow carve-out, selling sufficient target assets to fund the baseline budget, even if it triggers the 15% LTCG bracket ("tax torpedo").
 
 #### 2. Multi-Year Roth Conversion Engine
 Simultaneously, the engine calculates the exact dollar gap between your current baseline taxable income and the upper limit of your target tax bracket (e.g., the 24% bracket) to execute multi-year Roth conversions. 
@@ -563,3 +572,28 @@ For retirees relying on Railroad Retirement Board (RRB) Tier 1 benefits or Socia
 `Modified Adjusted Gross Income (MAGI) + 50% of your RRB Tier 1 / Social Security Benefits`
 
 As your Provisional Income crosses specific statutory base amounts, the percentage of your benefits subject to federal income tax scales from 0% to 50% and ultimately up to 85%. This creates hidden marginal tax spikes where a single dollar of additional income (like a Roth conversion) can cause an additional 50 to 85 cents of your benefits to become taxable. HorizonFI simulates this Provisional Income curve exactly as the IRS calculates it, ensuring our recommendations never inadvertently trigger severe taxation on your retirement benefits.
+
+
+## 12. Visualizing Stock Liquidation & Dividend Transitions
+
+To give you complete, visual spatial awareness of your wealth transitions, HorizonFI features the **Long-Term Portfolio Projection Chart** (`LongTermPortfolioChart.tsx`), which replaces the generic tax-bucket projection chart.
+
+### 1. Unified Stacking & Role Isolation
+Instead of folding all brokerage assets into a single "Taxable" line or broad "Total Net Worth" bucket, the projection chart dynamically splits your portfolio into three intuitive visual layers:
+*   **Concentrated Liquidation Target (Stacked Area):** Renders as an amber-shaded stacked area, depicting how much your concentrated equity holdings (e.g., UPRR) contribute to your overall net worth stack.
+*   **Dividend Destination Fund (Stacked Area):** Renders as an emerald-green stacked area, allowing you to watch the progressive, tax-sheltered build-up of your safe, dividend-producing portfolio (e.g., SCHD).
+*   **Other Assets (Stacked Area):** Automatically packages all remaining assets (all other cash, traditional tax-deferred accounts, and Roth buckets) into a neutral slate-blue stacked area. This ensures that the total height of your visual stack continues to perfectly represent your **Total Net Worth** at every single year index.
+
+### 2. The High-Contrast Absolute Crossover Lines
+Because stacked areas are added sequentially, their absolute boundary lines do not intersect when they grow or shrink. To make the exact year of neutralization immediately visible:
+*   **High-Contrast Overlay Lines:** The chart overlays two unstacked, thick, prominent lines directly on top of your net worth stack:
+    *   A bright red line tracking the **absolute dollar balance** of your Concentrated Stock.
+    *   A vibrant emerald-green line tracking the **absolute dollar balance** of your Dividend Destination Fund.
+*   **Neutralization Crossover Point:** These two lines form a distinct, classic "X" shape on your screen. The exact intersection of these lines marks the precise calendar year where your concentrated risk is successfully neutralized, and your dividend-generating fund surpasses the concentrated single-stock equity.
+
+### 3. Context-Aware Hover Tooltips
+When you hover over any year on the chart, the interactive tooltip expands to present highly detailed transition metrics in real-time, adjusted for your active Valuation Mode:
+*   **Liquidation Target and Div Destination balances** are broken down individually alongside your remaining portfolio assets.
+*   **Concentrated Shares Sold:** The tooltip dynamically reveals the exact nominal or inflation-adjusted dollar amount of concentrated stock sold during that specific year.
+*   **Capital Gains Taxes Paid:** Displays the precise, progressive capital gains tax drag incurred during that year's liquidation step, providing complete, uncompromised planning transparency.
+

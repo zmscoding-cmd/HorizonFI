@@ -65,8 +65,10 @@ export function useBridgeOptimization(planId: string | undefined, scenarioId: st
 
         const currentYear = new Date().getFullYear();
         const startAge = scenario.currentAge || 55;
-        const stockLiquidationStartAge = scenario.bridgeStockLiquidationStartYear ? startAge + (scenario.bridgeStockLiquidationStartYear - currentYear) : startAge;
-        const rothConversionStartAge = scenario.bridgeRothConversionStartYear ? startAge + (scenario.bridgeRothConversionStartYear - currentYear) : startAge;
+        const stockLiquidationStartYear = scenario.bridgeStockLiquidationStartYear ?? 2030;
+        const rothConversionStartYear = scenario.bridgeRothConversionStartYear ?? 2030;
+        const stockLiquidationStartAge = startAge + (stockLiquidationStartYear - currentYear);
+        const rothConversionStartAge = startAge + (rothConversionStartYear - currentYear);
 
         const params = {
           startAge,

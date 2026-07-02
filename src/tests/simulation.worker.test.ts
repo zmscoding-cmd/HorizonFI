@@ -674,3 +674,94 @@ describe('Web Worker - Visual Chart Single Source of Truth Alignment', () => {
   });
 });
 
+describe('Web Worker - Concentrated Stock Liquidation and Transfer Logic', () => {
+  it('should optimize stock liquidation by maximizing 0% LTCG bracket space and transferring proceeds net of tax to dividend destination', () => {
+    const payload: any = {
+      type: 'MULTI_STAGE_DRAWDOWN',
+      startYear: 2026,
+      endYear: 2026,
+      currentAge: 60,
+      assets: [
+        { id: 'liq1', name: 'Concentrated Target', value: 500000, assetType: 'TAXABLE', expectedGrowthRate: 0.0, expectedDividendYield: 0.0, isLiquidationTarget: true },
+        { id: 'dest1', name: 'Dividend Destination', value: 100000, assetType: 'TAXABLE', expectedGrowthRate: 0.0, expectedDividendYield: 0.0, isDividendDestination: true }
+      ],
+      stages: [
+        { id: 'stg1', fundingPriorities: ['TAXABLE'] }
+      ],
+      milestones: [],
+      uprrDivestmentAnnualAmount: 0,
+      dividendEtfId: '',
+      uprrId: '',
+      targetConstantMarketReturn: 0.0,
+      inflationRate: 0.0,
+      budgetPhases: [{ phaseId: 'test', startYear: 2026, endYear: 2100, baselineAmount: 40000, applyLifestyleAdjustment: false }],
+      maxRealWithdrawal: 1000000,
+      liquidBufferYears: 0,
+      globalDiscountRate: 2.0,
+      futureIncomeStreams: [],
+      futureLiabilities: [],
+      nonTaxableGifts: []
+    };
+
+    const results = simulateMultiStageDrawdownWorker(payload);
+    expect(results).toHaveLength(1);
+    
+    expect(results[0].liquidationTargetSaleAmount).toBe(247250);
+    expect(results[0].liquidationTaxPaid).toBe(0);
+    
+    expect(results[0].liquidationTargetBalance).toBeDefined();
+    expect(results[0].dividendDestinationBalance).toBeDefined();
+    
+    expect(results[0].endingBalance).toBeCloseTo(560000, 1);
+  });
+
+  it('should successfully deplete a $2.5M concentrated stock position over multiple simulated years using 0% LTCG optimizations', () => {
+    const payload: any = {
+      type: 'MULTI_STAGE_DRAWDOWN',
+      startYear: 2026,
+      endYear: 2038, // Run over 12 years to see progressive depletion
+      currentAge: 60,
+      assets: [
+        { id: 'liq1', name: 'Concentrated Target', value: 2500000, assetType: 'TAXABLE', expectedGrowthRate: 0.0, expectedDividendYield: 0.0, isLiquidationTarget: true },
+        { id: 'dest1', name: 'Dividend Destination', value: 0, assetType: 'TAXABLE', expectedGrowthRate: 0.0, expectedDividendYield: 0.0, isDividendDestination: true }
+      ],
+      stages: [
+        { id: 'stg1', fundingPriorities: ['TAXABLE'] }
+      ],
+      milestones: [],
+      uprrDivestmentAnnualAmount: 0,
+      dividendEtfId: '',
+      uprrId: '',
+      targetConstantMarketReturn: 0.0,
+      inflationRate: 0.0,
+      budgetPhases: [{ phaseId: 'test', startYear: 2026, endYear: 2100, baselineAmount: 40000, applyLifestyleAdjustment: false }],
+      maxRealWithdrawal: 1000000,
+      liquidBufferYears: 0,
+      globalDiscountRate: 2.0,
+      futureIncomeStreams: [],
+      futureLiabilities: [],
+      nonTaxableGifts: []
+    };
+
+    const results = simulateMultiStageDrawdownWorker(payload);
+    expect(results.length).toBeGreaterThan(5);
+
+    // Initial year sale should utilize the standard $98,900 space at 40% gain ratio
+    // Remaining space: $98,900 - ($40,000 standard deduction / offset ordinary baseline)
+    // No pension/income is set, so taxable ordinary income is 0 (below standard deduction).
+    // Remaining 0% LTCG capacity = $98,900. Max sale = $98,900 / 0.40 = $247,250.
+    expect(results[0].liquidationTargetSaleAmount).toBe(247250);
+    expect(results[0].liquidationTaxPaid).toBe(0);
+    expect(results[0].liquidationTargetBalance).toBeCloseTo(2216706, 0);
+    expect(results[0].dividendDestinationBalance).toBeCloseTo(243294, 0);
+
+    // Verify progressive multi-year depletion trend
+    const midYear = results[5];
+    expect(midYear.liquidationTargetBalance).toBeLessThan(2500000);
+    expect(midYear.dividendDestinationBalance).toBeGreaterThan(0);
+    
+    // Total portfolio value should remain conserved (minus withdrawals & any calculated tax drag)
+    expect(midYear.endingBalance).toBeCloseTo(2500000 - (6 * 40000), -3); // Allow minor floating differences
+  });
+});
+

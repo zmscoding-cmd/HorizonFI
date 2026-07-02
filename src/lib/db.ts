@@ -89,6 +89,8 @@ export type AssetModel = {
   expectedGrowthRate: number;
   expectedDividendYield: number;
   availableDate?: string;
+  isLiquidationTarget?: boolean;
+  isDividendDestination?: boolean;
   // Legacy fields
   type?: string;
   growthRate?: number;
@@ -208,7 +210,7 @@ const taxLotSchema = {
 };
 
 const planSchema = {
-  version: 13,
+  version: 14,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -296,6 +298,8 @@ const planSchema = {
                 expectedGrowthRate: { type: 'number', minimum: -1.0, maximum: 1.0 },
                 expectedDividendYield: { type: 'number', minimum: -1.0, maximum: 1.0 },
                 availableDate: { type: 'string' },
+                isLiquidationTarget: { type: 'boolean' },
+                isDividendDestination: { type: 'boolean' },
                 type: { type: 'string' },
                 growthRate: { type: 'number' },
                 dividendYield: { type: 'number' },
@@ -492,6 +496,8 @@ export type AssetType = {
   expectedGrowthRate: number;
   expectedDividendYield: number;
   availableDate?: string;
+  isLiquidationTarget?: boolean;
+  isDividendDestination?: boolean;
   type?: string;
   createdAt: number;
   updatedAt?: number;
@@ -573,7 +579,7 @@ const plannedExpenseSchema = {
 };
 
 const assetSchema = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -585,6 +591,8 @@ const assetSchema = {
     expectedGrowthRate: { type: 'number', minimum: -1.0, maximum: 1.0 },
     expectedDividendYield: { type: 'number', minimum: -1.0, maximum: 1.0 },
     availableDate: { type: 'string' },
+    isLiquidationTarget: { type: 'boolean' },
+    isDividendDestination: { type: 'boolean' },
     type: { type: 'string' },
     createdAt: { type: 'integer' },
     updatedAt: { type: 'integer' }
@@ -922,6 +930,21 @@ export async function getDatabase() {
                 return sc;
               });
               return oldDoc;
+            },
+            14: function (oldDoc: any) {
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                if (sc.assets) {
+                  sc.assets = sc.assets.map((asset: any) => {
+                    return {
+                      ...asset,
+                      isLiquidationTarget: asset.isLiquidationTarget ?? false,
+                      isDividendDestination: asset.isDividendDestination ?? false
+                    };
+                  });
+                }
+                return sc;
+              });
+              return oldDoc;
             }
           }
 
@@ -989,6 +1012,11 @@ export async function getDatabase() {
             oldDoc.expectedGrowthRate = 0.05; // Default global growth rate
             oldDoc.expectedDividendYield = 0.02; // Default global dividend yield
             
+            return oldDoc;
+          },
+          2: function (oldDoc: any) {
+            oldDoc.isLiquidationTarget = oldDoc.isLiquidationTarget ?? false;
+            oldDoc.isDividendDestination = oldDoc.isDividendDestination ?? false;
             return oldDoc;
           }
         }

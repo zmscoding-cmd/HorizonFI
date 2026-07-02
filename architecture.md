@@ -1738,3 +1738,88 @@ Trigger: Correct default UI state visibility and ensure User Help Guide reflects
 [x] Offline Capability Verified
 [x] Night-Watch UI/UX Verified
 [x] Web Worker Isolation Confirmed
+
+### Checkpoint: Bridge Optimization State Isolation & UX Precision
+Trigger: Address input specification issues for Stock Liquidation & Roth Conversion Start Years, and establish 2030 as the standard default start boundary.
+
+1. Architectural State Changes:
+- **State Buffer Encapsulation**: Refactored MultistageModelingConfig.tsx to utilize React useState hooks for input values. These local buffers isolate the keypresses from the asynchronous database synchronization and heavy simulation reruns, eliminating key swallowing or cursor jumps.
+- **Database Boundary Updates**: Configured database writes to proceed upon onBlur or when the user presses Enter to confirm a year, maintaining the efficiency of IndexedDB and preventing execution loop choke during configuration typing.
+- **Default Start Alignment**: Re-anchored the default start years for both stock liquidation and Roth conversions to 2030 within the configuration inputs and the Web Worker-driven hooks.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: State Buffer Encapsulation]
+- **State Isolation Strategy**: Bypassed direct asynchronous prop-to-controlled-input bindings. Utilizing local component buffers guarantees flawless desktop and mobile user inputs while keeping model simulations authoritative.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified
+[x] Web Worker Isolation Confirmed
+[x] Vitest Integration Harness Verified (bridge-optimization-integration.test.ts passing)
+
+### Checkpoint: Long-Term Simulation Asset Role Designation & Validation
+Trigger: Support designating specific assets as the "Concentrated Liquidation Target" and "Dividend Destination Fund" within the Long-Term Simulation, enforcing single-designation constraints, and updating the RxDB local database schema.
+
+1. Architectural State Changes:
+- **NoSQL Schema Rollforward**: Modified the `planSchema` (scenarios.assets array) and `assetSchema` inside `src/lib/db.ts` to include `isLiquidationTarget` and `isDividendDestination` optional boolean flags, rolling the schema versions forward (`planSchema` version 14, `assetSchema` version 2) with offline-ready database migration strategies.
+- **Form Controls & Touch Targets**: Integrated accessible, high-contrast toggle switches into the standard `InvestmentForm.tsx` component. Configured with a minimum 44x44px touch target, these switches respect active light/dark/night-watch themes and display context-aware warnings if another asset currently carries the targeted role.
+- **Single-Designation Constraint Enforcement**: Hardened the asset save handler inside `ScenarioBuilder.tsx`. Saving an investment with a toggle set to `true` automatically resets that role to `false` for all other sibling assets in the active scenario, preventing double-allocations and preserving database integrity.
+- **Visual Badge Signaling**: Upgraded `InvestmentList.tsx` to dynamically project visual status badges ("🎯 Liquidation Target" and "📥 Div Destination") on the active investment cards, providing immediate planning context.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Single-Designation State Constraints]
+- **Role Designation Integration**: Allows users to dynamically map specific taxable accounts to dedicated liquidation and dividend reinvestment/payout paths inside the long-term simulation engine, ensuring optimal drawdowns.
+- **Automated Validation**: Bypasses manual constraint errors by executing automated array modifications during database writes to maintain exactly zero-or-one designated assets per role in any scenario.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified
+[x] Web Worker Isolation Confirmed
+[x] RxDB Database Migrations Verified (planSchema 14 & assetSchema 2)
+[x] Vitest Integration Harness Verified (42/42 tests passing)
+
+### Checkpoint: Concentrated Stock Liquidation Optimization & Transfer Execution Worker Logic
+Trigger: Implement optimized concentrated stock liquidation and transfer logic inside the background Web Worker (`simulation.worker.ts`), calculating progressive capital gains taxes and transferring net proceeds directly to the dividend destination asset.
+
+1. Architectural State Changes:
+- **Sanitization & Payload Alignment**: Enhanced `sanitizeMultiStageDrawdownPayload` and the `NetWorthAssetInput` interface to recognize and preserve `isLiquidationTarget` and `isDividendDestination` role flags when passing assets to background workers.
+- **Tax Bracket Space Optimization**: Engineered the mathematical engine inside the annual simulation loop of `simulateMultiStageDrawdownWorker`. The worker dynamically calculates remaining space in the 0% LTCG bracket ($98,900 for MFJ in 2026) by subtracting ordinary income and pre-existing investment gains from the threshold.
+- **Target Asset Selling & progressive CG Taxing**: Subtracts the optimal sale amount progressively from the target asset balance. It calculates capital gains tax using the 60% cost basis and deducts tax liability using progressive capital gains brackets before transferring net proceeds directly to the dividend destination asset.
+- **Overriding Cash Flow Safeguard**: If baseline budget requirements are not met by other eligible assets, the logic overrides the 0% LTCG bracket limit, selling sufficient concentrated stock to fund the baseline budget.
+- **Chronological Ledger Tracking**: Modified `MultiStageYearlySnapshot` and the `chronologicalLedger` output payload to capture and return the ending balances of both assets, the year's sale amount, and capital gains taxes paid.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Concentrated Stock Liquidation & Transfer Logic]
+- **Thread Isolation & Efficiency**: Ensures intensive multi-decade mathematical optimization of stock liquidation and progressive tax calculations runs on background worker threads without interrupting the 60fps main UI thread.
+- **Durable Local Persistence**: Persists all asset balance states directly in encrypted RxDB / IndexedDB tables, ensuring fully secure, zero-trust offline-first planning.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified
+[x] Web Worker Isolation Confirmed
+[x] Vitest Integration Harness Verified (43/43 tests passing, including dedicated stock liquidation unit tests)
+
+### Checkpoint: Long-Term Portfolio Projection Chart Refactoring & Role Separation
+Trigger: Refactor the Long-Term Portfolio Projection chart (`LongTermPortfolioChart.tsx`) to visually isolate the concentrated liquidation target and the dividend destination fund from other assets, providing high-contrast absolute lines for crossover tracking.
+
+1. Architectural State Changes:
+- **Component-Level Refactoring & Modernization**: Replaced the legacy `NetWorthProjectionChart.tsx` component with a newly architected, highly responsive `LongTermPortfolioChart.tsx` that receives the simulation results and the active scenario's assets.
+- **Dynamic Asset Decomposition**: Dynamically extracts the designated "Concentrated Liquidation Target" and "Dividend Destination Fund" from the year-by-year background simulation snapshot array.
+- **Remainder Portfolio Consolidation**: Groups all other investments (CASH, TAXABLE, PRE_TAX, and ROTH) into a single unified "Other Assets" stacked area series, keeping the cumulative stack heights perfectly matching the total projected portfolio net worth.
+- **Crossover Visualization Layer**: Overlays two unstacked, thick, high-contrast `<Line />` series (`#ef4444` for the Liquidation Target and `#10b981` for the Dividend Destination) to map their absolute balances. This displays a clean visual intersection (an "X" shape) showing exactly when the concentrated asset risk is neutralized.
+- **Context-Aware Adaptive Tooltip**: Upgraded the interactive hover tooltip to conditionally display the balances, annual sale amounts, and capital gains tax liabilities only if the active scenario carries those designated roles, avoiding clutter when unassigned.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Dynamic Portfolio Decomposition & Crossover Plotting]
+- **Visual Separation Strategy**: Breaks the traditional categorical tax-bucket rendering boundary, prioritizing active scenario-defined roles (Target vs. Destination) during visualization to allow immediate cognitive identification of asset transition health.
+- **Adaptive Screen Constraint Handling**: Leverages flexible `<ResponsiveContainer>` wrappers and auto-decimating ticks to guarantee high-performance, non-blocking rendering on cruising sailing iPads and mobile screens alike.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified
+[x] Web Worker Isolation Confirmed
+[x] Vitest Integration Harness & Linter Verified (passing clean compilation)
+
+
+
+

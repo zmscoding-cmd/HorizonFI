@@ -31,7 +31,7 @@ import { FundedRatioTracker } from "./FundedRatioTracker";
 import { WealthVelocityChart } from "./WealthVelocityChart";
 import { InvestmentForm } from "./InvestmentForm";
 import { InvestmentList } from "./InvestmentList";
-import { NetWorthProjectionChart } from "./NetWorthProjectionChart";
+import { LongTermPortfolioChart } from "./LongTermPortfolioChart";
 import { BucketWaterfallChart } from "./BucketWaterfallChart";
 import { AssetModel } from "../lib/db";
 
@@ -2990,6 +2990,7 @@ export default function ScenarioBuilder({
           <div className="bg-transparent w-full max-w-lg my-auto relative">
             <InvestmentForm
               initialAsset={editingAsset}
+              siblingAssets={activeScenario.assets || []}
               onCancel={() => {
                 setShowAssetForm(false);
                 setEditingAsset(null);
@@ -3005,6 +3006,21 @@ export default function ScenarioBuilder({
                 } else {
                   updatedAssets = [...currentAssets, asset];
                 }
+
+                // Enforce single liquidation target constraint
+                if (asset.isLiquidationTarget) {
+                  updatedAssets = updatedAssets.map((a: any) =>
+                    a.id === asset.id ? a : { ...a, isLiquidationTarget: false }
+                  );
+                }
+
+                // Enforce single dividend destination constraint
+                if (asset.isDividendDestination) {
+                  updatedAssets = updatedAssets.map((a: any) =>
+                    a.id === asset.id ? a : { ...a, isDividendDestination: false }
+                  );
+                }
+
                 const updatedScenarios = plan.scenarios.map((s: any) =>
                   s.id === activeScenario.id
                     ? { ...s, assets: updatedAssets }

@@ -21,6 +21,21 @@ function ToggleSwitch({ checked, onChange, label, description }: any) {
 export function MultistageModelingConfig({ activeScenario, plan, db, handleRunSimulation }: any) {
   const stages = activeScenario.stages || [];
   const milestones = activeScenario.milestones || [];
+
+  const [stockLiquidationYear, setStockLiquidationYear] = React.useState<string>(
+    String(activeScenario.bridgeStockLiquidationStartYear ?? 2030)
+  );
+  const [rothConversionYear, setRothConversionYear] = React.useState<string>(
+    String(activeScenario.bridgeRothConversionStartYear ?? 2030)
+  );
+
+  React.useEffect(() => {
+    setStockLiquidationYear(String(activeScenario.bridgeStockLiquidationStartYear ?? 2030));
+  }, [activeScenario.bridgeStockLiquidationStartYear, activeScenario.id]);
+
+  React.useEffect(() => {
+    setRothConversionYear(String(activeScenario.bridgeRothConversionStartYear ?? 2030));
+  }, [activeScenario.bridgeRothConversionStartYear, activeScenario.id]);
   
   const saveStages = async (newStages: any[]) => {
     const doc = await db.plans.findOne(plan.id).exec();
@@ -249,15 +264,22 @@ export function MultistageModelingConfig({ activeScenario, plan, db, handleRunSi
                 <label className="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 block">Stock Liquidation Start Year</label>
                 <input 
                   type="number" 
-                  value={activeScenario.bridgeStockLiquidationStartYear ?? new Date().getFullYear()}
-                  onChange={async (e) => {
+                  value={stockLiquidationYear}
+                  onChange={(e) => setStockLiquidationYear(e.target.value)}
+                  onBlur={async () => {
+                    const yearVal = Number(stockLiquidationYear) || 2030;
                     const doc = await db.plans.findOne(plan.id).exec();
-                    const updatedScenarios = plan.scenarios.map((s) =>
-                      s.id === activeScenario.id ? { ...s, bridgeStockLiquidationStartYear: Number(e.target.value) } : s
+                    const updatedScenarios = plan.scenarios.map((s: any) =>
+                      s.id === activeScenario.id ? { ...s, bridgeStockLiquidationStartYear: yearVal } : s
                     );
                     await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                    handleRunSimulation();
                   }}
-                  onBlur={handleRunSimulation}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') {
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
                   className="w-full text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 min-h-[44px] text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -266,15 +288,22 @@ export function MultistageModelingConfig({ activeScenario, plan, db, handleRunSi
                 <label className="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 block">Roth Conversion Start Year</label>
                 <input 
                   type="number" 
-                  value={activeScenario.bridgeRothConversionStartYear ?? new Date().getFullYear()}
-                  onChange={async (e) => {
+                  value={rothConversionYear}
+                  onChange={(e) => setRothConversionYear(e.target.value)}
+                  onBlur={async () => {
+                    const yearVal = Number(rothConversionYear) || 2030;
                     const doc = await db.plans.findOne(plan.id).exec();
-                    const updatedScenarios = plan.scenarios.map((s) =>
-                      s.id === activeScenario.id ? { ...s, bridgeRothConversionStartYear: Number(e.target.value) } : s
+                    const updatedScenarios = plan.scenarios.map((s: any) =>
+                      s.id === activeScenario.id ? { ...s, bridgeRothConversionStartYear: yearVal } : s
                     );
                     await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                    handleRunSimulation();
                   }}
-                  onBlur={handleRunSimulation}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') {
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
                   className="w-full text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 min-h-[44px] text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
