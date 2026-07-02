@@ -107,7 +107,6 @@ export type SubScenario = {
     budgetPhases?: BudgetPhase[];
     residencyState?: string;
     currentAge?: number;
-    targetConstantMarketReturn?: number;
     maxRealWithdrawal?: number;
     upperGuardrailMultiplier?: number;
     lowerGuardrailMultiplier?: number;
@@ -176,7 +175,7 @@ export type HistoricalDatapointType = {
 };
 
 const planSchema = {
-  version: 10,
+  version: 11,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -859,6 +858,15 @@ export async function getDatabase() {
                 sc.targetEndYear = startYear + legacyDuration;
                 if (sc.budget) {
                   delete sc.budget.timelineDuration;
+                }
+                return sc;
+              });
+              return oldDoc;
+            },
+            11: function (oldDoc: any) {
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                if (sc.budget) {
+                  delete sc.budget.targetConstantMarketReturn;
                 }
                 return sc;
               });

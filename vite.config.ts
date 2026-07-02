@@ -15,7 +15,8 @@ export default defineConfig(() => {
           enabled: true
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+          globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+          maximumFileSizeToCacheInBytes: 5000000
         },
         manifest: {
           name: 'HorizonFI',

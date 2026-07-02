@@ -172,20 +172,20 @@ describe('Web Worker - 3-Bucket Waterfall Implementation', () => {
     
     // Pre-Growth Math Check expected logically:
     // Start total: 1,000,000. 
-    // B1: 200,000 - 100,000 = 100,000 (after drain)
-    // B2: 300,000
-    // B3: 500,000
-    // Total pre-growth: 900,000
-    // Actual asset ends year with 5% growth: 900,000 * 1.05 = 945,000.
-    const expectedFinalBalance = 900000 * 1.05;
+    // Actual asset ends year with 5% growth calculated FIRST: 1,000,000 * 1.05 = 1,050,000.
+    // Withdraw 100,000.
+    // Expected final balance = 950,000.
+    const expectedFinalBalance = 950000;
     expect(results[0].endingBalance).toBeCloseTo(expectedFinalBalance, 0);
     
-    // Abstract growth scale matched factor: 945,000 / 900,000 = 1.05
-    // After growth: B1 = 105,000, B2 = 315,000, B3 = 525,000
-    // Refill B1 from B2 (B1 target = 200,000, needs 95,000)
-    // B1 becomes 200,000. B2 loses 95,000 -> 220,000.
-    // Refill B2 from B3 (B2 target = 300,000, needs 80,000)
-    // B2 becomes 300,000. B3 loses 80,000 -> 445,000.
+    // Abstract growth scale matched factor: 1,050,000 / 1,000,000 = 1.05
+    // After growth: B1 = 200,000 * 1.05 = 210,000, B2 = 300,000 * 1.05 = 315,000, B3 = 500,000 * 1.05 = 525,000
+    // Total = 1,050,000.
+    // Withdraw 100,000 from B1. B1 becomes 110,000. B2 = 315,000. B3 = 525,000.
+    // Refill B1 from B2 (B1 target = 200,000, needs 90,000)
+    // B1 becomes 200,000. B2 loses 90,000 -> 225,000.
+    // Refill B2 from B3 (B2 target = 300,000, needs 75,000)
+    // B2 becomes 300,000. B3 loses 75,000 -> 450,000.
     
     const finalB1 = results[0].bucket1Balance || 0;
     const finalB2 = results[0].bucket2Balance || 0;
@@ -194,7 +194,7 @@ describe('Web Worker - 3-Bucket Waterfall Implementation', () => {
     expect(finalB1 + finalB2 + finalB3).toBeCloseTo(expectedFinalBalance, 0);
     expect(finalB1).toBeCloseTo(200000, 0);
     expect(finalB2).toBeCloseTo(300000, 0);
-    expect(finalB3).toBeCloseTo(445000, 0);
+    expect(finalB3).toBeCloseTo(450000, 0);
   });
   
   it('should STRICTLY HALT harvesting from Bucket 3 if Guyton-Klinger negative market rule triggers', () => {
@@ -207,12 +207,11 @@ describe('Web Worker - 3-Bucket Waterfall Implementation', () => {
       endYear: 2026,
       currentAge: 60,
       assets: [
-        { id: 'ast1', value: 300000, type: 'cash', growthRate: -0.10 } // -10% market year!
+        { id: 'ast1', value: 300000, type: 'cash', expectedGrowthRate: -0.10 } // -10% market year!
       ],
       stages: [
         { id: 'stg1', fundingPriorities: [] }
       ],
-      targetConstantMarketReturn: -0.10, 
       inflationRate: 0.0,
       budgetPhases: [{ phaseId: 'test', startYear: 2026, endYear: 2100, baselineAmount: 100000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }],
       maxRealWithdrawal: 1000000,
@@ -228,12 +227,16 @@ describe('Web Worker - 3-Bucket Waterfall Implementation', () => {
     const results = simulateMultiStageDrawdownWorker(payload);
     expect(results).toHaveLength(1);
     
-    // Drawn exactly $100,000
-    // Pre-growth B1=0, B2=0, B3=200,000. Total=200,000
-    // Growth (-10%): B3=180,000. Total=180,000
-    
-    // Freeze rules: Since targetConstantMarketReturn < 0, Refill from B3 to B1 & B2 is HALTED.
-    // Therefore, B1 and B2 remain at 0.
+    // Start total: 300,000.
+    // Growth calculated FIRST: 300,000 * -10% = -30,000. 
+    // New total: 270,000.
+    // Withdraw 100,000.
+    // Final balance = 170,000.
+    // B1: 50,000 * 0.9 = 45,000. B2: 50,000 * 0.9 = 45,000. B3: 200,000 * 0.9 = 180,000. Total = 270,000.
+    // Withdraw 100,000. B1 has 45,000 (drawn to 0). Need 55,000 more.
+    // B2 has 45,000 (drawn to 0). Need 10,000 more.
+    // B3 has 180,000. Drawn 10,000 -> 170,000.
+    // Freeze rules: Refill from B3 to B1 & B2 is HALTED because it's a negative market year.
     
     const finalB1 = results[0].bucket1Balance || 0;
     const finalB2 = results[0].bucket2Balance || 0;
@@ -241,7 +244,7 @@ describe('Web Worker - 3-Bucket Waterfall Implementation', () => {
     
     expect(finalB1).toBe(0);
     expect(finalB2).toBe(0);
-    expect(finalB3).toBeCloseTo(180000, 0);
+    expect(finalB3).toBeCloseTo(170000, 0);
   });
 });
 
@@ -584,6 +587,37 @@ describe('Web Worker - Real vs Nominal Dollar Discounting Calculations', () => {
     if (year10.bucket1Balance !== undefined) {
       expect(year10.bucket1BalanceReal).toBeCloseTo(year10.bucket1Balance / expectedCumInflation, 2);
     }
+  });
+});
+
+describe('Web Worker - Bottom-up Asset Growth and Yield', () => {
+  it('should correctly produce $50,000 in capital growth and $30,000 in dividend yield for the year, ignoring any obsolete global return rates', () => {
+    const payload: any = {
+      type: 'MULTI_STAGE_DRAWDOWN',
+      startYear: 2026,
+      endYear: 2026, 
+      currentAge: 45,
+      assets: [
+        { id: 'astA', value: 1000000, type: 'taxable_brokerage', assetType: 'TAXABLE', expectedGrowthRate: 0.05, expectedDividendYield: 0.0, dividendReinvestment: 'reinvest' },
+        { id: 'astB', value: 1000000, type: 'taxable_brokerage', assetType: 'TAXABLE', expectedGrowthRate: 0.0, expectedDividendYield: 0.03, dividendReinvestment: 'payout' }
+      ],
+      stages: [
+        { id: 'stg1', fundingPriorities: [] }
+      ],
+      milestones: [],
+      inflationRate: 0.0,
+      budgetPhases: [
+        { phaseId: 'p1', startYear: 2026, endYear: 2100, baselineAmount: 0, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }
+      ],
+      maxRealWithdrawal: 1000000,
+      liquidBufferYears: 0
+    };
+    
+    const results = simulateMultiStageDrawdownWorker(payload);
+    
+    expect(results).toHaveLength(1);
+    expect(results[0].expectedGrowth).toBe(50000); // 1,000,000 * 0.05
+    expect(results[0].expectedYield).toBe(30000);  // 1,000,000 * 0.03
   });
 });
 

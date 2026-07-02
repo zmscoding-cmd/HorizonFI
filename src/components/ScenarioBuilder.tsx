@@ -247,10 +247,16 @@ export default function ScenarioBuilder({
         scenario.targetEndYear !== undefined
           ? Number(scenario.targetEndYear)
           : new Date().getFullYear() + 40;
-      const targetConstantMarketReturn =
-        budget.targetConstantMarketReturn !== undefined
-          ? Number(budget.targetConstantMarketReturn) / 100
-          : 0.06;
+      // Calculate weighted asset-specific return rate from assets
+      const assetsList = scenario.assets || [];
+      const totalPortfolioValue = assetsList.reduce((sum: number, a: any) => sum + Number(a.value || 0), 0);
+      const targetConstantMarketReturn = totalPortfolioValue > 0
+        ? assetsList.reduce((sum: number, a: any) => {
+            const growth = Number(a.expectedGrowthRate ?? a.growthRate ?? 0.05);
+            const div = Number(a.expectedDividendYield ?? a.dividendYield ?? 0.0);
+            return sum + (Number(a.value || 0) * (growth + div));
+          }, 0) / totalPortfolioValue
+        : 0.06;
       const maxRealWithdrawal =
         budget.maxRealWithdrawal !== undefined
           ? Number(budget.maxRealWithdrawal)
@@ -1619,53 +1625,16 @@ export default function ScenarioBuilder({
                               className="w-full text-sm border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-xl p-3 border font-medium focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 focus:border-blue-500 dark:focus:border-red-500 outline-none transition-all min-h-[44px]"
                             />
                           </div>
-                          <div>
-                            <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
-                              Target Annual Return (%)
-                            </label>
-                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans font-sans">
-                              The default benchmark interest or return rate used
-                              on standard unweighted asset growth (default =
-                              6.0%).
-                            </p>
-                            <input
-                              type="number"
-                              step="0.1"
-                              defaultValue={
-                                activeScenario.budget
-                                  ?.targetConstantMarketReturn !== undefined
-                                  ? activeScenario.budget
-                                      .targetConstantMarketReturn
-                                  : 6.0
-                              }
-                              onBlur={async (e) => {
-                                const val = Math.max(
-                                  -50,
-                                  Math.min(100, Number(e.target.value) || 6.0),
-                                );
-                                const doc = await db.plans
-                                  .findOne(plan.id)
-                                  .exec();
-                                const updatedScenarios = plan.scenarios.map(
-                                  (s: any) =>
-                                    s.id === activeScenario.id
-                                      ? {
-                                          ...s,
-                                          budget: {
-                                            ...s.budget,
-                                            targetConstantMarketReturn: val,
-                                          },
-                                        }
-                                      : s,
-                                );
-                                await doc.patch({
-                                  scenarios: updatedScenarios,
-                                  updatedAt: Date.now(),
-                                });
-                                handleRunSimulation();
-                              }}
-                              className="w-full text-sm border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-xl p-3 border font-medium focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 focus:border-blue-500 dark:focus:border-red-500 outline-none transition-all min-h-[44px]"
-                            />
+                          <div className="bg-blue-50/40 dark:bg-zinc-800/20 border border-blue-100/50 dark:border-zinc-850/40 rounded-xl p-3.5 flex items-start gap-2.5">
+                            <Info className="w-5 h-5 text-blue-500 dark:text-zinc-450 mt-0.5 flex-shrink-0" />
+                            <div className="space-y-1">
+                              <h4 className="text-xs font-semibold text-blue-950 dark:text-zinc-200">
+                                Dynamic Portfolio Returns
+                              </h4>
+                              <p className="text-[11px] leading-relaxed text-blue-700/80 dark:text-zinc-400">
+                                Portfolio return is now calculated dynamically based on individual asset growth and dividend yield configurations.
+                              </p>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -3043,9 +3012,16 @@ export default function ScenarioBuilder({
                   (a: number, b: any) => a + Number(b.value || 0),
                   0,
                 )}
-                initialGrowthRate={
-                  activeScenario.budget?.targetConstantMarketReturn ?? 6.0
-                }
+                initialGrowthRate={(() => {
+                  const assets = activeScenario.assets || [];
+                  const total = assets.reduce((sum: number, a: any) => sum + Number(a.value || 0), 0);
+                  if (total <= 0) return 6.0;
+                  const weighted = assets.reduce((sum: number, a: any) => {
+                    const r = Number(a.expectedGrowthRate ?? a.growthRate ?? 0.05) * 100;
+                    return sum + (Number(a.value || 0) * r);
+                  }, 0) / total;
+                  return parseFloat(weighted.toFixed(2));
+                })()}
                 initialWithdrawalRate={
                   activeScenario.budget?.maxRealWithdrawal
                     ? parseFloat(

@@ -1345,5 +1345,29 @@ To eliminate credential exposure vectors, the HorizonFI PWA enforces a watertigh
 * **Automated Vitest Suite:** Implemented a new automated test suite (Vector 17) in `checkpoint.test.ts` to mathematically prove that the multi-stage worker and probabilistic Monte Carlo loops halt exactly at `targetEndYear`.
 * **Zero-Trust Message Integrity:** Verified that message payloads between the UI thread and the Web Worker are safely typecast and sanitized.
 
+### Checkpoint - Obsolete Global Return Removal & Asset-Driven Shifting: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Schema Evolution & Upgraded Migration Strategy (`src/lib/db.ts`):** Upgraded `planSchema` to version 11. Deprecated the redundant and obsolete `targetConstantMarketReturn` property from the schema type and stored scenarios, shifting mathematical and fiscal calculations entirely to granular, asset-specific configurations. Migration strategy 11 scans stored scenarios and cleanses documents by dynamically stripping the obsolete field to preserve database hygiene.
+2. **Dynamic Asset-Driven Returns (`ScenarioBuilder.tsx`):** Removed the input form previously dedicated to the global benchmark target annual return. Calculated simulated portfolio return variables on the fly inside the active scenario simulation loop as a weighted average of individual asset-specific expected growth and dividend yield characteristics. This enforces realistic, asset-backed portfolio forecasting.
+3. **Wealth Velocity Sandbox Alignment (`WealthVelocityChart`):** Replaced the obsolete static default return parameter passed to the sandboxed velocity forecasting chart with a dynamically calculated, real-time weighted asset-specific return rate.
+4. **Clean UI Messaging:** Substituted the input field block in the Scenario Builder form with a highly polished Tailwind-styled alert block using Lucide's `Info` icon, informing the user that portfolio return is now calculated dynamically from individual asset configurations.
+5. **Secrets Scan:** Audited all files edited in this turn; no credentials or keys are exposed or hardcoded.
+
+**Continuous Validation & Functional Assertions:**
+* **Database Migration Integrity:** Verified that RxDB safely upgrades schema records from version 10 to 11, successfully executing the pruning operation without data loss or client crash.
+* **Deterministic Computations:** Validated that both the `handleRunSimulation` handler and the `WealthVelocityChart` projection render perfectly with zero-division safety checks.
+
+### Checkpoint - Granular Asset Loop Web Worker Refactor: 2026-07-01
+**Architectural Shifts & Justifications:**
+1. **Worker Logic Update (`src/workers/simulation.worker.ts`):** Stripped all references to the global `targetAnnualReturn` (and its legacy alias `targetConstantMarketReturn`) from the inner multi-stage drawdown loop. Shifted from a macroscopic market-growth estimation to an absolute, bottom-up asset valuation model.
+2. **Granular Asset Loop Implementation:** Built a dedicated asset iteration block at the top of the annual simulation step (Year `t = 0`). For each asset holding value, the engine independently applies configured `assetSpecificGrowthRate` and `assetSpecificDividendYield`, strictly adhering to milestone availability constraints.
+3. **Compound Order Mathematical Corrections:** Shifted asset appreciation logic to occur *before* tax drag and Guyton-Klinger withdrawal calculations are executed in the simulation sequence, providing higher-fidelity representation of actual year-start compounding characteristics.
+4. **Memory bounds and Performance:** Substituted independent chained loops with a single iteration block to compute capital growth and dividend cash, enforcing computational complexity boundaries over the potential 40+ year simulation path.
+5. **Secrets Scan:** Explicitly scanned `simulation.worker.ts` and `checkpoint.test.ts`. Zero hardcoded credentials or API keys were detected.
+
+**Continuous Validation & Functional Assertions:**
+*   **Mathematical Integrity Unit Test (`checkpoint.test.ts` & `simulation.worker.test.ts`):** Developed and committed a new test to validate granular bottom-up portfolio appreciation, asserting that individual capital growth and yield generation metrics sum up accurately (e.g., asserting $50,000 growth and $30,000 yield from separated $1M accounts). Refactored legacy tests to align with the new start-of-year compounding mathematical order.
+*   **Zero-Division Check:** Ensured dynamic portfolio return division calculation respects `startAssets > 0` condition, eliminating infinity rendering errors in edge cases.
+
 
 

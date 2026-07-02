@@ -460,7 +460,6 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
       uprrDivestmentAnnualAmount: 0,
       dividendEtfId: '',
       uprrId: '',
-      targetConstantMarketReturn: 0,
       inflationRate: 0.0,
       lifestyleCreepRate: 0,
       maxRealWithdrawal: 0,
@@ -503,7 +502,6 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
           { id: 'stg1', fundingPriorities: [], startYearType: 'absolute', startAbsoluteYear: 2026 }
         ],
         milestones: [],
-        targetConstantMarketReturn: 0.05,
         inflationRate: 0.02,
         budgetPhases: [
           { phaseId: 'p1', startYear: 2026, endYear: 2100, baselineAmount: 40000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }
@@ -521,6 +519,39 @@ describe('HorizonFI Net Worth Checkpoint Test Suite', () => {
       expect(results[0].year).toBe(2026);
       expect(results[results.length - 1].year).toBe(2031);
       expect(results).toHaveLength(6); // 2026, 2027, 2028, 2029, 2030, 2031
+    });
+
+    it('should aggregate growth bottom-up from individual assets correctly', () => {
+      const payload: any = {
+        type: 'MULTI_STAGE_DRAWDOWN',
+        startYear: 2026,
+        targetEndYear: 2026, 
+        currentAge: 45,
+        assets: [
+          // 100k @ 10% growth, 0% yield
+          { id: 'ast1', value: 100000, type: 'taxable_brokerage', assetType: 'TAXABLE', expectedGrowthRate: 0.10, expectedDividendYield: 0.0, dividendReinvestment: 'reinvest' },
+          // 100k @ 0% growth, 5% yield
+          { id: 'ast2', value: 100000, type: 'cash', assetType: 'CASH', expectedGrowthRate: 0.0, expectedDividendYield: 0.05, dividendReinvestment: 'reinvest' }
+        ],
+        stages: [
+          { id: 'stg1', fundingPriorities: [] }
+        ],
+        milestones: [],
+        inflationRate: 0.0,
+        budgetPhases: [
+          { phaseId: 'p1', startYear: 2026, endYear: 2100, baselineAmount: 0, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }
+        ],
+        maxRealWithdrawal: 1000000,
+        liquidBufferYears: 0
+      };
+      const results = simulateMultiStageDrawdownWorker(payload);
+      
+      // Expected: 10k growth from ast1, 5k reinvested yield from ast2
+      expect(results[0].expectedGrowth).toBe(10000);
+      expect(results[0].expectedYield).toBe(5000);
+      // Pre-withdrawal value: 100k + 10k + 100k + 5k = 215k
+      // Since budget is 0, ending balance is 215k.
+      expect(results[0].endingBalance).toBe(215000);
     });
 
     it('should strictly halt the probabilistic Monte Carlo net worth simulation loop exactly at the specified targetEndYear', () => {

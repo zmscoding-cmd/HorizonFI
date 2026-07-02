@@ -1539,6 +1539,69 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     }
     const currentAge = payload.currentAge + step;
 
+    // --- 0. Granular Asset Loop: Establish Total Portfolio Return ---
+    let growthAppreciation = 0;
+    let reinvestedYield = 0;
+    let paidOutYield = 0;
+
+    const startAssets = currentAssets.reduce((sum, a) => sum + a.value, 0);
+
+    currentAssets.forEach(a => {
+      if (a.value > 0) {
+        let isUnlockedAndActive = true;
+        
+        if (a.assetType === 'PRE_TAX') {
+          const assetNameLower = (a.name || '').toLowerCase();
+          const isCorrie = assetNameLower.includes('corrie');
+          const isJesse = assetNameLower.includes('jesse') || !isCorrie;
+          if (isJesse && jessePreTaxTriggerYear !== -1 && currentYear < jessePreTaxTriggerYear) {
+            isUnlockedAndActive = false;
+          }
+          if (isCorrie && corriePreTaxTriggerYear !== -1 && currentYear < corriePreTaxTriggerYear) {
+            isUnlockedAndActive = false;
+          }
+        }
+
+        if (a.availableDate) {
+          if (a.availableDate.includes('-')) {
+            const availableYear = parseInt(a.availableDate.split('-')[0]);
+            if (currentYear < availableYear) isUnlockedAndActive = false;
+          } else if (a.availableDate.toLowerCase().startsWith('age:')) {
+             const triggerAge = parseFloat(a.availableDate.split(':')[1]);
+             if (currentAge < triggerAge) isUnlockedAndActive = false;
+          } else {
+             const availableYear = parseInt(a.availableDate);
+             if (!isNaN(availableYear) && currentYear < availableYear) isUnlockedAndActive = false;
+          }
+        }
+
+        const growth = a.expectedGrowthRate !== undefined ? a.expectedGrowthRate : (a.growthRate || 0);
+        const yieldRate = a.expectedDividendYield !== undefined ? a.expectedDividendYield : (a.dividendYield || 0);
+        let isReinvest = a.dividendReinvestment === 'reinvest';
+        
+        // Force reinvestment if the asset is still locked/unavailable for withdrawal
+        if (!isUnlockedAndActive) {
+          isReinvest = true;
+        }
+
+        const assetCapitalGrowth = a.value * growth;
+        const assetDividendYield = a.value * yieldRate;
+
+        growthAppreciation += assetCapitalGrowth;
+        if (isReinvest) {
+          reinvestedYield += assetDividendYield;
+        } else {
+          paidOutYield += assetDividendYield;
+        }
+        
+        a.value = Math.max(0, a.value + assetCapitalGrowth + (isReinvest ? assetDividendYield : 0));
+      }
+    });
+
+    const totalGrowthAndYield = growthAppreciation + reinvestedYield + paidOutYield;
+    const portfolioReturnRate = startAssets > 0 ? totalGrowthAndYield / startAssets : 0;
+    const isNegativeMarketYear = portfolioReturnRate < 0;
+
     // --- Funded Ratio Calculation ---
     const remainingYears = totalYears - step;
     const futureIncomeCashflows: number[] = new Array(remainingYears + 1).fill(0);
@@ -1602,8 +1665,6 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     const discountRate = (payload.globalDiscountRate ?? 2.0) / 100;
     const pvFutureIncome = computePresentValue(futureIncomeCashflows, discountRate);
     const pvFutureLiabilities = computePresentValue(futureLiabilityCashflows, discountRate);
-
-    const startAssets = currentAssets.reduce((sum, a) => sum + a.value, 0);
 
     const fundedRatio = pvFutureLiabilities > 0 
       ? (startAssets + pvFutureIncome) / pvFutureLiabilities
@@ -1738,13 +1799,6 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     if (use3Bucket) {
       let amountNeeded = remainingBudgetTarget;
       
-      const currentTotalAssets = currentAssets.reduce((sum, a) => sum + a.value, 0);
-      let isNegativeMarketYear = payload.targetConstantMarketReturn < 0;
-      if (currentTotalAssets > 0) {
-        const weightedGrowth = currentAssets.reduce((sum, a) => sum + (a.value * (a.growthRate || 0)), 0) / currentTotalAssets;
-        if (weightedGrowth < 0) isNegativeMarketYear = true;
-      }
-      
       // 1. Drain from Bucket 1
       const drawnFrom1 = Math.min(bucket1Balance, amountNeeded);
       bucket1Balance -= drawnFrom1;
@@ -1800,14 +1854,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       return true;
     });
 
-    let availableDividendsCash = 0;
-    eligibleDrawdownAssets.forEach(a => {
-      const yieldRate = a.expectedDividendYield !== undefined ? a.expectedDividendYield : (a.dividendYield || 0);
-      if (a.dividendReinvestment === 'payout' && yieldRate > 0) {
-        availableDividendsCash += a.value * yieldRate;
-      }
-    });
-    const paidOutYield = availableDividendsCash;
+    let availableDividendsCash = paidOutYield;
 
     let remainingNetNeed = remainingBudgetTarget;
     let netDrawn = {
@@ -1948,20 +1995,6 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       }
     }
 
-    // 6. Grow / Appreciate Assets for remainder of year
-    let growthAppreciation = 0;
-    let reinvestedYield = 0;
-    currentAssets.forEach(a => {
-      const growth = a.expectedGrowthRate !== undefined ? a.expectedGrowthRate : (a.growthRate || 0);
-      const isReinvest = a.dividendReinvestment === 'reinvest';
-      const yieldRate = isReinvest ? (a.expectedDividendYield !== undefined ? a.expectedDividendYield : (a.dividendYield || 0)) : 0;
-      
-      growthAppreciation += a.value * growth;
-      reinvestedYield += a.value * yieldRate;
-      
-      a.value = Math.max(0, a.value * (1 + growth + yieldRate));
-    });
-    
     const balanceAfterGrowth = currentAssets.reduce((sum, a) => sum + a.value, 0);
     const estimatedTaxDrag = taxOutput.totalTaxOwed + ((pensionIncome + rrbIncome + otherIncome + currentFutureIncome) * 0.15);
     
@@ -2018,12 +2051,6 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
        }
        
        // Refill Bucket 1 & 2 from Bucket 3 (strictly halted during negative market years)
-       let isNegativeMarketYear = payload.targetConstantMarketReturn < 0;
-       if (finalBalance > 0) {
-         const weightedGrowth = currentAssets.reduce((sum, a) => sum + (a.value * (a.growthRate || 0)), 0) / finalBalance;
-         if (weightedGrowth < 0) isNegativeMarketYear = true;
-       }
-       
        if (!isNegativeMarketYear) {
           if (bucket1Balance < b1Target) {
              const shortfall = b1Target - bucket1Balance;
