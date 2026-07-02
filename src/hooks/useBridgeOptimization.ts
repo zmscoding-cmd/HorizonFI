@@ -1,17 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 
-export function useBridgeOptimization(scenarioId: string | undefined, db: any) {
+export function useBridgeOptimization(planId: string | undefined, scenarioId: string | undefined, db: any) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
-    if (!scenarioId || !db) return;
+    if (!planId || !scenarioId || !db) return;
 
-    // Listen to scenario changes
-    const subscription = db.scenarios
-      .findOne(scenarioId)
-      .$.subscribe((scenario: any) => {
+    // Listen to plan changes
+    const subscription = db.plans
+      .findOne(planId)
+      .$.subscribe((plan: any) => {
+        if (!plan) return;
+        const scenario = plan.scenarios?.find((s: any) => s.id === scenarioId);
         if (!scenario) return;
 
         // Extract optimization params from scenario if they exist, or use defaults
@@ -92,7 +94,7 @@ export function useBridgeOptimization(scenarioId: string | undefined, db: any) {
         workerRef.current = null;
       }
     };
-  }, [scenarioId, db]);
+  }, [planId, scenarioId, db]);
 
   return { data, loading };
 }

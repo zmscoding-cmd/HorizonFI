@@ -65,7 +65,7 @@ export default function ScenarioBuilder({
     Record<string, any[]>
   >({});
   
-  const { data: bridgeData, loading: bridgeLoading } = useBridgeOptimization(activeScenarioId, db);
+  const { data: bridgeData, loading: bridgeLoading } = useBridgeOptimization(plan.id, activeScenarioId || undefined, db);
 
   const [multiStageResults, setMultiStageResults] = useState<
     Record<string, any[]>
