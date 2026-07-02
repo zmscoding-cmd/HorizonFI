@@ -26,7 +26,7 @@ import { auth } from "../lib/firebase";
 import BudgetDashboard from "./BudgetDashboard";
 import FundingAllocation from "./FundingAllocation";
 import { MultiStageChart } from "./MultiStageChart";
-import { StageConfigurator } from "./StageConfigurator";
+import { MultistageModelingConfig } from "./MultistageModelingConfig";
 import { FundedRatioTracker } from "./FundedRatioTracker";
 import { WealthVelocityChart } from "./WealthVelocityChart";
 import { InvestmentForm } from "./InvestmentForm";

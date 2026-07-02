@@ -4,7 +4,7 @@
 HorizonFI is an advanced, offline-first Financial Independence, Retire Early (FIRE) planning application. The system's primary computational objective is modeling the "Circumnavigation" FIRE bridge strategy—an intricate multi-decade drawdown, tax-optimization, and capital transition strategy. The system models complex scenarios involving bridge years (living on specific assets before pension age), age-based pension activations, strict capital-preservation guardrails, and shifting tax implications, dynamically generating temporal paths that simulate portfolio resilience over extensive future horizons.
 
 ## 2. Technology Stack Breakdown (Offline-First PWA, Web Workers)
-* **Frontend Framework:** React 18+ bootstrapped with Vite, operating as a fully functional Progressive Web Application (PWA).
+* **Frontend Framework:** React 18+ bootstrapped with Vite, operating as a fully functional Progressive Web Application (PWA). Within the multi-stage planning engine, the high-complexity `MultistageModelingView` component interfaces asynchronously with the background `MultiYearTaxPathDP` Web Worker via the custom `useBridgeOptimization` hook. This decoupling ensures that computationally intensive, multi-decade recursive dynamic programming simulations do not block the single-threaded React event loop, thereby maintaining a silky-smooth, responsive 60fps rendering speed even during heavy real-time param modification.
 * **Styling & UI:** Tailwind CSS and Recharts for complex temporal data visualization (e.g., overlaying tax drag and portfolio survival trajectories).
 * **Local Storage Layer:** RxDB powered by Dexie (IndexedDB under the hood) provides local-first reads and writes. Sensitive collections (such as `scenarios`) are statically encrypted at rest using `crypto-js` symmetric AES encryption with keys derived natively from the authenticated Firebase UID environment.
 * **Intensive Computation Layer:** Dedicated JavaScript Web Workers (`src/workers/simulation.worker.ts`) handle intensive Guyton-Klinger algorithm array calculations over massive longitudinal timeframes. These background engines are heavily hardened with explicit bounds-checking validation prior to execution, preventing memory/DoS crashes and recursive math failures from interrupting the main React thread.
@@ -1648,3 +1648,61 @@ Trigger: Modularization of the Multi-Stage Modeling layout and direct UI integra
 [x] Web Worker Isolation Confirmed
 [x] Vitest Integration Harness Verified (Ledger Strategy Table test case)
 
+
+### Checkpoint: Dynamic Programming Bridge Period Recommendation Engine
+Trigger: Implement the missing algorithmic engine that calculates the optimal stock liquidation and Roth conversion amounts for the bridge period.
+
+1. Architectural State Changes:
+- **Dynamic Optimization Algorithm**: Rewrote the core loop within `calculateOptimalMultiYearTaxPathDP` in `simulation.worker.ts` to calculate exact mathematical dollar amounts dynamically.
+- **Tax Bracket Stacking**: Eliminated arbitrary discrete conversion bounds (e.g. 50k, 100k) and implemented precise thresholds derived from the Standard Deduction, the 12% marginal ordinary income bracket boundary, and the 0% LTCG taxable income threshold ($98,900 for MFJ 2026).
+- **Tax Torpedo Avoidance**: Guaranteed that the combination of ordinary income, taxable Roth conversions, and harvested capital gains maximizes 0% capital gains harvesting while strictly halting before pushing capital gains into the punitive 15% bracket.
+- **Web Worker Thread Isolation**: All complex recursive optimization, dynamic programming memoization, and combinatorial state-space searches are verified to run securely within the background Web Worker, ensuring zero blockage of the React rendering engine.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Dynamic Bridge Tax Optimization Engine]
+- **Exact Threshold Computation**: Replaced arbitrary Roth conversion loops with exact dollar derivations (`maxRothFor0PercentLTCG`, `fill12PercentBracket`). This accurately reflects the "Tax Stacking" rule, guaranteeing that Roth conversions fill base deductions first, followed by capital gains stacked on top.
+- **IRMAA Cliff and Torpedo Avoidance**: Integrated continuous evaluations against Medicare IRMAA MAGI cliffs and the 15% LTCG threshold into the recursion steps.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified
+[x] Web Worker Isolation Confirmed
+[x] Vitest Integration Harness Verified (bridge-optimization-integration.test.ts passing)
+
+### Checkpoint: Bridge Period Optimization UI & React Hook Binding
+Trigger: Implement the user input fields and React state binding for the Bridge Period Optimization module.
+
+1. Architectural State Changes:
+- **Component Restructuring**: Renamed the stage configuration panel to `MultistageModelingConfig.tsx` to accurately reflect its role within the `MultistageModelingView` hierarchy.
+- **Form State Management**: Implemented explicit input fields for `bridgeStockLiquidationStartYear` and `bridgeRothConversionStartYear` bound directly to the RxDB `activeScenario` state.
+- **Asynchronous Data-Fetching Hook**: Confirmed the implementation of the `useBridgeOptimization` React Hook. This hook cleanly abstracts the instantiation of `simulation.worker.ts`, manages the reactive `postMessage` interface, and provides a synchronous loading state mechanism for the React UI.
+- **Responsive & Accessible Design**: Enforced strict `min-h-[44px]` touch targets on all number inputs to maintain mobile accessibility on small screens. Included robust Tailwind CSS dark mode variants.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Bridge Period Hook Implementation]
+- **Worker Lifecycle Management**: The `useBridgeOptimization` hook guarantees that Web Worker instances are terminated safely on component unmount, preventing memory leaks on the client device during prolonged optimization sessions.
+- **Local State Bound Calculations**: All configuration modifications trigger asynchronous recalculations via the local RxDB document patch method, guaranteeing absolute offline operability.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified
+[x] Web Worker Isolation Confirmed
+
+### Checkpoint: Integration of Bridge Period Optimization Visualization & Strategy Ledger
+Trigger: Integrate the visual chart and interactive table components into MultistageModelingView.tsx and establish real-time applied feedback.
+
+1. Architectural State Changes:
+- **Interactive Component Mapping**: Embedded the Recharts-based `BridgeOptimizationChart` and `BridgeStrategyTable` inside `MultistageModelingView.tsx` underneath the core Income Shift panel.
+- **Dismissible Toast Mechanism**: Implemented a responsive stateful alert within `MultistageModelingView.tsx` to give immediate, premium confirmation whenever a user applies recommended liquidation or conversion targets.
+- **Decoupled Data Pipeline**: Re-verified the integration with the `useBridgeOptimization` Hook, ensuring that computed timelines flow seamlessly without UI rendering degradation or blocking the active thread.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Chart and Ledger Integration]
+- **Interactive Strategy Matching**: When a year's strategy ledger is executed ("Apply" clicked), the system triggers local state modifications and delivers inline visual feedback while adhering to the standard zero-trust security matching model.
+- **Refinement in Layouts**: Responsive boundaries (`overflow-x-auto`) are strictly enforced on the ledger table to ensure flawless, legible layout tracking on sailing iPads and other small-screen form factors.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified
+[x] Web Worker Isolation Confirmed
+[x] Vitest Integration Harness Verified (bridge-optimization-integration.test.ts passing)

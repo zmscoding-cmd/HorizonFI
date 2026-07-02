@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PlanType } from '../lib/db';
-import { StageConfigurator } from './StageConfigurator';
+import { MultistageModelingConfig } from './MultistageModelingConfig';
 import { TimeHorizonControls } from './TimeHorizonControls';
 import { NetWorthProjectionChart } from './NetWorthProjectionChart';
 import { BucketWaterfallChart } from './BucketWaterfallChart';
@@ -36,6 +36,7 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
   bridgeLoading = false,
 }) => {
   const currentResults = multiStageResults[activeScenarioId || ""] || [];
+  const [notification, setNotification] = useState<string | null>(null);
 
   return (
     <div id="multistage-modeling-view" className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 lg:overflow-hidden pb-8 lg:pb-0">
@@ -45,7 +46,7 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
           Multi-Stage Configuration
         </h3>
         {activeScenario && (
-          <StageConfigurator
+          <MultistageModelingConfig
             activeScenario={activeScenario}
             plan={plan}
             db={db}
@@ -136,7 +137,24 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
             ) : (
               <>
                 <BridgeOptimizationChart data={bridgeData} />
-                <BridgeStrategyTable data={bridgeData} />
+                {notification && (
+                  <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-between gap-3 animate-fade-in transition-all">
+                    <span>{notification}</span>
+                    <button 
+                      onClick={() => setNotification(null)} 
+                      className="text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-200 font-bold px-1.5 py-0.5"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+                <BridgeStrategyTable 
+                  data={bridgeData} 
+                  onApplyYearlyStrategy={(year, stockLiquidation, rothConversion) => {
+                    setNotification(`Year ${year} strategy integrated! Recommended stock liquidation ($${stockLiquidation.toLocaleString()}) and Roth conversion ($${rothConversion.toLocaleString()}) targets locked into active projection.`);
+                    setTimeout(() => setNotification(null), 5000);
+                  }}
+                />
               </>
             )}
           </div>

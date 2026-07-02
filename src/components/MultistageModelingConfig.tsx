@@ -18,7 +18,7 @@ function ToggleSwitch({ checked, onChange, label, description }: any) {
   );
 }
 
-export function StageConfigurator({ activeScenario, plan, db, handleRunSimulation }: any) {
+export function MultistageModelingConfig({ activeScenario, plan, db, handleRunSimulation }: any) {
   const stages = activeScenario.stages || [];
   const milestones = activeScenario.milestones || [];
   
