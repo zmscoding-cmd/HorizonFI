@@ -2059,3 +2059,10 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 * **Preserved Mathematical Integrity & Reactive Redux Flow**: Kept all database-triggered recalculation flows intact, allowing the web worker simulations to immediately re-run upon defocus (`onBlur`) of any baseline inputs or milestone parameters.
 
 
+## XXVI. Dual-Frequency Income Resolution & Synchronization (Checkpoint 23)
+* **Dynamic Specify-By Selection Matrix**: Engineered a comprehensive, non-breaking dual-frequency input system for all configurable income streams in the active configuration panel (Temporal Milestones/Incomes and Auxiliary Inflows). Users can select their preferred specification cycle (Monthly vs. Yearly) dynamically via a dropdown.
+* **Dual-Field Value Propagation and Live Calculations**: Once an input frequency is specified, the alternate frequency field is rendered as a clean, read-only/calculated input field displaying the corresponding mathematically derived value (e.g., if Monthly is entered, Yearly automatically updates to `Monthly * 12`, and if Yearly is entered, Monthly automatically displays `Yearly / 12`).
+* **Zero-Leakage State Preservation (NoSQL Schemas Upgrade)**: Upgraded the NoSQL schema for `nonTaxableGifts` inside `db.ts` to include `monthlyAmount` and `inputFrequency` properties. Bumped the `planSchema` version to `15` and integrated an automated, offline-first database migration routine to initialize existing database structures backwards-compatibly with zero downtime.
+* **Algorithmic Worker Preservation**: Kept the underlying `simulation.worker.ts` completely isolated from input state variations. By ensuring that the annual amount field (`amount` for milestones, and `annualAmount` for gifts) is ALWAYS synchronized and resolved during blurred input event writes, all multi-decade tax modeling and drawdown routines preserve absolute mathematical integrity.
+
+

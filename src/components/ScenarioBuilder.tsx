@@ -1989,20 +1989,203 @@ export default function ScenarioBuilder({
 
                                     <div>
                                       <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
-                                        {mType === "pretax_avail_jesse" ||
-                                        mType === "pretax_avail_corrie"
-                                          ? "Amount (N/A)"
-                                          : "Amount ($ / yr)"}
+                                        Specify By
                                       </label>
-                                      <input
-                                        type="number"
-                                        defaultValue={amtVal}
+                                      <select
+                                        value={
+                                          mType === "pretax_avail_jesse" ||
+                                          mType === "pretax_avail_corrie"
+                                            ? "yearly"
+                                            : m.inputFrequency || "yearly"
+                                        }
                                         disabled={
                                           mType === "pretax_avail_jesse" ||
                                           mType === "pretax_avail_corrie"
                                         }
-                                        key={`milestone-amt-${milestoneId}`}
+                                        onChange={async (e) => {
+                                          const newFreq = e.target.value;
+                                          const doc = await db.plans
+                                            .findOne(plan.id)
+                                            .exec();
+                                          const updatedMilestones = (
+                                            activeScenario.milestones || []
+                                          ).map((ms: any, idx: number) => {
+                                            if (idx === mIdx) {
+                                              const currentMonthly =
+                                                ms.amountMonthly !== undefined
+                                                  ? ms.amountMonthly
+                                                  : (ms.amount || 0) / 12;
+                                              const currentAnnual =
+                                                ms.amount !== undefined
+                                                  ? ms.amount
+                                                  : 0;
+                                              return {
+                                                ...ms,
+                                                inputFrequency: newFreq,
+                                                amount: currentAnnual,
+                                                amountMonthly: currentMonthly,
+                                                targetAmount: currentAnnual,
+                                              };
+                                            }
+                                            return ms;
+                                          });
+                                          const updatedScenarios =
+                                            plan.scenarios.map((s: any) =>
+                                              s.id === activeScenario.id
+                                                ? {
+                                                    ...s,
+                                                    milestones:
+                                                      updatedMilestones,
+                                                  }
+                                                : s,
+                                            );
+                                          await doc.patch({
+                                            scenarios: updatedScenarios,
+                                            updatedAt: Date.now(),
+                                          });
+                                          handleRunSimulation();
+                                        }}
+                                        className="w-full text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-700 dark:text-zinc-300 outline-none min-h-[28px] disabled:opacity-50"
+                                      >
+                                        <option value="yearly">Yearly</option>
+                                        <option value="monthly">Monthly</option>
+                                      </select>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
+                                        {mType === "pretax_avail_jesse" ||
+                                        mType === "pretax_avail_corrie"
+                                          ? "Monthly (N/A)"
+                                          : "Monthly ($ / mo)"}
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={
+                                          mType === "pretax_avail_jesse" ||
+                                          mType === "pretax_avail_corrie"
+                                            ? ""
+                                            : (m.inputFrequency || "yearly") ===
+                                              "monthly"
+                                            ? undefined
+                                            : Math.round(
+                                                m.amountMonthly !== undefined
+                                                  ? m.amountMonthly
+                                                  : amtVal / 12,
+                                              )
+                                        }
+                                        defaultValue={
+                                          mType === "pretax_avail_jesse" ||
+                                          mType === "pretax_avail_corrie"
+                                            ? undefined
+                                            : (m.inputFrequency || "yearly") ===
+                                              "monthly"
+                                            ? m.amountMonthly !== undefined
+                                              ? m.amountMonthly
+                                              : amtVal / 12
+                                            : undefined
+                                        }
+                                        disabled={
+                                          mType === "pretax_avail_jesse" ||
+                                          mType === "pretax_avail_corrie" ||
+                                          (m.inputFrequency || "yearly") !==
+                                            "monthly"
+                                        }
+                                        key={`milestone-amt-monthly-${milestoneId}-${
+                                          m.inputFrequency || "yearly"
+                                        }`}
                                         onBlur={async (e) => {
+                                          if (
+                                            (m.inputFrequency || "yearly") !==
+                                            "monthly"
+                                          )
+                                            return;
+                                          const val = Number(e.target.value);
+                                          const currentMonthly =
+                                            m.amountMonthly !== undefined
+                                              ? m.amountMonthly
+                                              : amtVal / 12;
+                                          if (val === currentMonthly) return;
+                                          const doc = await db.plans
+                                            .findOne(plan.id)
+                                            .exec();
+                                          const updatedMilestones = (
+                                            activeScenario.milestones || []
+                                          ).map((ms: any, idx: number) =>
+                                            idx === mIdx
+                                              ? {
+                                                  ...ms,
+                                                  amountMonthly: val,
+                                                  amount: val * 12,
+                                                  targetAmount: val * 12,
+                                                }
+                                              : ms,
+                                          );
+                                          const updatedScenarios =
+                                            plan.scenarios.map((s: any) =>
+                                              s.id === activeScenario.id
+                                                ? {
+                                                    ...s,
+                                                    milestones:
+                                                      updatedMilestones,
+                                                  }
+                                                : s,
+                                            );
+                                          await doc.patch({
+                                            scenarios: updatedScenarios,
+                                            updatedAt: Date.now(),
+                                          });
+                                          handleRunSimulation();
+                                        }}
+                                        className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px] disabled:opacity-50 disabled:bg-zinc-100 dark:disabled:bg-zinc-950"
+                                        placeholder="0"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
+                                        {mType === "pretax_avail_jesse" ||
+                                        mType === "pretax_avail_corrie"
+                                          ? "Yearly (N/A)"
+                                          : "Yearly ($ / yr)"}
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={
+                                          mType === "pretax_avail_jesse" ||
+                                          mType === "pretax_avail_corrie"
+                                            ? ""
+                                            : (m.inputFrequency || "yearly") ===
+                                              "yearly"
+                                            ? undefined
+                                            : Math.round(amtVal)
+                                        }
+                                        defaultValue={
+                                          mType === "pretax_avail_jesse" ||
+                                          mType === "pretax_avail_corrie"
+                                            ? undefined
+                                            : (m.inputFrequency || "yearly") ===
+                                              "yearly"
+                                            ? amtVal
+                                            : undefined
+                                        }
+                                        disabled={
+                                          mType === "pretax_avail_jesse" ||
+                                          mType === "pretax_avail_corrie" ||
+                                          (m.inputFrequency || "yearly") !==
+                                            "yearly"
+                                        }
+                                        key={`milestone-amt-yearly-${milestoneId}-${
+                                          m.inputFrequency || "yearly"
+                                        }`}
+                                        onBlur={async (e) => {
+                                          if (
+                                            (m.inputFrequency || "yearly") !==
+                                            "yearly"
+                                          )
+                                            return;
                                           const val = Number(e.target.value);
                                           if (val === amtVal) return;
                                           const doc = await db.plans
@@ -2016,6 +2199,7 @@ export default function ScenarioBuilder({
                                                   ...ms,
                                                   amount: val,
                                                   targetAmount: val,
+                                                  amountMonthly: val / 12,
                                                 }
                                               : ms,
                                           );
@@ -2024,7 +2208,8 @@ export default function ScenarioBuilder({
                                               s.id === activeScenario.id
                                                 ? {
                                                     ...s,
-                                                    milestones: updatedMilestones,
+                                                    milestones:
+                                                      updatedMilestones,
                                                   }
                                                 : s,
                                             );
@@ -2035,12 +2220,7 @@ export default function ScenarioBuilder({
                                           handleRunSimulation();
                                         }}
                                         className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px] disabled:opacity-50 disabled:bg-zinc-100 dark:disabled:bg-zinc-950"
-                                        placeholder={
-                                          mType === "pretax_avail_jesse" ||
-                                          mType === "pretax_avail_corrie"
-                                            ? "N/A"
-                                            : "0"
-                                        }
+                                        placeholder="0"
                                       />
                                     </div>
                                   </div>
@@ -2307,33 +2487,39 @@ export default function ScenarioBuilder({
                                   <div className="grid grid-cols-2 gap-2">
                                     <div>
                                       <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
-                                        Annual Amount ($)
+                                        Specify By
                                       </label>
-                                      <input
-                                        type="number"
-                                        defaultValue={gift.annualAmount ?? 0}
-                                        key={`gift-amount-${giftId}`}
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Enter") {
-                                            e.currentTarget.blur();
-                                          }
-                                        }}
-                                        onBlur={async (e) => {
-                                          const amount = Number(e.target.value);
-                                          if (
-                                            amount === (gift.annualAmount ?? 0)
-                                          )
-                                            return;
+                                      <select
+                                        value={gift.inputFrequency || "yearly"}
+                                        onChange={async (e) => {
+                                          const newFreq = e.target.value;
                                           const doc = await db.plans
                                             .findOne(plan.id)
                                             .exec();
                                           const updatedGifts = (
                                             activeScenario.nonTaxableGifts || []
-                                          ).map((g: any, idx: number) =>
-                                            g.id === gift.id || idx === gIdx
-                                              ? { ...g, annualAmount: amount }
-                                              : g,
-                                          );
+                                          ).map((g: any, idx: number) => {
+                                            if (
+                                              g.id === gift.id ||
+                                              idx === gIdx
+                                            ) {
+                                              const currentMonthly =
+                                                g.monthlyAmount !== undefined
+                                                  ? g.monthlyAmount
+                                                  : (g.annualAmount || 0) / 12;
+                                              const currentAnnual =
+                                                g.annualAmount !== undefined
+                                                  ? g.annualAmount
+                                                  : 0;
+                                              return {
+                                                ...g,
+                                                inputFrequency: newFreq,
+                                                annualAmount: currentAnnual,
+                                                monthlyAmount: currentMonthly,
+                                              };
+                                            }
+                                            return g;
+                                          });
                                           const updatedScenarios =
                                             plan.scenarios.map((s: any) =>
                                               s.id === activeScenario.id
@@ -2350,8 +2536,11 @@ export default function ScenarioBuilder({
                                           });
                                           handleRunSimulation();
                                         }}
-                                        className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
-                                      />
+                                        className="w-full text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-700 dark:text-zinc-300 outline-none min-h-[28px]"
+                                      >
+                                        <option value="yearly">Yearly</option>
+                                        <option value="monthly">Monthly</option>
+                                      </select>
                                     </div>
 
                                     <div className="flex items-center justify-between pt-2">
@@ -2398,6 +2587,166 @@ export default function ScenarioBuilder({
                                         />
                                         <div className="w-8 h-4 bg-zinc-200 dark:bg-zinc-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[4px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-red-600"></div>
                                       </label>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
+                                        Monthly Amount ($)
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={
+                                          (gift.inputFrequency || "yearly") ===
+                                          "monthly"
+                                            ? undefined
+                                            : Math.round(
+                                                gift.monthlyAmount !== undefined
+                                                  ? gift.monthlyAmount
+                                                  : (gift.annualAmount ?? 0) /
+                                                      12,
+                                              )
+                                        }
+                                        defaultValue={
+                                          (gift.inputFrequency || "yearly") ===
+                                          "monthly"
+                                            ? gift.monthlyAmount !== undefined
+                                              ? gift.monthlyAmount
+                                              : (gift.annualAmount ?? 0) / 12
+                                            : undefined
+                                        }
+                                        disabled={
+                                          (gift.inputFrequency || "yearly") !==
+                                          "monthly"
+                                        }
+                                        key={`gift-amt-monthly-${giftId}-${
+                                          gift.inputFrequency || "yearly"
+                                        }`}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            e.currentTarget.blur();
+                                          }
+                                        }}
+                                        onBlur={async (e) => {
+                                          if (
+                                            (gift.inputFrequency || "yearly") !==
+                                            "monthly"
+                                          )
+                                            return;
+                                          const val = Number(e.target.value);
+                                          const currentMonthly =
+                                            gift.monthlyAmount !== undefined
+                                              ? gift.monthlyAmount
+                                              : (gift.annualAmount ?? 0) / 12;
+                                          if (val === currentMonthly) return;
+                                          const doc = await db.plans
+                                            .findOne(plan.id)
+                                            .exec();
+                                          const updatedGifts = (
+                                            activeScenario.nonTaxableGifts || []
+                                          ).map((g: any, idx: number) =>
+                                            g.id === gift.id || idx === gIdx
+                                              ? {
+                                                  ...g,
+                                                  monthlyAmount: val,
+                                                  annualAmount: val * 12,
+                                                }
+                                              : g,
+                                          );
+                                          const updatedScenarios =
+                                            plan.scenarios.map((s: any) =>
+                                              s.id === activeScenario.id
+                                                ? {
+                                                    ...s,
+                                                    nonTaxableGifts:
+                                                      updatedGifts,
+                                                  }
+                                                : s,
+                                            );
+                                          await doc.patch({
+                                            scenarios: updatedScenarios,
+                                            updatedAt: Date.now(),
+                                          });
+                                          handleRunSimulation();
+                                        }}
+                                        className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px] disabled:opacity-50 disabled:bg-zinc-100 dark:disabled:bg-zinc-950"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
+                                        Yearly Amount ($)
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={
+                                          (gift.inputFrequency || "yearly") ===
+                                          "yearly"
+                                            ? undefined
+                                            : Math.round(
+                                                gift.annualAmount ?? 0,
+                                              )
+                                        }
+                                        defaultValue={
+                                          (gift.inputFrequency || "yearly") ===
+                                          "yearly"
+                                            ? gift.annualAmount ?? 0
+                                            : undefined
+                                        }
+                                        disabled={
+                                          (gift.inputFrequency || "yearly") !==
+                                          "yearly"
+                                        }
+                                        key={`gift-amt-yearly-${giftId}-${
+                                          gift.inputFrequency || "yearly"
+                                        }`}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            e.currentTarget.blur();
+                                          }
+                                        }}
+                                        onBlur={async (e) => {
+                                          if (
+                                            (gift.inputFrequency || "yearly") !==
+                                            "yearly"
+                                          )
+                                            return;
+                                          const val = Number(e.target.value);
+                                          if (val === (gift.annualAmount ?? 0))
+                                            return;
+                                          const doc = await db.plans
+                                            .findOne(plan.id)
+                                            .exec();
+                                          const updatedGifts = (
+                                            activeScenario.nonTaxableGifts || []
+                                          ).map((g: any, idx: number) =>
+                                            g.id === gift.id || idx === gIdx
+                                              ? {
+                                                  ...g,
+                                                  annualAmount: val,
+                                                  monthlyAmount: val / 12,
+                                                }
+                                              : g,
+                                          );
+                                          const updatedScenarios =
+                                            plan.scenarios.map((s: any) =>
+                                              s.id === activeScenario.id
+                                                ? {
+                                                    ...s,
+                                                    nonTaxableGifts:
+                                                      updatedGifts,
+                                                  }
+                                                : s,
+                                            );
+                                          await doc.patch({
+                                            scenarios: updatedScenarios,
+                                            updatedAt: Date.now(),
+                                          });
+                                          handleRunSimulation();
+                                        }}
+                                        className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px] disabled:opacity-50 disabled:bg-zinc-100 dark:disabled:bg-zinc-950"
+                                      />
                                     </div>
                                   </div>
 

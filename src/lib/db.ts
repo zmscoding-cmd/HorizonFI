@@ -48,6 +48,8 @@ export type NonTaxableType = {
   id: string;
   name: string;
   annualAmount: number;
+  monthlyAmount?: number;
+  inputFrequency?: 'monthly' | 'yearly';
   startAge?: number;
   startYear?: number;
   endAge?: number;
@@ -214,7 +216,7 @@ const taxLotSchema = {
 };
 
 const planSchema = {
-  version: 14,
+  version: 15,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -348,6 +350,8 @@ const planSchema = {
                 id: { type: 'string' },
                 name: { type: 'string' },
                 annualAmount: { type: 'number' },
+                monthlyAmount: { type: 'number' },
+                inputFrequency: { type: 'string', enum: ['monthly', 'yearly'] },
                 startAge: { type: 'number' },
                 startYear: { type: 'number' },
                 endAge: { type: 'number' },
@@ -956,6 +960,21 @@ export async function getDatabase() {
                       ...asset,
                       isLiquidationTarget: asset.isLiquidationTarget ?? false,
                       isDividendDestination: asset.isDividendDestination ?? false
+                    };
+                  });
+                }
+                return sc;
+              });
+              return oldDoc;
+            },
+            15: function (oldDoc: any) {
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                if (sc.nonTaxableGifts) {
+                  sc.nonTaxableGifts = sc.nonTaxableGifts.map((gift: any) => {
+                    return {
+                      ...gift,
+                      inputFrequency: gift.inputFrequency || 'yearly',
+                      monthlyAmount: gift.monthlyAmount ?? (gift.annualAmount ? (gift.annualAmount / 12) : 0)
                     };
                   });
                 }
