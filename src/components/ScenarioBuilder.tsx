@@ -840,7 +840,7 @@ export default function ScenarioBuilder({
           <div className="flex-1 lg:overflow-hidden">
             {simViewMode === "config" ? (
               /* Left Sidebar - Scenarios List & Editor */
-              <div className="h-full max-w-5xl mx-auto w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/80 rounded-2xl p-4 sm:p-5 flex flex-col gap-5 lg:overflow-y-auto shadow-sm transition-colors">
+              <div className="h-full w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/80 rounded-2xl p-4 sm:p-5 flex flex-col gap-5 lg:overflow-y-auto shadow-sm transition-colors">
             <div className="space-y-2.5">
               <h3 className="font-bold text-sm tracking-tight mb-2 uppercase text-zinc-500 dark:text-zinc-400">
                 Scenarios
@@ -1442,7 +1442,7 @@ export default function ScenarioBuilder({
                         </span>
                       </button>
                       {showBaselineSettings && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-3 items-stretch">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 pt-3 items-stretch">
                           <div className="flex flex-col justify-between">
                             <div>
                               <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
@@ -1832,7 +1832,7 @@ export default function ScenarioBuilder({
                     <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
                       Temporal Milestones & Income Streams
                     </label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-1 mb-4 items-stretch">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pr-1 mb-4 items-stretch">
                       {(activeScenario.milestones || []).map(
                         (m: any, mIdx: number) => {
                           const milestoneId = m.id || generateUUID();

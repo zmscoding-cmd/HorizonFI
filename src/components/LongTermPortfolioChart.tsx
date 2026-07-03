@@ -235,7 +235,7 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
             </div>
             {dataObj.liquidationTargetSaleAmount > 0 && (
               <div className="flex justify-between items-center gap-4">
-                <span className="text-zinc-600 dark:text-zinc-400">Target Shares Sold:</span>
+                <span className="text-zinc-600 dark:text-zinc-400">Stock Liquidation:</span>
                 <span className="font-mono text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(dataObj.liquidationTargetSaleAmount)}</span>
               </div>
             )}

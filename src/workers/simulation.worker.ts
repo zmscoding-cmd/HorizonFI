@@ -355,7 +355,15 @@ function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
     futureIncomeStreams,
     futureLiabilities,
     nonTaxableGifts,
-    threeBuckets
+    threeBuckets,
+    targetRothConversionAmount: Number(req.targetRothConversionAmount) || 0,
+    taxableRebalancingSaleAmount: Number(req.taxableRebalancingSaleAmount) || 0,
+    rebalancingCapitalGainPercentage: Number(req.rebalancingCapitalGainPercentage) || 0,
+    appliedBridgeStrategies: Array.isArray(req.appliedBridgeStrategies) ? req.appliedBridgeStrategies.map((s: any) => ({
+      year: Number(s.year) || startYear,
+      stockLiquidation: Number(s.stockLiquidation) || 0,
+      rothConversion: Number(s.rothConversion) || 0
+    })) : []
   };
 }
 
