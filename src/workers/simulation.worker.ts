@@ -2392,7 +2392,10 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
     for (const sold of result.lotsSold) {
       const lot = currentState.taxableLots.find(l => l.id === sold.id);
       if (lot) {
-        stockLiquidation += sold.sharesSold * lot.currentPrice;
+        // Only count concentrated positions for the strategy ledger stock liquidation recommendation
+        if (lot.isTargetConcentratedPosition) {
+            stockLiquidation += sold.sharesSold * lot.currentPrice;
+        }
         capitalGainsHarvested += sold.sharesSold * Math.max(0, lot.currentPrice - lot.costBasisPerShare);
         
         // Update state for next iteration
