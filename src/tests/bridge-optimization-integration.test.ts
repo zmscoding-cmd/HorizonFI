@@ -119,5 +119,53 @@ describe('Bridge Period Optimization Module - UI Integration', () => {
     expect(onApplyMock).toHaveBeenCalledTimes(1);
     expect(onApplyMock).toHaveBeenCalledWith(2026, 25000, 15000);
   });
+
+  it('Ledger Strategy Table: renders Unapply button and triggers Unapply handler when strategy is already applied', () => {
+    const mockPayload: BridgeOptimizationData[] = [
+      {
+        year: 2026,
+        ordinaryIncome: 45000,
+        capitalGains: 30000,
+        stockLiquidation: 25000,
+        rothConversion: 15000,
+        effectiveMarginalRate: 0.12,
+      }
+    ];
+
+    const onUnapplyMock = vi.fn();
+    const appliedStrategies = [
+      { year: 2026, stockLiquidation: 25000, rothConversion: 15000 }
+    ];
+
+    // Render component with applied strategy
+    const element = BridgeStrategyTable({
+      data: mockPayload,
+      appliedStrategies,
+      onUnapplyYearlyStrategy: onUnapplyMock
+    });
+
+    expect(element).toBeDefined();
+
+    // Traverse the JSX tree to find the action buttons
+    const tableContainer = element.props.children[1];
+    const tableOuter = tableContainer.props.children;
+    const table = tableOuter.props.children;
+    const tbody = table.props.children[1];
+    const rowsArray = tbody.props.children[0];
+    const cols = rowsArray[0].props.children;
+
+    // Action cell container
+    const actionCell = cols[6].props.children;
+    expect(actionCell.props.className).toContain('flex items-center');
+
+    // Unapply button is the second child in the container (index 1)
+    const unapplyButton = actionCell.props.children[1];
+    expect(unapplyButton.props.children).toBe('Unapply');
+
+    // Click Unapply
+    unapplyButton.props.onClick();
+    expect(onUnapplyMock).toHaveBeenCalledTimes(1);
+    expect(onUnapplyMock).toHaveBeenCalledWith(2026);
+  });
 });
 

@@ -96,8 +96,8 @@ export default function ScenarioBuilder({
     null,
   );
 
-  const [showBaselineSettings, setShowBaselineSettings] = useState(false);
-  const [showGKSettings, setShowGKSettings] = useState(false);
+  const [showBaselineSettings, setShowBaselineSettings] = useState(true);
+  const [showGKSettings, setShowGKSettings] = useState(true);
   const [editingAsset, setEditingAsset] = useState<AssetModel | null>(null);
   const [showAssetForm, setShowAssetForm] = useState(false);
   const workerRef = useRef<Worker | null>(null);
@@ -1877,7 +1877,7 @@ export default function ScenarioBuilder({
                     <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
                       Temporal Milestones & Income Streams
                     </label>
-                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                    <div className="space-y-3 pr-1">
                       {!(
                         activeScenario.milestones &&
                         activeScenario.milestones.length > 0
@@ -2266,7 +2266,7 @@ export default function ScenarioBuilder({
                         gains or income tax drag.
                       </p>
 
-                      <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 mb-2">
+                      <div className="space-y-3 pr-1 mb-2">
                         {!(
                           activeScenario.nonTaxableGifts &&
                           activeScenario.nonTaxableGifts.length > 0
@@ -2726,7 +2726,7 @@ export default function ScenarioBuilder({
                     </button>
                   </div>
 
-                  <div className="max-h-[350px] overflow-y-auto">
+                  <div>
                     <InvestmentList
                       assets={activeScenario.assets || []}
                       onEdit={(asset) => {

@@ -209,6 +209,30 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
                       console.error("Failed to apply bridge strategy", err);
                     }
                   }}
+                  onUnapplyYearlyStrategy={async (year) => {
+                    if (!db || !plan || !activeScenario) return;
+                    
+                    try {
+                      const doc = await db.plans.findOne(plan.id).exec();
+                      if (!doc) return;
+                      
+                      const applied = activeScenario.appliedBridgeStrategies || [];
+                      const newApplied = applied.filter((a: any) => a.year !== year);
+                      
+                      const updatedScenarios = plan.scenarios.map((s: any) => 
+                        s.id === activeScenario.id ? { ...s, appliedBridgeStrategies: newApplied } : s
+                      );
+                      
+                      await doc.patch({ scenarios: updatedScenarios });
+                      
+                      setNotification(`Year ${year} strategy removed from active projection.`);
+                      setTimeout(() => setNotification(null), 5000);
+                      
+                      if (handleRunSimulation) handleRunSimulation();
+                    } catch (err) {
+                      console.error("Failed to unapply bridge strategy", err);
+                    }
+                  }}
                 />
               </>
             )}

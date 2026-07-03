@@ -621,6 +621,16 @@ The Actionable Strategy Ledger (rendered via `BridgeStrategyTable.tsx` inside th
 *   **Transparent Tax Telemetry:** The ledger horizontally expands to display the precise, isolated tax impacts of both Roth conversions (`Tax (Roth)`) and Stock Liquidations (`Tax (Stock)`), next to the `Est. Total Tax`. 
 *   **One-Click Execution:** Users can review the engine's suggested yearly optimization paths and click "Apply" to instantly patch specific yearly parameters (such as `targetRothConversionAmount`) straight into their active Scenario Budget for real-time visualization and compounding analysis.
 
+### 3. Intuitive Dual-Dimension Tax Stack Chart & KPIs
+The Multistage Tax Stack Projection is engineered to be highly intuitive, breaking down complex tax concepts into two distinct visual dimensions:
+*   **Income & Brackets View:** Displays how different income types stack up against federal tax brackets. **Ordinary Income** (including Roth conversions) fills the lowest brackets first. **Capital Gains** stack on top of ordinary income. If the total height of the stack crosses the green **0% LTCG Limit** line ($128,900 for MFJ), the portion above that line triggers a 15% long-term capital gains tax.
+*   **Annual Tax Drag View:** Illustrates the precise, absolute dollar amounts of tax paid. It uses a stacked bar chart to separate taxes from **Roth Conversions** from taxes on **Stock Liquidations (LTCG)**, with an overlay line displaying the **Effective Marginal Tax Rate** on the right axis.
+*   **High-Density Fiscal KPIs:** Displays four crucial cumulative statistics right above the chart:
+    1.  **Total Est. Taxes:** Cumulative tax drag expected over the entire bridge period.
+    2.  **Peak Marginal Rate:** The highest tax bracket or marginal rate encountered during the timeline.
+    3.  **Roth Tax Share:** Cumulative taxes paid to fund Roth conversions.
+    4.  **Stock Tax Share:** Cumulative capital gains taxes paid.
+*   **Explanatory Tooltips:** Hovering over any year reveals a detailed, plain-English breakdown of that year's total income, planned actions, tax components, and bracket warnings (such as exceeding the 0% LTCG boundary).
 
 ### Bridge Strategy Execution Tracking
 The actionable strategy ledger outputs optimal yearly recommendations. Users can explicitly apply these recommendations (Stock Liquidation and Roth Conversions) directly into the Long-Term Portfolio Projection, overriding the simulation's automatic baseline heuristics. Once applied, these are explicitly modeled by moving pre-tax values into the Roth bucket, and honoring the requested concentrated stock liquidation amount to smooth tax burdens across the bridge phase.

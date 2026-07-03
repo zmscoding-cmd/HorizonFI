@@ -531,6 +531,69 @@ describe('Web Worker - Multi-Stage Dynamic Temporal Logic', () => {
     expect(year2.giftAmountUsed).toBe(0);
     expect(year2.nominalWithdrawal).toBe(100000);
   });
+
+  it('should apply Include Global Income Streams and Include Auxiliary Tax-Free Income before any specified funding priorities', () => {
+    // 1. Target budget: $100,000
+    // 2. Gift (Auxiliary Tax-Free Income): $20,000
+    // 3. Pension (Global Income Streams): $15,000
+    // 4. If both are enabled, the net portfolio drawdown should be $100,000 - $20,000 - $15,000 = $65,000
+    // This $65,000 demand should be funded using specified funding priorities
+    const payload: any = {
+      type: 'MULTI_STAGE_DRAWDOWN',
+      startYear: 2026,
+      endYear: 2026,
+      currentAge: 60,
+      assets: [
+        { id: 'taxable', value: 500000, type: 'cash', growthRate: 0.0, assetType: 'TAXABLE' }
+      ],
+      stages: [
+        { 
+          id: 'stage_test', 
+          fundingPriorities: ['TAXABLE'],
+          startYearType: 'absolute',
+          startAbsoluteYear: 2026,
+          includeAuxiliaryTaxFreeIncome: true,
+          includeGlobalIncomeStreams: true
+        }
+      ],
+      milestones: [
+        {
+          id: 'm1',
+          name: 'Pension',
+          type: 'pension',
+          amount: 15000,
+          isTriggerByAge: false,
+          triggerYear: 2026
+        }
+      ],
+      targetConstantMarketReturn: 0.0, 
+      inflationRate: 0.0,
+      budgetPhases: [
+        { phaseId: 'p1', startYear: 2026, endYear: 2026, baselineAmount: 100000, applyLifestyleAdjustment: false, lifestyleAdjustmentRate: 0 }
+      ],
+      maxRealWithdrawal: 1000000,
+      liquidBufferYears: 0,
+      futureIncomeStreams: [],
+      futureLiabilities: [],
+      nonTaxableGifts: [
+        {
+          id: 'gift1',
+          name: 'Gift',
+          annualAmount: 20000,
+          inflationAdjusted: false,
+          startYear: 2026,
+          endYear: 2026
+        }
+      ]
+    };
+
+    const results = simulateMultiStageDrawdownWorker(payload);
+    expect(results).toHaveLength(1);
+    const snap = results[0];
+    expect(snap.giftAmountUsed).toBe(20000);
+    expect(snap.pensionIncome).toBe(15000);
+    expect(snap.nominalWithdrawal).toBe(65000); // 100k - 20k - 15k
+  });
 });
 
 describe('Web Worker - Real vs Nominal Dollar Discounting Calculations', () => {

@@ -16,12 +16,14 @@ export interface BridgeOptimizationData {
 interface BridgeStrategyTableProps {
   data: BridgeOptimizationData[];
   onApplyYearlyStrategy?: (year: number, stockLiquidation: number, rothConversion: number) => void;
+  onUnapplyYearlyStrategy?: (year: number) => void;
   appliedStrategies?: { year: number; stockLiquidation: number; rothConversion: number; }[];
 }
 
 export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({ 
   data = [], 
   onApplyYearlyStrategy,
+  onUnapplyYearlyStrategy,
   appliedStrategies = []
 }) => {
   return (
@@ -77,10 +79,19 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
                     </td>
                     <td className="py-1 px-3 text-center">
                       {isApplied ? (
-                        <span className="min-w-[70px] min-h-[28px] px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-[11px] font-bold inline-flex items-center justify-center gap-1.5 animate-fade-in">
-                          <CheckCircle2 size={12} className="text-emerald-500" />
-                          Applied
-                        </span>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-[11px] font-bold inline-flex items-center justify-center gap-1 animate-fade-in">
+                            <CheckCircle2 size={11} className="text-emerald-500" />
+                            Applied
+                          </span>
+                          <button 
+                            type="button"
+                            onClick={() => onUnapplyYearlyStrategy?.(row.year)}
+                            className="px-2 py-1 text-[11px] font-bold bg-zinc-150 hover:bg-red-50 dark:bg-zinc-800 dark:hover:bg-red-950/20 text-zinc-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400 border border-zinc-200 dark:border-zinc-700/50 rounded-lg transition-colors cursor-pointer min-h-[24px]"
+                          >
+                            Unapply
+                          </button>
+                        </div>
                       ) : (
                         <button 
                           type="button"
