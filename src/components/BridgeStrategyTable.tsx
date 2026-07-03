@@ -9,6 +9,7 @@ export interface BridgeOptimizationData {
   rothConversion: number;
   effectiveMarginalRate: number;
   estimatedTotalTax?: number;
+  taxFromBase?: number;
   taxFromRoth?: number;
   taxFromStock?: number;
 }

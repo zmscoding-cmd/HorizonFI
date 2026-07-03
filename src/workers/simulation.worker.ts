@@ -2459,6 +2459,7 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
       rothConversion: rothConv,
       effectiveMarginalRate: effectiveMarginalRate,
       estimatedTotalTax: baseTax + rothOnlyTaxImpact + cgTaxPenalty,
+      taxFromBase: baseTax,
       taxFromRoth: rothOnlyTaxImpact,
       taxFromStock: cgTaxPenalty
     });
