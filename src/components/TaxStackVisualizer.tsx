@@ -161,6 +161,113 @@ export default function TaxStackVisualizer({
     return Math.max(...limits);
   }, [grossOrdinaryIncome, totalLtcgGains, ordinaryRefLimit, ltcgRefLimit]);
 
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || !payload.length) return null;
+    
+    const stdDed = payload.find((p: any) => p.dataKey === 'Standard Deduction')?.value || 0;
+    const ordInc = payload.find((p: any) => p.dataKey === 'Taxable Ordinary Income')?.value || 0;
+    const ltcg = payload.find((p: any) => p.dataKey === 'Capital Gains & Dividends')?.value || 0;
+    
+    let ordTax = 0;
+    let ordBrackets = [
+      { limit: 23200, rate: 0.10 },
+      { limit: 94300, rate: 0.12 },
+      { limit: 201050, rate: 0.22 },
+      { limit: 383900, rate: 0.24 },
+      { limit: 487450, rate: 0.32 },
+      { limit: 731200, rate: 0.35 },
+      { limit: Infinity, rate: 0.37 }
+    ];
+    let prevOrd = 0;
+    for (const b of ordBrackets) {
+      if (ordInc > prevOrd) {
+        const taxableInThisBracket = Math.min(ordInc, b.limit) - prevOrd;
+        ordTax += taxableInThisBracket * b.rate;
+      }
+      prevOrd = b.limit;
+    }
+    
+    let ltcgTax = 0;
+    const totalTaxableOrdAndLtcg = ordInc + ltcg;
+    let ltcgBrackets = [
+      { limit: 98900, rate: 0.0 },
+      { limit: 613700, rate: 0.15 },
+      { limit: Infinity, rate: 0.20 }
+    ];
+    let ltcgPrev = ordInc;
+    for (const b of ltcgBrackets) {
+      if (totalTaxableOrdAndLtcg > ltcgPrev) {
+         const gainsInThisBracket = Math.min(totalTaxableOrdAndLtcg, b.limit) - ltcgPrev;
+         if (gainsInThisBracket > 0) {
+            ltcgTax += gainsInThisBracket * b.rate;
+         }
+      }
+      ltcgPrev = Math.max(ltcgPrev, b.limit);
+    }
+    
+    const totalTax = ordTax + ltcgTax;
+    const effRate = (stdDed + ordInc + ltcg) > 0 ? (totalTax / (stdDed + ordInc + ltcg)) * 100 : 0;
+
+    return (
+      <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-xl text-xs max-w-[280px] transition-colors space-y-3">
+        <div className="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-800/85 pb-2">
+          <span className="font-bold text-zinc-900 dark:text-zinc-50 uppercase tracking-wider font-mono">
+            Income Stack
+          </span>
+          <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
+            ${Math.round(stdDed + ordInc + ltcg).toLocaleString()}
+          </span>
+        </div>
+        
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-zinc-450 dark:bg-zinc-600" />
+              Std Deduction
+            </span>
+            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">${Math.round(stdDed).toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              Taxable Ordinary
+            </span>
+            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">${Math.round(ordInc).toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              Capital Gains
+            </span>
+            <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">${Math.round(ltcg).toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="border-t border-zinc-100 dark:border-zinc-800/85 pt-3 space-y-1.5">
+          <div className="text-[10px] uppercase font-bold tracking-wider text-red-500 dark:text-red-400 mb-1.5">
+            Estimated Tax Liability
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-zinc-600 dark:text-zinc-400">Ordinary Tax</span>
+            <span className="font-mono font-semibold text-red-600 dark:text-red-400">${Math.round(ordTax).toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-zinc-600 dark:text-zinc-400">Capital Gains Tax</span>
+            <span className="font-mono font-semibold text-red-600 dark:text-red-400">${Math.round(ltcgTax).toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-center pt-1 border-t border-red-100 dark:border-red-900/30">
+            <span className="font-bold text-zinc-800 dark:text-zinc-200">Total Tax Owed</span>
+            <span className="font-mono font-bold text-red-600 dark:text-red-400">${Math.round(totalTax).toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-500">Effective Tax Rate</span>
+            <span className="font-mono font-semibold text-zinc-700 dark:text-zinc-300">{effRate.toFixed(1)}%</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center min-h-[300px]">
@@ -316,16 +423,8 @@ export default function TaxStackVisualizer({
                   hide 
                 />
                 <Tooltip
+                  content={<CustomTooltip />}
                   cursor={{ fill: 'transparent' }}
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: `1px solid ${tooltipBorder}`,
-                    backgroundColor: tooltipBg,
-                    color: tooltipTexColor,
-                    fontSize: '11px',
-                    boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.08)'
-                  }}
-                  formatter={(value: number, name: string) => [`$${Math.round(value).toLocaleString()}`, name]}
                 />
                 
                 {/* Reference Lines for selected targets */}

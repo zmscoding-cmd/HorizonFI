@@ -1508,12 +1508,43 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     let remainingBudgetTarget = Math.max(0, remainingFundingNeed - appliedGlobalIncome);
     let actualNominalWithdrawal = remainingBudgetTarget;
     
+    // --- Manual Roth Conversion Execution ---
+    if (targetRothConversionAmount > 0) {
+      let remainingToConvert = targetRothConversionAmount;
+      const preTaxAssets = currentAssets.filter(a => a.assetType === 'PRE_TAX' && a.value > 0);
+      
+      for (const a of preTaxAssets) {
+        if (remainingToConvert <= 0) break;
+        const take = Math.min(a.value, remainingToConvert);
+        a.value -= take;
+        remainingToConvert -= take;
+      }
+      
+      const actualConverted = targetRothConversionAmount - remainingToConvert;
+      if (actualConverted > 0) {
+        let rothAsset = currentAssets.find(a => a.assetType === 'ROTH');
+        if (!rothAsset) {
+           rothAsset = { id: 'auto-roth-bucket', name: 'Roth Conversion Destination', value: 0, assetType: 'ROTH', expectedGrowthRate: 0.05, expectedDividendYield: 0 };
+           currentAssets.push(rothAsset);
+        }
+        rothAsset.value += actualConverted;
+      }
+    }
+
     // --- Concentrated Stock Liquidation & Transfer Logic ---
     let liquidationTargetSaleAmount = 0;
     let liquidationTaxPaid = 0;
     
     const liqTargetAsset = currentAssets.find(a => a.isLiquidationTarget);
-    const divDestAsset = currentAssets.find(a => a.isDividendDestination);
+    let divDestAsset = currentAssets.find(a => a.isDividendDestination);
+    
+    if (!divDestAsset && liqTargetAsset) {
+      divDestAsset = currentAssets.find(a => a.assetType === 'TAXABLE' && a.id !== liqTargetAsset.id);
+      if (!divDestAsset) {
+        divDestAsset = { id: 'auto-taxable-bucket', name: 'Taxable Fallback Destination', value: 0, assetType: 'TAXABLE', expectedGrowthRate: 0.05, expectedDividendYield: 0 };
+        currentAssets.push(divDestAsset);
+      }
+    }
     
     if (liqTargetAsset && divDestAsset && liqTargetAsset.value > 0) {
       // 1. Calculate Taxable Ordinary Income this year (excluding capital gains)
@@ -1911,33 +1942,13 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     let preTaxNominal = 0;
     let rothNominal = 0;
 
-    if (use3Bucket) {
-      cashNominal = bucket1Balance;
-      taxableNominal = bucket2Balance;
-
-      let rawPreTax = 0;
-      let rawRoth = 0;
-      currentAssets.forEach(a => {
-        if (a.assetType === 'PRE_TAX') rawPreTax += a.value;
-        else if (a.assetType === 'ROTH') rawRoth += a.value;
-      });
-
-      const totalRawGrowth = rawPreTax + rawRoth;
-      if (totalRawGrowth > 0) {
-        preTaxNominal = bucket3Balance * (rawPreTax / totalRawGrowth);
-        rothNominal = bucket3Balance * (rawRoth / totalRawGrowth);
-      } else {
-        preTaxNominal = bucket3Balance;
-      }
-    } else {
-      currentAssets.forEach(a => {
-        if (a.assetType === 'CASH') cashNominal += a.value;
-        else if (a.assetType === 'TAXABLE') taxableNominal += a.value;
-        else if (a.assetType === 'PRE_TAX') preTaxNominal += a.value;
-        else if (a.assetType === 'ROTH') rothNominal += a.value;
-        else taxableNominal += a.value; // Fallback
-      });
-    }
+    currentAssets.forEach(a => {
+      if (a.assetType === 'CASH') cashNominal += a.value;
+      else if (a.assetType === 'TAXABLE') taxableNominal += a.value;
+      else if (a.assetType === 'PRE_TAX') preTaxNominal += a.value;
+      else if (a.assetType === 'ROTH') rothNominal += a.value;
+      else taxableNominal += a.value; // Fallback
+    });
 
     const cashReal = cashNominal / cumInflation;
     const taxableReal = taxableNominal / cumInflation;
