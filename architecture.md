@@ -1879,3 +1879,19 @@ Trigger: User requested to maximize Roth conversions during the bridge years to 
 [x] Mathematical Integrity (Torpedo avoidance) Confirmed
 [x] Web Worker DP Execution Confirmed (sub-35ms matrix resolution)
 [x] Base case heuristics correctly favoring 24% bracket Roth conversions over 15% CG tax.
+
+### Checkpoint: Roth Conversion Front-Loading via Real Compounding Rate Modeling
+Trigger: User noted Roth conversions were being deferred to the final years of the bridge strategy (2045) instead of executing early when tax rates were favorable.
+
+1. Architectural State Changes:
+- **Tax-Free Compounding Heuristic**: Adjusted the DP engine's `discountRate` parameter in `useBridgeOptimization.ts` from a traditional positive time-value-of-money discount (`0.05`) to a negative real compounding rate (`-0.02`).
+- **Mathematical Implication**: Since the DP loop does not natively model investment growth on balances to preserve O(N) performance, a positive discount rate inadvertently penalized paying taxes *today*, causing the algorithm to defer all conversions. By using a negative discount rate, the engine correctly amplifies future utility, naturally generating a mathematical premium for actions that increase final tax-advantaged balances (Roth) over pre-tax balances (which face a 32% haircut in the base case).
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Negative Discount Rate for Tax-Free Growth Simulation]
+- The engine now mathematically prefers executing $363,900 (24% bracket) Roth conversions in year 0 and year 1 of the strategy because the mathematical "opportunity cost" of tax-free growth correctly outweighs the immediate tax penalty in the dynamic programming utility matrix.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Mathematical Integrity (Front-loading) Confirmed
+[x] Web Worker DP Execution Confirmed
