@@ -27,6 +27,17 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
   const isDark = theme === 'dark' || theme === 'night-watch';
   const { currencyMode } = useCurrencyMode();
 
+  const hasLiquidationTarget = useMemo(() => {
+    const fromAssets = assets?.some(a => !!a.isLiquidationTarget) ?? false;
+    const fromData = data?.some(snapshot => (snapshot.liquidationTargetBalance ?? 0) > 0) ?? false;
+    return fromAssets || fromData;
+  }, [assets, data]);
+
+  const hasDividendDestination = useMemo(() => {
+    const fromAssets = assets?.some(a => !!a.isDividendDestination) ?? false;
+    const fromData = data?.some(snapshot => (snapshot.dividendDestinationBalance ?? 0) > 0) ?? false;
+    return fromAssets || fromData;
+  }, [assets, data]);
 
   
   const chartData = useMemo(() => {
