@@ -5,14 +5,15 @@ import { ShieldAlert, AlertTriangle, Coins, Lock, Info, Landmark, CheckCircle, T
 interface InvestmentFormProps {
   initialAsset?: AssetModel | null;
   siblingAssets?: AssetModel[];
+  defaultAssetType?: AssetModel['assetType'];
   onSave: (asset: AssetModel) => void;
   onCancel: () => void;
 }
 
-export function InvestmentForm({ initialAsset, siblingAssets = [], onSave, onCancel }: InvestmentFormProps) {
+export function InvestmentForm({ initialAsset, siblingAssets = [], defaultAssetType, onSave, onCancel }: InvestmentFormProps) {
   const [name, setName] = useState(initialAsset?.name || '');
   const [value, setValue] = useState(initialAsset?.value?.toString() || '0');
-  const [assetType, setAssetType] = useState<AssetModel['assetType']>(initialAsset?.assetType || 'TAXABLE');
+  const [assetType, setAssetType] = useState<AssetModel['assetType']>(initialAsset?.assetType || defaultAssetType || 'TAXABLE');
   const [expectedGrowthRate, setExpectedGrowthRate] = useState(((initialAsset?.expectedGrowthRate ?? 0.05) * 100).toString());
   const [expectedDividendYield, setExpectedDividendYield] = useState(((initialAsset?.expectedDividendYield ?? 0.02) * 100).toString());
   const [availableDate, setAvailableDate] = useState(initialAsset?.availableDate || '');

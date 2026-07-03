@@ -492,6 +492,14 @@ In early retirement, certain phases may benefit from external income (like a par
 *   **Include Global Income Streams:** Toggling this flag forces the simulation engine to absorb any active Social Security, pensions, or other fixed income streams and apply them directly against that specific stage's target budget, mathematically reducing the drawdown demand against your core asset buckets.
 *   **Include Auxiliary Tax-Free Income:** Toggling this flag allows you to funnel tax-free capital (like scheduled inheritance or family gifts) into a specific phase. The engine safely deducts this exact amount from the required portfolio withdrawal without triggering any income tax drag gross-up, preserving your capital efficiency.
 
+### Income Shift & Coverage Visualizations
+To provide complete transparency over how much of your lifestyle is supported by passive/portfolio assets versus stable external sources, the **Income Shift Visualization** chart includes:
+*   **Sequential Allocation Ledger Tracking:** The background engine separates and isolates *used* pension, RRB, other global, and future income streams, stacking them dynamically. Excess (unused) non-portfolio income is correctly funneled into automated reinvestment pipelines rather than double-counting on the active budget stack.
+*   **Non-Portfolio Income Total (Rose Dashed Line):** A prominent, high-visibility Rose-colored dashed line (`Non-Portfolio Income Total`) is overlaid on the Multi-Stage Chart, illustrating your total available external income in each simulated year.
+*   **Non-Portfolio Budget Coverage Stat:** The interactive hover tooltip card embeds an emerald-themed, real-time metric showing the exact **Non-Portfolio Budget Coverage** as a percentage. It is computed mathematically as:
+    $$\text{Non-Portfolio Budget Coverage} = \min\left(100\%, \frac{\text{Used Auxiliary} + \text{Used Global Income}}{\text{Target Budget}} \times 100\%\right)$$
+    This provides an instant, offline-ready measure of your safety margin and portfolio independence during transition years.
+
 ---
 
 ## 9. Strategic Guide: Phase-Based Cash Buffers

@@ -50,6 +50,10 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
       giftAmountUsed: (d.giftAmountUsed || 0) / divisor,
       pensionIncome: (d.pensionIncome || 0) / divisor,
       rrbIncome: (d.rrbIncome || 0) / divisor,
+      otherIncomeUsed: (d.otherIncomeUsed || 0) / divisor,
+      futureIncomeUsed: (d.futureIncomeUsed || 0) / divisor,
+      chartNonPortfolioIncome: (d.totalNonPortfolioIncome || 0) / divisor,
+      nonPortfolioCoveredPercent: d.nonPortfolioCoveredPercent !== undefined ? d.nonPortfolioCoveredPercent : 0,
       withdrawnDividends: (d.withdrawnDividends || 0) / divisor,
       withdrawnTaxable: (d.withdrawnTaxable || 0) / divisor,
       withdrawnTaxAdvantaged: (d.withdrawnTaxAdvantaged || 0) / divisor,
@@ -161,7 +165,13 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
                        fontSize: '12px',
                      }}
                    >
-                     <p className="font-semibold mb-2.5" style={{ color: textFill }}>{title}</p>
+                     <p className="font-semibold mb-2" style={{ color: textFill }}>{title}</p>
+                    <div className="mb-3 px-3 py-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 flex items-center justify-between gap-4 font-medium text-xs">
+                      <span className="text-zinc-400">Non-Portfolio Budget Coverage:</span>
+                      <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                        {Number(step?.nonPortfolioCoveredPercent ?? 0).toFixed(1)}%
+                      </span>
+                    </div>
                      <ul className="space-y-1.5">
                        {sortedPayload.map((entry, index) => {
                          const isPWR = entry.name === "Portfolio Withdrawal Rate";
@@ -227,11 +237,24 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
           <Area yAxisId="left" type="monotone" dataKey="giftAmountUsed" name="Non-Taxable Gift" stackId="1" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="pensionIncome" name="Pension" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="rrbIncome" name="RRB Income" stackId="1" stroke="#d946ef" fill="#d946ef" fillOpacity={0.8} />
+          <Area yAxisId="left" type="monotone" dataKey="otherIncomeUsed" name="Other Global Income" stackId="1" stroke="#6366f1" fill="#6366f1" fillOpacity={0.8} />
+          <Area yAxisId="left" type="monotone" dataKey="futureIncomeUsed" name="Future Income Streams" stackId="1" stroke="#0d9488" fill="#0d9488" fillOpacity={0.8} />
           
           <Area yAxisId="left" type="monotone" dataKey="withdrawnDividends" name="Dividends" stackId="1" stroke="#34d399" fill="#34d399" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxable" name="Taxable Principal" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxAdvantaged" name="401k/IRA" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="excessExternalIncome" name="Excess Income (Reinvested)" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.8} />
+          
+          <Line 
+            yAxisId="left"
+            type="monotone" 
+            dataKey="chartNonPortfolioIncome" 
+            name={`Non-Portfolio Income Total${isCurrent ? ' - Real' : ' - Nominal'}`} 
+            stroke="#f43f5e" 
+            strokeWidth={3}
+            strokeDasharray="4 4"
+            dot={false}
+          />
           
           {/* Target Budget Lines with high-contrast outline borders */}
           <Line 

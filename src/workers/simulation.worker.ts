@@ -1187,6 +1187,10 @@ export type MultiStageYearlySnapshot = {
   liquidationTaxPaid?: number;
   rothConversionAmount?: number;
   excessExternalIncome?: number;
+  otherIncomeUsed?: number;
+  futureIncomeUsed?: number;
+  totalNonPortfolioIncome?: number;
+  nonPortfolioCoveredPercent?: number;
 };
 
 export function computePresentValue(
@@ -1519,6 +1523,35 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     let excessGlobal = availableGlobal - globalUsed;
 
     excessExternalIncome = excessAuxiliary + excessGlobal;
+
+    // Allocate global income sequentially into specific streams to track exactly what portion is used
+    let usedPension = 0;
+    let usedRrb = 0;
+    let usedOther = 0;
+    let usedFutureIncome = 0;
+
+    let remainingGlobalUsed = globalUsed;
+    if (remainingGlobalUsed > 0) {
+      usedPension = Math.min(pensionIncome, remainingGlobalUsed);
+      remainingGlobalUsed -= usedPension;
+    }
+    if (remainingGlobalUsed > 0) {
+      usedRrb = Math.min(rrbIncome, remainingGlobalUsed);
+      remainingGlobalUsed -= usedRrb;
+    }
+    if (remainingGlobalUsed > 0) {
+      usedOther = Math.min(otherIncome, remainingGlobalUsed);
+      remainingGlobalUsed -= usedOther;
+    }
+    if (remainingGlobalUsed > 0) {
+      usedFutureIncome = Math.min(currentFutureIncome, remainingGlobalUsed);
+      remainingGlobalUsed -= usedFutureIncome;
+    }
+
+    const totalNonPortfolioIncome = availableAuxiliary + availableGlobal;
+    const nonPortfolioCoveredPercent = stageTargetBudgetNominal > 0
+      ? Math.min(100, ((giftAmountUsed + globalUsed) / stageTargetBudgetNominal) * 100)
+      : 100;
 
     // Add excess to dividend destination or fallback
     if (excessExternalIncome > 0) {
@@ -1999,8 +2032,12 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       activeStageId: activeStage?.id || 'default',
       nominalWithdrawal: actualNominalWithdrawal,
       realWithdrawal: actualNominalWithdrawal / cumInflation,
-      pensionIncome,
-      rrbIncome,
+      pensionIncome: usedPension,
+      rrbIncome: usedRrb,
+      otherIncomeUsed: usedOther,
+      futureIncomeUsed: usedFutureIncome,
+      totalNonPortfolioIncome,
+      nonPortfolioCoveredPercent,
       taxDrag: estimatedTaxDrag,
       endingBalance: finalBalance,
       endingBalanceReal: finalBalance / cumInflation,

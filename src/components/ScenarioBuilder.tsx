@@ -100,6 +100,7 @@ export default function ScenarioBuilder({
   const [showGKSettings, setShowGKSettings] = useState(true);
   const [editingAsset, setEditingAsset] = useState<AssetModel | null>(null);
   const [showAssetForm, setShowAssetForm] = useState(false);
+  const [defaultAssetType, setDefaultAssetType] = useState<AssetModel['assetType'] | undefined>(undefined);
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
@@ -1082,7 +1083,16 @@ export default function ScenarioBuilder({
                         <Plus className="w-3 h-3" /> ADD PHASE
                       </button>
                     </div>
-                    <div className="space-y-4">
+
+                    {/* Single Info Banner for Phase Cash Strategy */}
+                    <div className="text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400 bg-zinc-100/50 dark:bg-gray-900/40 p-2.5 rounded-lg border border-zinc-200/40 dark:border-gray-800/80 mb-3">
+                      <span className="font-semibold text-zinc-700 dark:text-gray-300">
+                        Phase Cash Strategy:
+                      </span>{" "}
+                      Target Cash = Target Budget × Multiplier. Excess cash will be dynamically reinvested or used for drawdowns when transitioning to a phase with a lower multiplier.
+                    </div>
+
+                    <div className="space-y-3">
                       {(activeScenario.budget?.budgetPhases &&
                       activeScenario.budget.budgetPhases.length > 0
                         ? activeScenario.budget.budgetPhases
@@ -1100,7 +1110,7 @@ export default function ScenarioBuilder({
                       ).map((phase: any, index: number, arr: any[]) => (
                         <div
                           key={phase.phaseId}
-                          className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 relative space-y-3"
+                          className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl py-2 px-3 relative"
                         >
                           {arr.length > 1 && (
                             <button
@@ -1142,8 +1152,8 @@ export default function ScenarioBuilder({
                             </button>
                           )}
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pr-8">
-                            <div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pr-8">
+                            <div className="lg:col-span-2">
                               <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                                 Start Year
                               </label>
@@ -1189,7 +1199,7 @@ export default function ScenarioBuilder({
                                 className={`w-full text-xs border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border outline-none min-h-[44px] ${index === 0 && !!budgetDoc?.totalPlaintextAnnual ? "opacity-70 cursor-not-allowed bg-zinc-50 dark:bg-zinc-900" : "bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 transition-all"}`}
                               />
                             </div>
-                            <div>
+                            <div className="lg:col-span-2">
                               <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                                 End Year
                               </label>
@@ -1235,7 +1245,7 @@ export default function ScenarioBuilder({
                                 className="w-full text-xs border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 outline-none transition-all min-h-[44px]"
                               />
                             </div>
-                            <div className="lg:col-span-1">
+                            <div className="lg:col-span-3">
                               <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1 truncate" title="Baseline Budget ($)">
                                 Budget ($){" "}
                                 {index === 0 &&
@@ -1301,7 +1311,7 @@ export default function ScenarioBuilder({
                                 className="w-full text-xs border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 outline-none transition-all min-h-[44px]"
                               />
                             </div>
-                            <div>
+                            <div className="lg:col-span-2">
                               <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                                 Adjustment Rate (%)
                               </label>
@@ -1309,7 +1319,6 @@ export default function ScenarioBuilder({
                                 type="number"
                                 step="0.1"
                                 defaultValue={phase.lifestyleAdjustmentRate}
-                                disabled={!phase.applyLifestyleAdjustment}
                                 onBlur={async (e) => {
                                   const doc = await db.plans
                                     .findOne(plan.id)
@@ -1325,12 +1334,11 @@ export default function ScenarioBuilder({
                                           (p: any) =>
                                             p.phaseId === phase.phaseId,
                                         );
-                                        if (pIdx > -1)
-                                          activePhases[
-                                            pIdx
-                                          ].lifestyleAdjustmentRate = Number(
-                                            e.target.value,
-                                          );
+                                        if (pIdx > -1) {
+                                          const rateVal = Number(e.target.value);
+                                          activePhases[pIdx].lifestyleAdjustmentRate = rateVal;
+                                          activePhases[pIdx].applyLifestyleAdjustment = rateVal !== 0;
+                                        }
                                         return {
                                           ...s,
                                           budget: {
@@ -1348,13 +1356,13 @@ export default function ScenarioBuilder({
                                   });
                                   handleRunSimulation();
                                 }}
-                                className="w-full text-xs border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 outline-none transition-all disabled:opacity-50 min-h-[44px]"
+                                className="w-full text-xs border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 outline-none transition-all min-h-[44px]"
                               />
                             </div>
-                            <div>
+                            <div className="lg:col-span-3">
                               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                                 <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
-                                  Cash Buffer Multiplier (Years)
+                                  Cash Buffer (Yrs)
                                 </label>
                                 <div className="group relative flex items-center">
                                   <Info className="w-3.5 h-3.5 text-zinc-400 hover:text-blue-500 dark:text-zinc-500 dark:hover:text-blue-400 cursor-help transition-colors" />
@@ -1412,64 +1420,6 @@ export default function ScenarioBuilder({
                               />
                             </div>
                           </div>
-
-                          <div className="text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400 bg-zinc-100/50 dark:bg-gray-900/40 p-2.5 rounded-lg border border-zinc-200/40 dark:border-gray-800/80">
-                            <span className="font-semibold text-zinc-700 dark:text-gray-300">
-                              Phase Cash Strategy:
-                            </span>{" "}
-                            Target Cash = Target Budget × Multiplier. Excess cash will be dynamically reinvested or used for drawdowns when transitioning to a phase with a lower multiplier.
-                          </div>
-
-                          <div className="flex items-center gap-2 pt-1 h-[44px]">
-                            <input
-                              type="checkbox"
-                              id={`applyAdjustment-${phase.phaseId}`}
-                              defaultChecked={phase.applyLifestyleAdjustment}
-                              onChange={async (e) => {
-                                const doc = await db.plans
-                                  .findOne(plan.id)
-                                  .exec();
-                                const updatedScenarios = plan.scenarios.map(
-                                  (s: any) => {
-                                    if (s.id === activeScenario.id) {
-                                      const activePhases = s.budget
-                                        ?.budgetPhases
-                                        ? [...s.budget.budgetPhases]
-                                        : [];
-                                      const pIdx = activePhases.findIndex(
-                                        (p: any) => p.phaseId === phase.phaseId,
-                                      );
-                                      if (pIdx > -1)
-                                        activePhases[
-                                          pIdx
-                                        ].applyLifestyleAdjustment =
-                                          e.target.checked;
-                                      return {
-                                        ...s,
-                                        budget: {
-                                          ...s.budget,
-                                          budgetPhases: activePhases,
-                                        },
-                                      };
-                                    }
-                                    return s;
-                                  },
-                                );
-                                await doc.patch({
-                                  scenarios: updatedScenarios,
-                                  updatedAt: Date.now(),
-                                });
-                                handleRunSimulation();
-                              }}
-                              className="w-5 h-5 text-blue-600 dark:text-red-500 border-zinc-300 dark:border-zinc-700 rounded focus:ring-blue-500 dark:focus:ring-red-500 dark:focus:ring-offset-zinc-950 dark:bg-zinc-900 cursor-pointer"
-                            />
-                            <label
-                              htmlFor={`applyAdjustment-${phase.phaseId}`}
-                              className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 cursor-pointer select-none"
-                            >
-                              Apply Lifestyle Adjustment? (Compounds annually)
-                            </label>
-                          </div>
                         </div>
                       ))}
                     </div>
@@ -1492,15 +1442,17 @@ export default function ScenarioBuilder({
                         </span>
                       </button>
                       {showBaselineSettings && (
-                        <div className="space-y-4 pt-2.5">
-                          <div>
-                            <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
-                              Retirement Current Age
-                            </label>
-                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans">
-                              Starting age for milestone triggers and Railroad
-                              retirement tracking (baseline constant = 48).
-                            </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-3 items-stretch">
+                          <div className="flex flex-col justify-between">
+                            <div>
+                              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
+                                Retirement Current Age
+                              </label>
+                              <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-2 leading-tight font-sans">
+                                Starting age for milestone triggers and Railroad
+                                retirement tracking (baseline constant = 48).
+                              </p>
+                            </div>
                             <input
                               type="number"
                               defaultValue={
@@ -1537,13 +1489,15 @@ export default function ScenarioBuilder({
                               className="w-full text-sm border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-xl p-3 border font-medium focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 focus:border-blue-500 dark:focus:border-red-500 outline-none transition-all min-h-[44px]"
                             />
                           </div>
-                          <div>
-                            <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
-                              Simulation End Year
-                            </label>
-                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans">
-                              The final calendar year for multi-decade timeline modeling and chart plotting.
-                            </p>
+                          <div className="flex flex-col justify-between">
+                            <div>
+                              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
+                                Simulation End Year
+                              </label>
+                              <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-2 leading-tight font-sans">
+                                The final calendar year for multi-decade timeline modeling and chart plotting.
+                              </p>
+                            </div>
                             <input
                               type="number"
                               defaultValue={
@@ -1613,12 +1567,12 @@ export default function ScenarioBuilder({
                         </span>
                       </button>
                       {showGKSettings && (
-                        <div className="space-y-4 pt-2.5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-3 items-start">
                           <div>
                             <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                               Max Real Withdrawal ($/yr)
                             </label>
-                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans font-sans">
+                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans">
                               Hard ceiling cap on inflation-adjusted real
                               withdrawals (default = $150,000).
                             </p>
@@ -1664,7 +1618,7 @@ export default function ScenarioBuilder({
                             <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                               Upper Guardrail Multiplier (%)
                             </label>
-                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans font-sans font-sans">
+                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans">
                               Triggers Prosperity spending increase if initial
                               withdrawal rate drops by this % due to portfolio
                               expansion (default = 80%).
@@ -1714,7 +1668,7 @@ export default function ScenarioBuilder({
                             <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                               Lower Guardrail Multiplier (%)
                             </label>
-                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans font-sans font-sans">
+                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans">
                               Triggers Preservation spending cut if initial
                               withdrawal rate climbs by this % due to portfolio
                               contraction (default = 120%).
@@ -1767,7 +1721,7 @@ export default function ScenarioBuilder({
                             <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                               Prosperity Bump Rate (%)
                             </label>
-                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans font-sans font-sans">
+                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans">
                               Baseline spending increase applied once the Upper
                               Guardrail is breached (default = 10%).
                             </p>
@@ -1820,7 +1774,7 @@ export default function ScenarioBuilder({
                             <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                               Preservation Cut Rate (%)
                             </label>
-                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans font-sans font-sans">
+                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-1.5 leading-tight font-sans">
                               Baseline spending reduction applied once the Lower
                               Guardrail is breached (default = 10%).
                             </p>
@@ -1878,40 +1832,33 @@ export default function ScenarioBuilder({
                     <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
                       Temporal Milestones & Income Streams
                     </label>
-                    <div className="space-y-3 pr-1">
-                      {!(
-                        activeScenario.milestones &&
-                        activeScenario.milestones.length > 0
-                      ) ? (
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 italic py-2 text-center">
-                          No milestones specified. Default rates will apply.
-                        </p>
-                      ) : (
-                        (activeScenario.milestones || []).map(
-                          (m: any, mIdx: number) => {
-                            const milestoneId = m.id || generateUUID();
-                            const isTriggerByAgeVal =
-                              m.isTriggerByAge !== undefined
-                                ? !!m.isTriggerByAge
-                                : false;
-                            const trigAge =
-                              m.triggerAge !== undefined ? m.triggerAge : 65;
-                            const trigYear =
-                              m.triggerYear !== undefined
-                                ? m.triggerYear
-                                : m.targetYear || 2030;
-                            const amtVal =
-                              m.amount !== undefined
-                                ? m.amount
-                                : m.targetAmount || 0;
-                            const mType = m.type || "capex";
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-1 mb-4 items-stretch">
+                      {(activeScenario.milestones || []).map(
+                        (m: any, mIdx: number) => {
+                          const milestoneId = m.id || generateUUID();
+                          const isTriggerByAgeVal =
+                            m.isTriggerByAge !== undefined
+                              ? !!m.isTriggerByAge
+                              : false;
+                          const trigAge =
+                            m.triggerAge !== undefined ? m.triggerAge : 65;
+                          const trigYear =
+                            m.triggerYear !== undefined
+                              ? m.triggerYear
+                              : m.targetYear || 2030;
+                          const amtVal =
+                            m.amount !== undefined
+                              ? m.amount
+                              : m.targetAmount || 0;
+                          const mType = m.type || "capex";
 
-                            return (
-                              <div
-                                key={milestoneId || mIdx}
-                                className="bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200/65 dark:border-zinc-800/80 rounded-xl p-3 space-y-2.5"
-                              >
-                                <div className="flex justify-between items-center gap-2">
+                          return (
+                            <div
+                              key={milestoneId || mIdx}
+                              className="bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200/65 dark:border-zinc-800/80 rounded-xl p-3.5 flex flex-col justify-between gap-3 shadow-sm"
+                            >
+                              <div>
+                                <div className="flex justify-between items-center gap-2 mb-2 pb-2 border-b border-zinc-100 dark:border-zinc-900">
                                   <input
                                     type="text"
                                     defaultValue={m.name || ""}
@@ -1979,267 +1926,270 @@ export default function ScenarioBuilder({
                                   </button>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
-                                      Type
-                                    </label>
-                                    <select
-                                      value={mType}
-                                      onChange={async (e) => {
-                                        const newVal = e.target.value;
-                                        const doc = await db.plans
-                                          .findOne(plan.id)
-                                          .exec();
-                                        const updatedMilestones = (
-                                          activeScenario.milestones || []
-                                        ).map((ms: any, idx: number) =>
-                                          idx === mIdx
-                                            ? { ...ms, type: newVal }
-                                            : ms,
-                                        );
-                                        const updatedScenarios =
-                                          plan.scenarios.map((s: any) =>
-                                            s.id === activeScenario.id
-                                              ? {
-                                                  ...s,
-                                                  milestones: updatedMilestones,
-                                                }
-                                              : s,
+                                <div className="space-y-2.5">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
+                                        Type
+                                      </label>
+                                      <select
+                                        value={mType}
+                                        onChange={async (e) => {
+                                          const newVal = e.target.value;
+                                          const doc = await db.plans
+                                            .findOne(plan.id)
+                                            .exec();
+                                          const updatedMilestones = (
+                                            activeScenario.milestones || []
+                                          ).map((ms: any, idx: number) =>
+                                            idx === mIdx
+                                              ? { ...ms, type: newVal }
+                                              : ms,
                                           );
-                                        await doc.patch({
-                                          scenarios: updatedScenarios,
-                                          updatedAt: Date.now(),
-                                        });
-                                        handleRunSimulation();
-                                      }}
-                                      className="w-full text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-700 dark:text-zinc-300 outline-none min-h-[28px]"
-                                    >
-                                      <option value="capex">
-                                        CapEx / Cost
-                                      </option>
-                                      <option value="pension">
-                                        Private Pension
-                                      </option>
-                                      <option value="rrt1">
-                                        Railroad Ret. Tier 1
-                                      </option>
-                                      <option value="rrt2">
-                                        Railroad Ret. Tier 2
-                                      </option>
-                                      <option value="other_income">
-                                        Other Taxable Income
-                                      </option>
-                                      <option value="pretax_avail_jesse">
-                                        Jesse Pre-Tax Availability
-                                      </option>
-                                      <option value="pretax_avail_corrie">
-                                        Corrie Pre-Tax Availability
-                                      </option>
-                                    </select>
-                                  </div>
+                                          const updatedScenarios =
+                                            plan.scenarios.map((s: any) =>
+                                              s.id === activeScenario.id
+                                                ? {
+                                                    ...s,
+                                                    milestones: updatedMilestones,
+                                                  }
+                                                : s,
+                                            );
+                                          await doc.patch({
+                                            scenarios: updatedScenarios,
+                                            updatedAt: Date.now(),
+                                          });
+                                          handleRunSimulation();
+                                        }}
+                                        className="w-full text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-700 dark:text-zinc-300 outline-none min-h-[28px]"
+                                      >
+                                        <option value="capex">
+                                          CapEx / Cost
+                                        </option>
+                                        <option value="pension">
+                                          Private Pension
+                                        </option>
+                                        <option value="rrt1">
+                                          Railroad Ret. Tier 1
+                                        </option>
+                                        <option value="rrt2">
+                                          Railroad Ret. Tier 2
+                                        </option>
+                                        <option value="other_income">
+                                          Other Taxable Income
+                                        </option>
+                                        <option value="pretax_avail_jesse">
+                                          Jesse Pre-Tax Availability
+                                        </option>
+                                        <option value="pretax_avail_corrie">
+                                          Corrie Pre-Tax Availability
+                                        </option>
+                                      </select>
+                                    </div>
 
-                                  <div>
-                                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
-                                      {mType === "pretax_avail_jesse" ||
-                                      mType === "pretax_avail_corrie"
-                                        ? "Amount (N/A)"
-                                        : "Amount ($ / yr)"}
-                                    </label>
-                                    <input
-                                      type="number"
-                                      defaultValue={amtVal}
-                                      disabled={
-                                        mType === "pretax_avail_jesse" ||
+                                    <div>
+                                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
+                                        {mType === "pretax_avail_jesse" ||
                                         mType === "pretax_avail_corrie"
-                                      }
-                                      key={`milestone-amt-${milestoneId}`}
-                                      onBlur={async (e) => {
-                                        const val = Number(e.target.value);
-                                        if (val === amtVal) return;
-                                        const doc = await db.plans
-                                          .findOne(plan.id)
-                                          .exec();
-                                        const updatedMilestones = (
-                                          activeScenario.milestones || []
-                                        ).map((ms: any, idx: number) =>
-                                          idx === mIdx
-                                            ? {
-                                                ...ms,
-                                                amount: val,
-                                                targetAmount: val,
-                                              }
-                                            : ms,
-                                        );
-                                        const updatedScenarios =
-                                          plan.scenarios.map((s: any) =>
-                                            s.id === activeScenario.id
+                                          ? "Amount (N/A)"
+                                          : "Amount ($ / yr)"}
+                                      </label>
+                                      <input
+                                        type="number"
+                                        defaultValue={amtVal}
+                                        disabled={
+                                          mType === "pretax_avail_jesse" ||
+                                          mType === "pretax_avail_corrie"
+                                        }
+                                        key={`milestone-amt-${milestoneId}`}
+                                        onBlur={async (e) => {
+                                          const val = Number(e.target.value);
+                                          if (val === amtVal) return;
+                                          const doc = await db.plans
+                                            .findOne(plan.id)
+                                            .exec();
+                                          const updatedMilestones = (
+                                            activeScenario.milestones || []
+                                          ).map((ms: any, idx: number) =>
+                                            idx === mIdx
                                               ? {
-                                                  ...s,
-                                                  milestones: updatedMilestones,
-                                                }
-                                              : s,
-                                          );
-                                        await doc.patch({
-                                          scenarios: updatedScenarios,
-                                          updatedAt: Date.now(),
-                                        });
-                                        handleRunSimulation();
-                                      }}
-                                      className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px] disabled:opacity-50 disabled:bg-zinc-100 dark:disabled:bg-zinc-950"
-                                      placeholder={
-                                        mType === "pretax_avail_jesse" ||
-                                        mType === "pretax_avail_corrie"
-                                          ? "N/A"
-                                          : "0"
-                                      }
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
-                                      Trigger Basis
-                                    </label>
-                                    <select
-                                      value={isTriggerByAgeVal ? "age" : "year"}
-                                      onChange={async (e) => {
-                                        const isAge = e.target.value === "age";
-                                        const doc = await db.plans
-                                          .findOne(plan.id)
-                                          .exec();
-                                        const updatedMilestones = (
-                                          activeScenario.milestones || []
-                                        ).map((ms: any, idx: number) =>
-                                          idx === mIdx
-                                            ? { ...ms, isTriggerByAge: isAge }
-                                            : ms,
-                                        );
-                                        const updatedScenarios =
-                                          plan.scenarios.map((s: any) =>
-                                            s.id === activeScenario.id
-                                              ? {
-                                                  ...s,
-                                                  milestones: updatedMilestones,
-                                                }
-                                              : s,
-                                          );
-                                        await doc.patch({
-                                          scenarios: updatedScenarios,
-                                          updatedAt: Date.now(),
-                                        });
-                                        handleRunSimulation();
-                                      }}
-                                      className="w-full text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-700 dark:text-zinc-300 outline-none min-h-[28px]"
-                                    >
-                                      <option value="year">Target Year</option>
-                                      <option value="age">Retiree Age</option>
-                                    </select>
-                                  </div>
-
-                                  <div>
-                                    <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
-                                      {isTriggerByAgeVal
-                                        ? "Age Trigger"
-                                        : "Year Trigger"}
-                                    </label>
-                                    <input
-                                      type="number"
-                                      defaultValue={
-                                        isTriggerByAgeVal ? trigAge : trigYear
-                                      }
-                                      key={`milestone-trigger-${milestoneId}`}
-                                      onBlur={async (e) => {
-                                        const val = Number(e.target.value);
-                                        if (
-                                          val ===
-                                          (isTriggerByAgeVal
-                                            ? trigAge
-                                            : trigYear)
-                                        )
-                                          return;
-                                        const doc = await db.plans
-                                          .findOne(plan.id)
-                                          .exec();
-                                        const updatedMilestones = (
-                                          activeScenario.milestones || []
-                                        ).map((ms: any, idx: number) => {
-                                          if (idx === mIdx) {
-                                            return isTriggerByAgeVal
-                                              ? { ...ms, triggerAge: val }
-                                              : {
                                                   ...ms,
-                                                  triggerYear: val,
-                                                  targetYear: val,
-                                                };
-                                          }
-                                          return ms;
-                                        });
-                                        const updatedScenarios =
-                                          plan.scenarios.map((s: any) =>
-                                            s.id === activeScenario.id
-                                              ? {
-                                                  ...s,
-                                                  milestones: updatedMilestones,
+                                                  amount: val,
+                                                  targetAmount: val,
                                                 }
-                                              : s,
+                                              : ms,
                                           );
-                                        await doc.patch({
-                                          scenarios: updatedScenarios,
-                                          updatedAt: Date.now(),
-                                        });
-                                        handleRunSimulation();
-                                      }}
-                                      className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
-                                      placeholder="2030 / 65"
-                                    />
+                                          const updatedScenarios =
+                                            plan.scenarios.map((s: any) =>
+                                              s.id === activeScenario.id
+                                                ? {
+                                                    ...s,
+                                                    milestones: updatedMilestones,
+                                                  }
+                                                : s,
+                                            );
+                                          await doc.patch({
+                                            scenarios: updatedScenarios,
+                                            updatedAt: Date.now(),
+                                          });
+                                          handleRunSimulation();
+                                        }}
+                                        className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px] disabled:opacity-50 disabled:bg-zinc-100 dark:disabled:bg-zinc-950"
+                                        placeholder={
+                                          mType === "pretax_avail_jesse" ||
+                                          mType === "pretax_avail_corrie"
+                                            ? "N/A"
+                                            : "0"
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
+                                        Trigger Basis
+                                      </label>
+                                      <select
+                                        value={isTriggerByAgeVal ? "age" : "year"}
+                                        onChange={async (e) => {
+                                          const isAge = e.target.value === "age";
+                                          const doc = await db.plans
+                                            .findOne(plan.id)
+                                            .exec();
+                                          const updatedMilestones = (
+                                            activeScenario.milestones || []
+                                          ).map((ms: any, idx: number) =>
+                                            idx === mIdx
+                                              ? { ...ms, isTriggerByAge: isAge }
+                                              : ms,
+                                          );
+                                          const updatedScenarios =
+                                            plan.scenarios.map((s: any) =>
+                                              s.id === activeScenario.id
+                                                ? {
+                                                    ...s,
+                                                    milestones: updatedMilestones,
+                                                  }
+                                                : s,
+                                            );
+                                          await doc.patch({
+                                            scenarios: updatedScenarios,
+                                            updatedAt: Date.now(),
+                                          });
+                                          handleRunSimulation();
+                                        }}
+                                        className="w-full text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-700 dark:text-zinc-300 outline-none min-h-[28px]"
+                                      >
+                                        <option value="year">Target Year</option>
+                                        <option value="age">Retiree Age</option>
+                                      </select>
+                                    </div>
+
+                                    <div>
+                                      <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">
+                                        {isTriggerByAgeVal
+                                          ? "Age Trigger"
+                                          : "Year Trigger"}
+                                      </label>
+                                      <input
+                                        type="number"
+                                        defaultValue={
+                                          isTriggerByAgeVal ? trigAge : trigYear
+                                        }
+                                        key={`milestone-trigger-${milestoneId}`}
+                                        onBlur={async (e) => {
+                                          const val = Number(e.target.value);
+                                          if (
+                                            val ===
+                                            (isTriggerByAgeVal
+                                              ? trigAge
+                                              : trigYear)
+                                          )
+                                            return;
+                                          const doc = await db.plans
+                                            .findOne(plan.id)
+                                            .exec();
+                                          const updatedMilestones = (
+                                            activeScenario.milestones || []
+                                          ).map((ms: any, idx: number) => {
+                                            if (idx === mIdx) {
+                                              return isTriggerByAgeVal
+                                                ? { ...ms, triggerAge: val }
+                                                : {
+                                                    ...ms,
+                                                    triggerYear: val,
+                                                    targetYear: val,
+                                                  };
+                                            }
+                                            return ms;
+                                          });
+                                          const updatedScenarios =
+                                            plan.scenarios.map((s: any) =>
+                                              s.id === activeScenario.id
+                                                ? {
+                                                    ...s,
+                                                    milestones: updatedMilestones,
+                                                  }
+                                                : s,
+                                            );
+                                          await doc.patch({
+                                            scenarios: updatedScenarios,
+                                            updatedAt: Date.now(),
+                                          });
+                                          handleRunSimulation();
+                                        }}
+                                        className="w-full text-[11px] text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-zinc-900 dark:text-zinc-100 outline-none min-h-[28px]"
+                                        placeholder="2030 / 65"
+                                      />
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            );
-                          },
-                        )
+                            </div>
+                          );
+                        }
                       )}
-                    </div>
 
-                    <button
-                      onClick={async () => {
-                        const doc = await db.plans.findOne(plan.id).exec();
-                        const currentMilestones =
-                          activeScenario.milestones || [];
-                        const updatedScenarios = plan.scenarios.map(
-                          (s: any) => {
-                            if (s.id === activeScenario.id) {
-                              return {
-                                ...s,
-                                milestones: [
-                                  ...currentMilestones,
-                                  {
-                                    id: generateUUID(),
-                                    name: "New Milestone",
-                                    type: "pension",
-                                    amount: 20000,
-                                    isTriggerByAge: true,
-                                    triggerAge: 65,
-                                    triggerYear: 2045,
-                                  },
-                                ],
-                              };
-                            }
-                            return s;
-                          },
-                        );
-                        await doc.patch({
-                          scenarios: updatedScenarios,
-                          updatedAt: Date.now(),
-                        });
-                        handleRunSimulation();
-                      }}
-                      className="w-full text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1 py-1 px-2 border border-dashed border-blue-200 dark:border-blue-900/35 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/10 cursor-pointer focus:outline-none focus:ring-0 min-h-[36px] mt-2 mb-4"
-                    >
-                      <Plus size={14} /> Add Milestone
-                    </button>
+                      <button
+                        onClick={async () => {
+                          const doc = await db.plans.findOne(plan.id).exec();
+                          const currentMilestones =
+                            activeScenario.milestones || [];
+                          const updatedScenarios = plan.scenarios.map(
+                            (s: any) => {
+                              if (s.id === activeScenario.id) {
+                                return {
+                                  ...s,
+                                  milestones: [
+                                    ...currentMilestones,
+                                    {
+                                      id: generateUUID(),
+                                      name: "New Milestone",
+                                      type: "pension",
+                                      amount: 20000,
+                                      isTriggerByAge: true,
+                                      triggerAge: 65,
+                                      triggerYear: 2045,
+                                    },
+                                  ],
+                                };
+                              }
+                              return s;
+                            },
+                          );
+                          await doc.patch({
+                            scenarios: updatedScenarios,
+                            updatedAt: Date.now(),
+                          });
+                          handleRunSimulation();
+                        }}
+                        className="flex flex-col items-center justify-center border-2 border-dashed border-blue-200 dark:border-blue-900/30 rounded-xl hover:bg-blue-50/40 dark:hover:bg-blue-950/10 cursor-pointer p-4 transition-all hover:border-blue-400 dark:hover:border-blue-800 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 group min-h-[160px] bg-zinc-50/50 dark:bg-zinc-950/20"
+                      >
+                        <Plus size={22} className="mb-1.5 text-blue-500 dark:text-blue-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Add Milestone / Income</span>
+                      </button>
+                    </div>
 
                     {/* Auxiliary Income (Tax-Free) */}
                     <div className="pt-4 border-t border-zinc-250 dark:border-zinc-800">
@@ -2267,27 +2217,20 @@ export default function ScenarioBuilder({
                         gains or income tax drag.
                       </p>
 
-                      <div className="space-y-3 pr-1 mb-2">
-                        {!(
-                          activeScenario.nonTaxableGifts &&
-                          activeScenario.nonTaxableGifts.length > 0
-                        ) ? (
-                          <p className="text-xs text-zinc-400 dark:text-zinc-500 italic py-2 text-center">
-                            No auxiliary tax-free incomes specified.
-                          </p>
-                        ) : (
-                          (activeScenario.nonTaxableGifts || []).map(
-                            (gift: any, gIdx: number) => {
-                              const giftId = gift.id || `gift-idx-${gIdx}`;
-                              const isTriggerByAge =
-                                gift.startAge !== undefined ||
-                                gift.endAge !== undefined;
-                              return (
-                                <div
-                                  key={giftId}
-                                  className="bg-zinc-50 dark:bg-zinc-950/45 border border-zinc-200 dark:border-zinc-850 rounded-xl p-3 space-y-2.5"
-                                >
-                                  <div className="flex justify-between items-center gap-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-1 mb-4 items-stretch">
+                        {(activeScenario.nonTaxableGifts || []).map(
+                          (gift: any, gIdx: number) => {
+                            const giftId = gift.id || `gift-idx-${gIdx}`;
+                            const isTriggerByAge =
+                              gift.startAge !== undefined ||
+                              gift.endAge !== undefined;
+                            return (
+                              <div
+                                key={giftId}
+                                className="bg-zinc-50 dark:bg-zinc-950/45 border border-zinc-200 dark:border-zinc-850 rounded-xl p-3.5 flex flex-col justify-between gap-3 shadow-sm"
+                              >
+                                <div>
+                                  <div className="flex justify-between items-center gap-2 mb-2 pb-2 border-b border-zinc-100 dark:border-zinc-900">
                                     <input
                                       type="text"
                                       defaultValue={gift.name || ""}
@@ -2656,49 +2599,50 @@ export default function ScenarioBuilder({
                                     </div>
                                   </div>
                                 </div>
-                              );
-                            },
-                          )
+                              </div>
+                            );
+                          },
                         )}
-                      </div>
 
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const doc = await db.plans.findOne(plan.id).exec();
-                          const currentGifts =
-                            activeScenario.nonTaxableGifts || [];
-                          const updatedScenarios = plan.scenarios.map(
-                            (s: any) => {
-                              if (s.id === activeScenario.id) {
-                                return {
-                                  ...s,
-                                  nonTaxableGifts: [
-                                    ...currentGifts,
-                                    {
-                                      id: generateUUID(),
-                                      name: "New Gift Income",
-                                      annualAmount: 12000,
-                                      inflationAdjusted: true,
-                                      startYear: 2030,
-                                      endYear: 2040,
-                                    },
-                                  ],
-                                };
-                              }
-                              return s;
-                            },
-                          );
-                          await doc.patch({
-                            scenarios: updatedScenarios,
-                            updatedAt: Date.now(),
-                          });
-                          handleRunSimulation();
-                        }}
-                        className="w-full text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1 py-1 px-2 border border-dashed border-emerald-200 dark:border-emerald-900/35 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/10 cursor-pointer focus:outline-none focus:ring-0 min-h-[36px] mt-2 mb-4 bg-transparent"
-                      >
-                        <Plus size={14} /> Add Auxiliary Inflow
-                      </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const doc = await db.plans.findOne(plan.id).exec();
+                            const currentGifts =
+                              activeScenario.nonTaxableGifts || [];
+                            const updatedScenarios = plan.scenarios.map(
+                              (s: any) => {
+                                if (s.id === activeScenario.id) {
+                                  return {
+                                    ...s,
+                                    nonTaxableGifts: [
+                                      ...currentGifts,
+                                      {
+                                        id: generateUUID(),
+                                        name: "New Gift Income",
+                                        annualAmount: 12000,
+                                        inflationAdjusted: true,
+                                        startYear: 2030,
+                                        endYear: 2040,
+                                      },
+                                    ],
+                                  };
+                                }
+                                return s;
+                              },
+                            );
+                            await doc.patch({
+                              scenarios: updatedScenarios,
+                              updatedAt: Date.now(),
+                            });
+                            handleRunSimulation();
+                          }}
+                          className="flex flex-col items-center justify-center border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 rounded-xl hover:bg-emerald-50/40 dark:hover:bg-emerald-950/10 cursor-pointer p-4 transition-all hover:border-emerald-400 dark:hover:border-emerald-800 text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 group min-h-[160px] bg-zinc-50/50 dark:bg-zinc-950/20"
+                        >
+                          <Plus size={22} className="mb-1.5 text-emerald-500 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                          <span className="text-xs font-bold uppercase tracking-wider">Add Auxiliary Inflow</span>
+                        </button>
+                      </div>
                     </div>
 
                     <button
@@ -2719,6 +2663,7 @@ export default function ScenarioBuilder({
                     <button
                       onClick={() => {
                         setEditingAsset(null);
+                        setDefaultAssetType(undefined);
                         setShowAssetForm(true);
                       }}
                       className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline cursor-pointer focus:outline-none focus:ring-0"
@@ -2732,6 +2677,11 @@ export default function ScenarioBuilder({
                       assets={activeScenario.assets || []}
                       onEdit={(asset) => {
                         setEditingAsset(asset);
+                        setShowAssetForm(true);
+                      }}
+                      onAdd={(type) => {
+                        setEditingAsset(null);
+                        setDefaultAssetType(type);
                         setShowAssetForm(true);
                       }}
                       onDelete={async (assetId) => {
@@ -3017,9 +2967,11 @@ export default function ScenarioBuilder({
             <InvestmentForm
               initialAsset={editingAsset}
               siblingAssets={activeScenario.assets || []}
+              defaultAssetType={defaultAssetType}
               onCancel={() => {
                 setShowAssetForm(false);
                 setEditingAsset(null);
+                setDefaultAssetType(undefined);
               }}
               onSave={async (asset) => {
                 const doc = await db.plans.findOne(plan.id).exec();
@@ -3058,6 +3010,7 @@ export default function ScenarioBuilder({
                 });
                 setShowAssetForm(false);
                 setEditingAsset(null);
+                setDefaultAssetType(undefined);
                 handleRunSimulation();
               }}
             />
