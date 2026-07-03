@@ -114,6 +114,22 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
                 </tr>
               )}
             </tbody>
+            {data.length > 0 && (
+              <tfoot className="border-t-2 border-zinc-200 dark:border-zinc-800">
+                <tr className="bg-zinc-50 dark:bg-zinc-900/50">
+                  <td className="py-2 px-3 text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+                    Total
+                  </td>
+                  <td className="py-2 px-3 text-sm text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                    ${data.reduce((sum, row) => sum + (row.stockLiquidation || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </td>
+                  <td className="py-2 px-3 text-sm text-blue-600 dark:text-blue-400 font-mono font-bold">
+                    ${data.reduce((sum, row) => sum + (row.rothConversion || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </td>
+                  <td colSpan={4}></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>

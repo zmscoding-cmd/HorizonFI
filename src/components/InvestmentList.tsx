@@ -69,7 +69,7 @@ export function InvestmentList({ assets, onEdit, onDelete, onAdd }: InvestmentLi
                       {/* Asset Header: Name & Badges */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <h4 id={`investment-title-${asset.id}`} className="font-bold text-zinc-800 dark:text-zinc-100 text-xs truncate" title={asset.name}>
+                          <h4 id={`investment-title-${asset.id}`} className="font-bold text-zinc-800 dark:text-zinc-100 text-xs break-words whitespace-normal" title={asset.name}>
                             {asset.name}
                           </h4>
                           
@@ -92,23 +92,23 @@ export function InvestmentList({ assets, onEdit, onDelete, onAdd }: InvestmentLi
                           </div>
                         </div>
 
-                        {/* Actions overlay: Edit / Delete with full touch compliance */}
-                        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        {/* Actions overlay: Edit / Delete are always visible with full touch compliance */}
+                        <div className="flex items-center gap-0.5 shrink-0">
                           <button
                             id={`btn-edit-investment-${asset.id}`}
                             onClick={() => onEdit(asset)}
-                            className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer focus:outline-none"
+                            className="p-2 text-zinc-400 hover:text-blue-600 dark:text-zinc-500 dark:hover:text-blue-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer focus:outline-none"
                             aria-label="Edit investment"
                           >
-                            <Edit2 size={13} />
+                            <Edit2 size={14} />
                           </button>
                           <button
                             id={`btn-delete-investment-${asset.id}`}
                             onClick={() => onDelete(asset.id)}
-                            className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer focus:outline-none"
+                            className="p-2 text-zinc-400 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer focus:outline-none"
                             aria-label="Delete investment"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </div>
