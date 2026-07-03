@@ -54,6 +54,7 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
       withdrawnTaxable: (d.withdrawnTaxable || 0) / divisor,
       withdrawnTaxAdvantaged: (d.withdrawnTaxAdvantaged || 0) / divisor,
       withdrawalRate: Math.max(0, Math.min(100, withdrawalRate)),
+      excessExternalIncome: (d.excessExternalIncome || 0) / divisor,
     };
   });
 
@@ -230,6 +231,7 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
           <Area yAxisId="left" type="monotone" dataKey="withdrawnDividends" name="Dividends" stackId="1" stroke="#34d399" fill="#34d399" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxable" name="Taxable Principal" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxAdvantaged" name="401k/IRA" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.8} />
+          <Area yAxisId="left" type="monotone" dataKey="excessExternalIncome" name="Excess Income (Reinvested)" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.8} />
           
           {/* Target Budget Lines with high-contrast outline borders */}
           <Line 

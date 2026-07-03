@@ -27,13 +27,7 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
   const isDark = theme === 'dark' || theme === 'night-watch';
   const { currencyMode } = useCurrencyMode();
 
-  const hasLiquidationTarget = useMemo(() => {
-    return assets.some(a => a.isLiquidationTarget);
-  }, [assets]);
 
-  const hasDividendDestination = useMemo(() => {
-    return assets.some(a => a.isDividendDestination);
-  }, [assets]);
   
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -82,6 +76,7 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
         liquidationTargetSaleAmount: (snapshot.liquidationTargetSaleAmount || 0) / divisor,
         liquidationTaxPaid: (snapshot.liquidationTaxPaid || 0) / divisor,
         rothConversionAmount: (snapshot.rothConversionAmount || 0) / divisor,
+        excessExternalIncome: (snapshot.excessExternalIncome || 0) / divisor,
         _nominalTotal: snapshot.totalNetWorth ?? (cash + taxable + preTax + roth),
         _nominalChange: snapshot.changeInNetWorth || 0,
         _divisor: divisor
@@ -263,6 +258,13 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
             <span className="text-zinc-600 dark:text-zinc-400">Actual Withdrawal:</span>
             <span className="font-mono text-rose-500 dark:text-rose-400">-{formatCurrency(dataObj.actualSpend)}</span>
           </div>
+          
+          {dataObj.excessExternalIncome > 0 && (
+            <div className="flex justify-between items-center gap-4">
+              <span className="text-zinc-600 dark:text-zinc-400">Excess Reinvested:</span>
+              <span className="font-mono text-emerald-600 dark:text-emerald-400">+{formatCurrency(dataObj.excessExternalIncome)}</span>
+            </div>
+          )}
           
           {dataObj.taxDrag > 0 && (
             <div className="flex justify-between items-center gap-4">

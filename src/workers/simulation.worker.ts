@@ -1186,6 +1186,7 @@ export type MultiStageYearlySnapshot = {
   liquidationTargetSaleAmount?: number;
   liquidationTaxPaid?: number;
   rothConversionAmount?: number;
+  excessExternalIncome?: number;
 };
 
 export function computePresentValue(
@@ -1498,14 +1499,43 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     }
 
     const includeAuxiliary = activeStage?.includeAuxiliaryTaxFreeIncome ?? false;
-    const giftAmountUsed = includeAuxiliary ? Math.min(stageTargetBudgetNominal, activeGiftAmount) : 0;
-    const remainingFundingNeed = Math.max(0, stageTargetBudgetNominal - giftAmountUsed);
-
     const includeGlobal = activeStage?.includeGlobalIncomeStreams ?? false;
-    const totalGlobalIncome = pensionIncome + rrbIncome + otherIncome + currentFutureIncome;
-    const appliedGlobalIncome = includeGlobal ? totalGlobalIncome : 0;
 
-    let remainingBudgetTarget = Math.max(0, remainingFundingNeed - appliedGlobalIncome);
+    let availableAuxiliary = includeAuxiliary ? activeGiftAmount : 0;
+    let availableGlobal = includeGlobal ? (pensionIncome + rrbIncome + otherIncome + currentFutureIncome) : 0;
+
+    let excessExternalIncome = 0;
+    let giftAmountUsed = 0;
+    let remainingBudgetTarget = stageTargetBudgetNominal;
+
+    // Apply auxiliary first (tax free)
+    giftAmountUsed = Math.min(remainingBudgetTarget, availableAuxiliary);
+    remainingBudgetTarget -= giftAmountUsed;
+    let excessAuxiliary = availableAuxiliary - giftAmountUsed;
+
+    // Apply global
+    let globalUsed = Math.min(remainingBudgetTarget, availableGlobal);
+    remainingBudgetTarget -= globalUsed;
+    let excessGlobal = availableGlobal - globalUsed;
+
+    excessExternalIncome = excessAuxiliary + excessGlobal;
+
+    // Add excess to dividend destination or fallback
+    if (excessExternalIncome > 0) {
+      let destAsset = currentAssets.find(a => a.isDividendDestination);
+      if (!destAsset) {
+        destAsset = currentAssets.find(a => a.assetType === 'TAXABLE' && !a.isLiquidationTarget);
+      }
+      if (!destAsset) {
+        destAsset = currentAssets.find(a => a.assetType === 'TAXABLE');
+      }
+      if (!destAsset) {
+         destAsset = { id: 'auto-taxable-bucket', name: 'Taxable Fallback Destination', value: 0, assetType: 'TAXABLE', expectedGrowthRate: 0.05, expectedDividendYield: 0 };
+         currentAssets.push(destAsset);
+      }
+      destAsset.value += excessExternalIncome;
+    }
+
     let actualNominalWithdrawal = remainingBudgetTarget;
     
     // --- Manual Roth Conversion Execution ---
@@ -1535,11 +1565,16 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     let liquidationTargetSaleAmount = 0;
     let liquidationTaxPaid = 0;
     
-    const liqTargetAsset = currentAssets.find(a => a.isLiquidationTarget);
+    let liqTargetAsset = currentAssets.find(a => a.isLiquidationTarget);
     let divDestAsset = currentAssets.find(a => a.isDividendDestination);
     
+    // Fallback: If DP strategy recommends liquidation, but no target is set, fallback to the largest taxable asset
+    if (!liqTargetAsset && matchedStrategy && matchedStrategy.stockLiquidation && matchedStrategy.stockLiquidation > 0) {
+      liqTargetAsset = currentAssets.filter(a => a.assetType === 'TAXABLE' || a.type?.toLowerCase().includes('taxable')).sort((a,b) => b.value - a.value)[0];
+    }
+    
     if (!divDestAsset && liqTargetAsset) {
-      divDestAsset = currentAssets.find(a => a.assetType === 'TAXABLE' && a.id !== liqTargetAsset.id);
+      divDestAsset = currentAssets.find(a => (a.assetType === 'TAXABLE' || a.type?.toLowerCase().includes('taxable')) && a.id !== liqTargetAsset?.id);
       if (!divDestAsset) {
         divDestAsset = { id: 'auto-taxable-bucket', name: 'Taxable Fallback Destination', value: 0, assetType: 'TAXABLE', expectedGrowthRate: 0.05, expectedDividendYield: 0 };
         currentAssets.push(divDestAsset);
@@ -1955,10 +1990,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     const preTaxReal = preTaxNominal / cumInflation;
     const rothReal = rothNominal / cumInflation;
 
-    const finalLiqTarget = currentAssets.find(a => a.isLiquidationTarget);
-    const finalDivDest = currentAssets.find(a => a.isDividendDestination);
-    const liquidationTargetBalance = finalLiqTarget ? finalLiqTarget.value : 0;
-    const dividendDestinationBalance = finalDivDest ? finalDivDest.value : 0;
+    const liquidationTargetBalance = liqTargetAsset ? liqTargetAsset.value : 0;
+    const dividendDestinationBalance = divDestAsset ? divDestAsset.value : 0;
 
     chronologicalLedger.push({
       year: currentYear,
@@ -2008,7 +2041,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       dividendDestinationBalance,
       liquidationTargetSaleAmount,
       liquidationTaxPaid,
-      rothConversionAmount: targetRothConversionAmount
+      rothConversionAmount: targetRothConversionAmount,
+      excessExternalIncome
     });
     
     cumInflation *= (1 + payload.inflationRate);

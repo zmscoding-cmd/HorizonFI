@@ -359,6 +359,10 @@ export default function ScenarioBuilder({
             name: ast.name,
             value: Number(ast.value || 0),
             type: ast.type || "investment",
+            assetType: ast.assetType || "TAXABLE",
+            isLiquidationTarget: !!ast.isLiquidationTarget,
+            isDividendDestination: !!ast.isDividendDestination,
+            availableDate: ast.availableDate,
             growthRate:
               Number(ast.growthRate !== undefined ? ast.growthRate : 6.0) / 100,
             dividendYield:
@@ -911,7 +915,7 @@ export default function ScenarioBuilder({
                 <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-4">
                   Edit Active Scenario
                 </h4>
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5 focus:outline-none">
                       Scenario Name
@@ -1011,7 +1015,7 @@ export default function ScenarioBuilder({
                       className="w-full text-sm border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-xl p-3 border font-medium focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 focus:border-blue-500 dark:focus:border-red-500 outline-none transition-all min-h-[44px]"
                     />
                   </div>
-                  <div className="pt-3 border-t border-zinc-200/50 dark:border-zinc-800/80">
+                  <div className="md:col-span-3 pt-3 border-t border-zinc-200/50 dark:border-zinc-800/80">
                     <div className="flex justify-between items-center mb-3">
                       <h5 className="font-bold text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         Target Budget Phases
@@ -1138,7 +1142,7 @@ export default function ScenarioBuilder({
                             </button>
                           )}
 
-                          <div className="grid grid-cols-2 gap-3 pr-8">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pr-8">
                             <div>
                               <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                                 Start Year
@@ -1231,16 +1235,13 @@ export default function ScenarioBuilder({
                                 className="w-full text-xs border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 outline-none transition-all min-h-[44px]"
                               />
                             </div>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-3">
-                            <div>
-                              <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
-                                Baseline Budget ($){" "}
+                            <div className="lg:col-span-1">
+                              <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1 truncate" title="Baseline Budget ($)">
+                                Budget ($){" "}
                                 {index === 0 &&
                                   !!budgetDoc?.totalPlaintextAnnual && (
                                     <span className="text-blue-500 normal-case italic ml-1">
-                                      (Linked to Planned Expenses)
+                                      (Linked)
                                     </span>
                                   )}
                               </label>
@@ -2780,7 +2781,7 @@ export default function ScenarioBuilder({
               </div>
             </div>
 
-            <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 h-[320px] sm:h-[360px] flex flex-col transition-colors">
+            <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 h-[400px] sm:h-[500px] flex flex-col transition-colors">
               <h4 className="font-bold text-sm mb-4 text-zinc-700 dark:text-zinc-300">
                 Portfolio Longevity (Ending Balance across Decades)
               </h4>
@@ -2861,7 +2862,7 @@ export default function ScenarioBuilder({
               </div>
             </div>
 
-            <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 h-[320px] sm:h-[360px] flex flex-col transition-colors">
+            <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 h-[400px] sm:h-[500px] flex flex-col transition-colors">
               <h4 className="font-bold text-sm mb-4 text-zinc-700 dark:text-zinc-350">
                 Tax Drag Implications
               </h4>
