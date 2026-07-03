@@ -1895,3 +1895,16 @@ Trigger: User noted Roth conversions were being deferred to the final years of t
 [x] Offline Capability Verified
 [x] Mathematical Integrity (Front-loading) Confirmed
 [x] Web Worker DP Execution Confirmed
+
+### Checkpoint: DP Roth and Stock Tax Isolation & UX Expansion
+Trigger: User noted stock liquidation amounts varied unexpectedly ($197k -> $50k) and wanted more visibility into tax burdens across Roth and Stock liquidations.
+
+1. Architectural State Changes:
+- **Zero-Discount Engine Overhaul**: Replaced the previous negative discount rate time-shifting hack with a discrete `earlyActionBonus`. The DP engine now executes with `discountRate: 0` but explicitly adds a mathematical bonus (`(rothConversion * 0.05 + liquidityGenerated * 0.02) * (endAge - state.age)`) to the immediate utility calculation. This ensures the model fundamentally prefers early Roth conversions and early liquidations, *without* the artifact of depressing liquidations in non-Roth years.
+- **Tax Telemetry Isolation**: Expanded the Web Worker timeline generation to calculate and isolate the `taxFromRoth` (utilizing a precise 32/24/22/12% backward-layered marginal estimation) and `taxFromStock` (15% capital gains torpedo), returning these values separately to the main thread via the `BridgeOptimizationData` payload.
+- **Actionable Ledger Wide-Format**: Expanded the table within `BridgeStrategyTable.tsx` to horizontally scroll and display exact UI telemetry for "Tax (Roth)", "Tax (Stock)", and "Est. Total Tax".
+
+2. Verification:
+[x] Engine correctly sustains maximum stock liquidations in early non-Roth years (197k uninterrupted).
+[x] Bracket stacking telemetry returns exact integer representations of standard tax + roth tax overlay.
+[x] User UI is responsive and gracefully overflows on narrow viewports.

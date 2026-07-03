@@ -1,44 +1,48 @@
 const fs = require('fs');
 let code = fs.readFileSync('src/workers/simulation.worker.ts', 'utf8');
 
-const newLogic = `
-export function generateBridgeOptimizationTimeline(initialState, params) {
-  const timeline = [];
-  let currentState = { ...initialState };
-  // Clone lots
-  currentState.taxableLots = currentState.taxableLots.map(l => ({ ...l }));
+const target = `    timeline.push({
+      year: new Date().getFullYear() + (age - (params.startAge || initialState.age)),
+      ordinaryIncome: params.baseOrdinaryIncome + rothConv,
+      capitalGains: capitalGainsHarvested,
+      stockLiquidation: stockLiquidation,
+      rothConversion: rothConv,
+      effectiveMarginalRate: effectiveMarginalRate
+    });`;
 
-  for (let age = params.startAge || currentState.age; age <= params.endAge; age++) {
-    // Current year optimal path
-    const result = calculateOptimalMultiYearTaxPathDP(currentState, { ...params, endAge: params.endAge }, 0);
+const replacement = `    // Estimate isolated taxes for UI display
+    // Base standard tax
+    const STANDARD_DEDUCTION = 30000;
+    const baseMagi = params.baseOrdinaryIncome;
+    const baseOrdinary = Math.max(0, baseMagi - STANDARD_DEDUCTION);
+    const baseTax = baseOrdinary * 0.12;
+
+    // Tax with Roth
+    const rothMagi = params.baseOrdinaryIncome + rothConv;
+    const rothOrdinary = Math.max(0, rothMagi - STANDARD_DEDUCTION);
+    let rothTax = 0;
     
-    // Compute the actual liquidation and gains for this year
-    let stockLiquidation = 0;
-    let capitalGainsHarvested = 0;
-    for (const sold of result.lotsSold) {
-      const lot = currentState.taxableLots.find(l => l.id === sold.id);
-      if (lot) {
-        stockLiquidation += sold.sharesSold * lot.currentPrice;
-        capitalGainsHarvested += sold.sharesSold * Math.max(0, lot.currentPrice - lot.costBasisPerShare);
-        
-        // Update state for next iteration
-        lot.shares -= sold.sharesSold;
-      }
+    // Calculate precise bracket overlay for Roth
+    if (rothOrdinary > 383900) {
+      rothTax = (rothOrdinary - 383900) * 0.32 + (383900 - 201050) * 0.24 + (201050 - 94300) * 0.22 + (94300) * 0.12;
+    } else if (rothOrdinary > 201050) {
+      rothTax = (rothOrdinary - 201050) * 0.24 + (201050 - 94300) * 0.22 + (94300) * 0.12;
+    } else if (rothOrdinary > 94300) {
+      rothTax = (rothOrdinary - 94300) * 0.22 + (94300) * 0.12;
+    } else {
+      rothTax = rothOrdinary * 0.12;
     }
-    
-    // Remove empty lots
-    currentState.taxableLots = currentState.taxableLots.filter(l => l.shares > 0);
-    
-    // Update pretax/roth balances
-    const rothConv = result.rothConversionAmount;
-    currentState.preTaxBalance = Math.max(0, currentState.preTaxBalance - rothConv);
-    currentState.rothBalance += rothConv;
-    currentState.age = age + 1;
+    const rothOnlyTaxImpact = rothTax - baseTax;
 
-    // Estimate effective marginal rate
-    const combinedTaxableIncome = Math.max(0, params.baseOrdinaryIncome + rothConv - STANDARD_DEDUCTION_2026_EST) + capitalGainsHarvested;
-    const taxesPaid = result.taxesPaid;
-    const effectiveMarginalRate = combinedTaxableIncome > 0 ? taxesPaid / combinedTaxableIncome : 0;
+    let cgTaxPenalty = 0;
+    const combinedTaxableIncome = rothOrdinary + capitalGainsHarvested;
+    if (combinedTaxableIncome > 98900) {
+       if (rothOrdinary <= 98900) {
+         cgTaxPenalty = (combinedTaxableIncome - 98900) * 0.15;
+       } else {
+         cgTaxPenalty = capitalGainsHarvested * 0.15;
+       }
+    }
 
     timeline.push({
       year: new Date().getFullYear() + (age - (params.startAge || initialState.age)),
@@ -46,29 +50,16 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
       capitalGains: capitalGainsHarvested,
       stockLiquidation: stockLiquidation,
       rothConversion: rothConv,
-      effectiveMarginalRate: effectiveMarginalRate
-    });
-  }
-  
-  return timeline;
+      effectiveMarginalRate: effectiveMarginalRate,
+      estimatedTotalTax: baseTax + rothOnlyTaxImpact + cgTaxPenalty,
+      taxFromRoth: rothOnlyTaxImpact,
+      taxFromStock: cgTaxPenalty
+    });`;
+
+if (code.includes(target)) {
+    code = code.replace(target, replacement);
+    fs.writeFileSync('src/workers/simulation.worker.ts', code);
+    console.log("Timeline generator updated successfully.");
+} else {
+    console.log("Timeline target not found.");
 }
-`;
-
-code = code + '\n' + newLogic;
-
-code = code.replace(`
-    } else if (e.data.type === 'BRIDGE_OPTIMIZATION') {
-      const { state, params, depth, scenarioId } = e.data;
-      const result = calculateOptimalMultiYearTaxPathDP(state, params, depth || 0);
-      self.postMessage({ success: true, type: 'BRIDGE_OPTIMIZATION', scenarioId, data: result });
-    } else {
-`, `
-    } else if (e.data.type === 'BRIDGE_OPTIMIZATION') {
-      const { state, params, scenarioId } = e.data;
-      clearDPMemoCache(); // Clear cache before full run
-      const result = generateBridgeOptimizationTimeline(state, params);
-      self.postMessage({ success: true, type: 'BRIDGE_OPTIMIZATION', scenarioId, data: result });
-    } else {
-`);
-
-fs.writeFileSync('src/workers/simulation.worker.ts', code);

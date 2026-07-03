@@ -597,3 +597,16 @@ When you hover over any year on the chart, the interactive tooltip expands to pr
 *   **Concentrated Shares Sold:** The tooltip dynamically reveals the exact nominal or inflation-adjusted dollar amount of concentrated stock sold during that specific year.
 *   **Capital Gains Taxes Paid:** Displays the precise, progressive capital gains tax drag incurred during that year's liquidation step, providing complete, uncompromised planning transparency.
 
+
+## 13. Bridge Optimization & Actionable Strategy Ledger
+
+To seamlessly bridge the gap between early retirement and traditional retirement milestones (like Social Security and RMDs), HorizonFI employs a Dynamic Programming (DP) engine.
+
+### 1. Early Action Bonus and Tax Isolation
+*   **Mathematical Pull-Forward:** The DP engine explicitly favors pulling Roth conversions and concentrated stock liquidations forward in your timeline. By employing an `earlyActionBonus`, the mathematical utility correctly reflects that paying taxes on a Roth conversion in early retirement is fundamentally advantageous to avoiding a 32% "RMD penalty" at age 75+.
+*   **Precision Tax Overlay:** The timeline explicitly isolates standard marginal taxes (calculated using backward-layered 32/24/22/12% progressive margins) from the **Capital Gains Tax Torpedo** (the 15% rate applied to stock liquidations when your combined income breaches the 0% LTCG bounds). 
+
+### 2. Actionable Strategy Ledger UX
+The `BridgeOptimizationDashboard` exposes an **Actionable Strategy Ledger**.
+*   **Transparent Tax Telemetry:** The ledger horizontally expands to display the precise, isolated tax impacts of both Roth conversions (`Tax (Roth)`) and Stock Liquidations (`Tax (Stock)`), next to the `Est. Total Tax`. 
+*   **One-Click Execution:** Users can review the engine's suggested yearly optimization paths and click "Apply" to instantly patch specific yearly parameters (such as `targetRothConversionAmount`) straight into their active Scenario Budget for real-time visualization and compounding analysis.

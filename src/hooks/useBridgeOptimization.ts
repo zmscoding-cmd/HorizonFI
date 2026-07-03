@@ -89,7 +89,7 @@ export function useBridgeOptimization(planId: string | undefined, scenarioId: st
           baseOrdinaryIncome: scenario.baseOrdinaryIncome || 50000,
           guytonKlingerTarget: scenario.guytonKlingerTarget || 50000,
           rrbTier1Benefits: 0,
-          discountRate: -0.02,
+          discountRate: 0.0,
           stockLiquidationStartAge,
           rothConversionStartAge
         };

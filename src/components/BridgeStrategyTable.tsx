@@ -8,6 +8,9 @@ export interface BridgeOptimizationData {
   stockLiquidation: number;
   rothConversion: number;
   effectiveMarginalRate: number;
+  estimatedTotalTax?: number;
+  taxFromRoth?: number;
+  taxFromStock?: number;
 }
 
 interface BridgeStrategyTableProps {
@@ -38,7 +41,9 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
                 <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Year</th>
                 <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Stock Liquidation</th>
                 <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Roth Conversion</th>
-                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Effective Tax Impact</th>
+                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tax (Roth)</th>
+                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tax (Stock)</th>
+                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Est. Total Tax</th>
                 <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-center">Execute</th>
               </tr>
             </thead>
@@ -52,8 +57,14 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
                   <td className="py-3.5 px-4 text-sm text-blue-600 dark:text-blue-400 font-mono font-medium">
                     ${row.rothConversion.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </td>
-                  <td className="py-3.5 px-4 text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                    {(row.effectiveMarginalRate * 100).toFixed(1)}%
+                  <td className="py-3.5 px-4 text-sm text-red-500 dark:text-red-400 font-mono font-medium">
+                    {row.taxFromRoth !== undefined ? '$' + row.taxFromRoth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
+                  </td>
+                  <td className="py-3.5 px-4 text-sm text-amber-500 dark:text-amber-400 font-mono font-medium">
+                    {row.taxFromStock !== undefined ? '$' + row.taxFromStock.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
+                  </td>
+                  <td className="py-3.5 px-4 text-sm text-zinc-700 dark:text-zinc-300 font-mono font-bold">
+                    {row.estimatedTotalTax !== undefined ? '$' + row.estimatedTotalTax.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
                   </td>
                   <td className="py-3.5 px-4 text-center">
                     <button 
@@ -69,7 +80,7 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                  <td colSpan={7} className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
                     No optimization data available for the selected horizon.
                   </td>
                 </tr>

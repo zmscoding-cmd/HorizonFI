@@ -2200,8 +2200,11 @@ export function calculateOptimalMultiYearTaxPathDP(
     const nextResult = calculateOptimalMultiYearTaxPathDP(nextState, params, depth + 1);
     
     // Discounted Utility
-    // Maximize generated liquidity and future utility while minimizing taxes paid
-    const currentUtility = (liquidityGenerated - taxesPaid) + (nextResult.utility / (1 + params.discountRate));
+    // We add an early action bonus to mathematically strongly prefer doing Roth conversions 
+    // and concentrated stock liquidations as early as possible in the bridge timeline.
+    const earlyActionBonus = params.discountRate <= 0 ? (rothConversion * 0.005 + liquidityGenerated * 0.002) * Math.max(0, params.endAge - state.age) : 0;
+    const safeDiscount = Math.max(0, params.discountRate || 0);
+    const currentUtility = (liquidityGenerated - taxesPaid) + earlyActionBonus + (nextResult.utility / (1 + safeDiscount));
 
     if (currentUtility > bestPath.utility) {
       bestPath = {
@@ -2262,13 +2265,50 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
     const taxesPaid = result.taxesPaid;
     const effectiveMarginalRate = combinedTaxableIncome > 0 ? taxesPaid / combinedTaxableIncome : 0;
 
+    // Estimate isolated taxes for UI display
+    // Base standard tax
+    const STANDARD_DEDUCTION = 30000;
+    const baseMagi = params.baseOrdinaryIncome;
+    const baseOrdinary = Math.max(0, baseMagi - STANDARD_DEDUCTION);
+    const baseTax = baseOrdinary * 0.12;
+
+    // Tax with Roth
+    const rothMagi = params.baseOrdinaryIncome + rothConv;
+    const rothOrdinary = Math.max(0, rothMagi - STANDARD_DEDUCTION);
+    let rothTax = 0;
+    
+    // Calculate precise bracket overlay for Roth
+    if (rothOrdinary > 383900) {
+      rothTax = (rothOrdinary - 383900) * 0.32 + (383900 - 201050) * 0.24 + (201050 - 94300) * 0.22 + (94300) * 0.12;
+    } else if (rothOrdinary > 201050) {
+      rothTax = (rothOrdinary - 201050) * 0.24 + (201050 - 94300) * 0.22 + (94300) * 0.12;
+    } else if (rothOrdinary > 94300) {
+      rothTax = (rothOrdinary - 94300) * 0.22 + (94300) * 0.12;
+    } else {
+      rothTax = rothOrdinary * 0.12;
+    }
+    const rothOnlyTaxImpact = rothTax - baseTax;
+
+    let cgTaxPenalty = 0;
+    const combinedTaxableIncomeForUI = rothOrdinary + capitalGainsHarvested;
+    if (combinedTaxableIncomeForUI > 98900) {
+       if (rothOrdinary <= 98900) {
+         cgTaxPenalty = (combinedTaxableIncomeForUI - 98900) * 0.15;
+       } else {
+         cgTaxPenalty = capitalGainsHarvested * 0.15;
+       }
+    }
+
     timeline.push({
       year: new Date().getFullYear() + (age - (params.startAge || initialState.age)),
       ordinaryIncome: params.baseOrdinaryIncome + rothConv,
       capitalGains: capitalGainsHarvested,
       stockLiquidation: stockLiquidation,
       rothConversion: rothConv,
-      effectiveMarginalRate: effectiveMarginalRate
+      effectiveMarginalRate: effectiveMarginalRate,
+      estimatedTotalTax: baseTax + rothOnlyTaxImpact + cgTaxPenalty,
+      taxFromRoth: rothOnlyTaxImpact,
+      taxFromStock: cgTaxPenalty
     });
   }
   
