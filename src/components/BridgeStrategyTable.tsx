@@ -40,13 +40,13 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
           <table className="min-w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Year</th>
-                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Stock Liquidation</th>
-                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Roth Conversion</th>
-                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tax (Roth)</th>
-                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tax (Stock)</th>
-                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Est. Total Tax</th>
-                <th className="py-3 px-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-center">Execute</th>
+                <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Year</th>
+                <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Stock Liquidation</th>
+                <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Roth Conversion</th>
+                <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tax (Roth)</th>
+                <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tax (Stock)</th>
+                <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Est. Total Tax</th>
+                <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-center">Execute</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
@@ -59,35 +59,35 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
 
                 return (
                   <tr key={row.year} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                    <td className="py-3.5 px-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{row.year}</td>
-                    <td className="py-3.5 px-4 text-sm text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+                    <td className="py-1 px-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{row.year}</td>
+                    <td className="py-1 px-3 text-sm text-emerald-600 dark:text-emerald-400 font-mono font-medium">
                       ${row.stockLiquidation.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </td>
-                    <td className="py-3.5 px-4 text-sm text-blue-600 dark:text-blue-400 font-mono font-medium">
+                    <td className="py-1 px-3 text-sm text-blue-600 dark:text-blue-400 font-mono font-medium">
                       ${row.rothConversion.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </td>
-                    <td className="py-3.5 px-4 text-sm text-red-500 dark:text-red-400 font-mono font-medium">
+                    <td className="py-1 px-3 text-sm text-red-500 dark:text-red-400 font-mono font-medium">
                       {row.taxFromRoth !== undefined ? '$' + row.taxFromRoth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
                     </td>
-                    <td className="py-3.5 px-4 text-sm text-amber-500 dark:text-amber-400 font-mono font-medium">
+                    <td className="py-1 px-3 text-sm text-amber-500 dark:text-amber-400 font-mono font-medium">
                       {row.taxFromStock !== undefined ? '$' + row.taxFromStock.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
                     </td>
-                    <td className="py-3.5 px-4 text-sm text-zinc-700 dark:text-zinc-300 font-mono font-bold">
+                    <td className="py-1 px-3 text-sm text-zinc-700 dark:text-zinc-300 font-mono font-bold">
                       {row.estimatedTotalTax !== undefined ? '$' + row.estimatedTotalTax.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
                     </td>
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-1 px-3 text-center">
                       {isApplied ? (
-                        <span className="min-w-[80px] min-h-[44px] px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 animate-fade-in">
-                          <CheckCircle2 size={14} className="text-emerald-500" />
+                        <span className="min-w-[70px] min-h-[28px] px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-[11px] font-bold inline-flex items-center justify-center gap-1.5 animate-fade-in">
+                          <CheckCircle2 size={12} className="text-emerald-500" />
                           Applied
                         </span>
                       ) : (
                         <button 
                           type="button"
                           onClick={() => onApplyYearlyStrategy?.(row.year, row.stockLiquidation, row.rothConversion)}
-                          className="min-w-[80px] min-h-[44px] px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500"
+                          className="min-w-[70px] min-h-[28px] px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-[11px] font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
-                          <CheckCircle2 size={14} />
+                          <CheckCircle2 size={12} />
                           Apply
                         </button>
                       )}

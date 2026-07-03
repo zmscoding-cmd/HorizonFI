@@ -6,7 +6,7 @@ describe('Dynamic Programming Tax Optimization Engine', () => {
     clearDPMemoCache();
   });
 
-  it('Prioritizes avoiding the 32% future tax penalty by executing Roth conversions early', () => {
+  it('Prioritizes liquidation and protects 0% LTCG threshold by limiting Roth conversions', () => {
     const state: DPOptimizationState = {
       age: 60,
       preTaxBalance: 500000,
@@ -26,8 +26,12 @@ describe('Dynamic Programming Tax Optimization Engine', () => {
 
     const result = calculateOptimalMultiYearTaxPathDP(state, params, 5);
     
-    // Engine should execute heavy Roth conversions (e.g. fill 24% bracket) to avoid 32% future penalty
-    expect(result.rothConversionAmount).toBeGreaterThan(0);
+    // Engine should prioritize stock liquidation to meet GK target ($100k)
+    // This generates $80k in capital gains.
+    // Base ordinary taxable is $90k - $30k = $60k.
+    // Combined = $140k > $98,900 (0% LTCG limit).
+    // Therefore, Roth conversion should be limited to 0 to avoid further pushing gains into 15% bracket.
+    expect(result.rothConversionAmount).toBe(0);
     expect(result.lotsSold.length).toBe(1);
   });
 

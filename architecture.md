@@ -1975,3 +1975,17 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 ## VIII. Spacious Segmented View Layouts (Checkpoint 5)
 * **Single-Pane Full-Width Presentation**: Replaced the cramped multi-column split layout on the "Long-Term Simulation" and "Multi-Stage Modeling" views with dynamic full-width single panes. These are toggled seamlessly via custom high-contrast Segmented controllers matching HorizonFI premium slate styling. This layout refactoring provides extensive horizontal canvas for multi-decade Recharts line/area visualizations, data tables, and dynamic timeline grids.
 * **Ergonomic Configuration Containers**: Implemented local state-driven view selectors (`"config"` vs `"visualizations"`) inside both components. Config screens are wrapped in polished `max-w-5xl mx-auto` containers to preserve typography hierarchy, prevent input field stretching, and guarantee clean mobile-first responsive interactions across ultra-wide desktop browsers and handheld device wrappers alike.
+
+
+## IX. High Information Density Ledger Optimization (Checkpoint 6)
+* **Row-Padding Compression**: Drastically decreased vertical padding of table cells inside the Actionable Strategy Ledger (`BridgeStrategyTable.tsx`) from a loose `py-3.5 px-4` to a high-density `py-1 px-3` and table headers to `py-2 px-3`. This shrinks average row height by approximately 40%, ensuring that significantly more projection years are visible in the scrollable view simultaneously without degrading legible tracking or typographic alignment.
+* **Compact Executable Controls**: Reduced action trigger buttons and applied state badge dimensions from a heavy `min-h-[44px]` with standard pads to a sleek `min-h-[28px] px-2.5 py-1 text-[11px]` footprint with custom icons, maintaining touch-targeting responsiveness for cursor interactions while maximizing informational density.
+
+## X. Tax Bracket Targeted Optimization & Selective Drag (Checkpoint 7)
+* **Taxable-First Drag Application**: Updated the core long-term portfolio projection (`simulateMultiStageDrawdownWorker` in `simulation.worker.ts`) to preferentially deduct the calculated annual tax drag from "Taxable" brokerage accounts instead of universally penalizing all assets. If the taxable accounts are fully depleted, the engine falls back to a proportional deduction to maintain computational integrity.
+* **Liquidation-Prioritized DP Heuristic**: Refactored the dynamic programming search tree (`calculateOptimalMultiYearTaxPathDP`) to explicitly align with the Tax Bracket Optimization suite logic. It now calculates stock liquidations first (up to the target LTCG bracket or the Guyton-Klinger need), then fills any remaining space in the target ordinary bracket with Roth conversions. This correctly prioritizes liquidity extraction without pushing the harvested gains out of the 0% LTCG threshold.
+
+## XI. Unification of Bridge Optimization Views (Checkpoint 8)
+* **Component De-duplication**: Removed the redundant `BridgeOptimizationDashboard` instance and its import from the "Long-Term Simulation" scenario configuration panel. This simplifies the scenario setup experience and directs the user to the unified, feature-complete implementation in the Multi-Stage Modeling analytics tab.
+* **Propagated State Integrity**: Retained parent-level subscriptions to `useBridgeOptimization` within `ScenarioBuilder.tsx` to feed clean, real-time reactive payloads down to the nested `MultistageModelingView.tsx` component, preserving thread safety, reactive updates, and offline resilience constraints.
+

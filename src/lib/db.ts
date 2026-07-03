@@ -140,6 +140,7 @@ export type SubScenario = {
   bridgeStockLiquidationStartYear?: number;
   bridgeRothConversionStartYear?: number;
   bridgeRothMarginalBrackets?: { startYear: number; endYear: number; bracket: number; }[];
+  appliedBridgeStrategies?: { year: number; stockLiquidation: number; rothConversion: number; }[];
 };
 
 export type PlanType = {

@@ -1815,10 +1815,29 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     
     // Deduct tax drag
     if (balanceAfterGrowth > 0 && estimatedTaxDrag > 0) {
-      const taxFactor = Math.max(0, (balanceAfterGrowth - estimatedTaxDrag) / balanceAfterGrowth);
-      currentAssets.forEach(a => {
-         a.value *= taxFactor;
-      });
+      let remainingTaxDrag = estimatedTaxDrag;
+      
+      // 1. Attempt to deduct from taxable accounts first
+      const taxableAssets = currentAssets.filter(a => a.assetType === "TAXABLE");
+      for (const a of taxableAssets) {
+        if (remainingTaxDrag <= 0) break;
+        if (a.value > 0) {
+          const deduction = Math.min(a.value, remainingTaxDrag);
+          a.value -= deduction;
+          remainingTaxDrag -= deduction;
+        }
+      }
+      
+      // 2. If there is still tax drag remaining, deduct proportionally from all remaining assets as a fallback
+      if (remainingTaxDrag > 0) {
+        const remainingBalance = currentAssets.reduce((sum, a) => sum + a.value, 0);
+        if (remainingBalance > 0) {
+          const factor = Math.max(0, (remainingBalance - remainingTaxDrag) / remainingBalance);
+          currentAssets.forEach(a => {
+             a.value *= factor;
+          });
+        }
+      }
     }
     
     const finalBalance = currentAssets.reduce((sum, a) => sum + a.value, 0);
@@ -2109,144 +2128,154 @@ export function calculateOptimalMultiYearTaxPathDP(
   });
 
     const baseOrdinary = params.baseOrdinaryIncome;
-  let rothOptions = [0];
-  if (!params.rothConversionStartAge || state.age >= params.rothConversionStartAge) {
-    const currentYear = new Date().getFullYear() + (state.age - (params.startAge || state.age));
-    
-    let targetBracketRate = 0.12; 
-    if (params.rothMarginalBrackets && params.rothMarginalBrackets.length > 0) {
-      const activeBracket = params.rothMarginalBrackets.find(b => currentYear >= b.startYear && currentYear <= b.endYear);
-      if (activeBracket) {
-        targetBracketRate = activeBracket.bracket;
-      }
-    }
-    
-    // Map bracket rates to their taxable income ceilings (2026 MFJ projected)
-    let bracketCeiling = 94300; // 12% default
-    if (targetBracketRate <= 0.10) bracketCeiling = 23200;
-    else if (targetBracketRate <= 0.12) bracketCeiling = 94300;
-    else if (targetBracketRate <= 0.22) bracketCeiling = 201050;
-    else if (targetBracketRate <= 0.24) bracketCeiling = 383900;
-    else bracketCeiling = 487450;
-
-    const fillStandardDeduction = Math.max(0, STANDARD_DEDUCTION - baseOrdinary);
-    const fillTargetBracket = Math.max(0, bracketCeiling + STANDARD_DEDUCTION - baseOrdinary);
-    
-    rothOptions = [0, fillStandardDeduction, fillTargetBracket]
-      .map(amt => Math.floor(amt))
-      .filter(amt => amt <= state.preTaxBalance && amt >= 0);
-    rothOptions = Array.from(new Set(rothOptions)).sort((a, b) => a - b);
-  }
-
   let bestPath: DPOptimalPath = { utility: -Infinity, rothConversionAmount: 0, lotsSold: [], taxesPaid: 0 };
 
-  for (const rothConversion of rothOptions) {
-    let stockTargets = [params.guytonKlingerTarget];
-    
-    if (!params.stockLiquidationStartAge || state.age >= params.stockLiquidationStartAge) {
-      const hasConcentrated = sortedLots.some(l => l.isTargetConcentratedPosition);
-      if (hasConcentrated) {
-         // Max gains before hitting 15% bracket, GIVEN the current roth conversion
-         // If we are doing a large roth conversion, maxGains0Percent might be 0, which correctly halts stock liquidation
-         const maxGains0Percent = Math.max(0, 98900 + STANDARD_DEDUCTION - (baseOrdinary + rothConversion));
-         let currentGain = 0;
-         let currentLiquidity = 0;
-         for (const lot of sortedLots) {
-            if (!lot.isTargetConcentratedPosition) continue;
-            const gainRatio = Math.max(0, lot.currentPrice - lot.costBasisPerShare) / lot.currentPrice;
-            if (gainRatio === 0) {
-                currentLiquidity += lot.shares * lot.currentPrice;
-            } else {
-                const remainingGain = maxGains0Percent - currentGain;
-                if (remainingGain <= 0) break;
-                const maxSharesForGain = remainingGain / (lot.currentPrice - lot.costBasisPerShare);
-                const sharesToSell = Math.min(lot.shares, maxSharesForGain);
-                currentGain += sharesToSell * (lot.currentPrice - lot.costBasisPerShare);
-                currentLiquidity += sharesToSell * lot.currentPrice;
-            }
-         }
-         stockTargets.push(Math.max(params.guytonKlingerTarget, currentLiquidity));
-         
-
-      }
-    } else {
-      stockTargets = [0];
-    }
-    
-    stockTargets = Array.from(new Set(stockTargets.map(amt => Math.floor(amt)))).sort((a, b) => a - b);
-
-    for (const effectiveTarget of stockTargets) {
-      let capitalGainsHarvested = 0;
-      let liquidityGenerated = 0;
-      const lotsSold: { id: string, sharesSold: number }[] = [];
-      const nextLots = state.taxableLots.map(l => ({ ...l }));
-      
-      for (const lot of sortedLots) {
-        if (liquidityGenerated >= effectiveTarget) break;
-        const lotIndex = nextLots.findIndex(l => l.id === lot.id);
-        const liquidityNeeded = effectiveTarget - liquidityGenerated;
-        const sharesToSell = Math.min(lot.shares, liquidityNeeded / lot.currentPrice);
-        if (sharesToSell > 0) {
-          lotsSold.push({ id: lot.id, sharesSold: sharesToSell });
-          liquidityGenerated += sharesToSell * lot.currentPrice;
-          capitalGainsHarvested += sharesToSell * Math.max(0, lot.currentPrice - lot.costBasisPerShare);
-          nextLots[lotIndex].shares -= sharesToSell;
-        }
-      }
-    // 1. Calculate Ordinary Income & RRB Taxation
-    const baseMagi = params.baseOrdinaryIncome + rothConversion;
-    const { taxableRRB } = calculateProvisionalIncome(baseMagi, params.rrbTier1Benefits);
-    const totalOrdinaryIncome = baseMagi + taxableRRB;
-    const taxableOrdinary = Math.max(0, totalOrdinaryIncome - STANDARD_DEDUCTION);
-
-    // 2. Prevent IRMAA Cliff
-    if (checkIrmaaCliff(baseMagi)) continue; // Reject path if it trips IRMAA cliff
-
-    // 4. Tax Stacking (LTCG on top of Ordinary)
-    const combinedTaxableIncome = taxableOrdinary + capitalGainsHarvested;
-    // Calculate Tax Torpedo Avoidance (15% LTCG bracket threshold = $98,900 MFJ 2026)
-    let taxPenalty = 0;
-    if (combinedTaxableIncome > 98900) {
-       if (taxableOrdinary <= 98900) {
-         // Pushed into the 15% bracket partially or fully
-         taxPenalty += (combinedTaxableIncome - 98900) * 0.15;
-       } else {
-         // All capital gains are in the 15% bracket
-         taxPenalty += capitalGainsHarvested * 0.15;
-       }
-    }
-
-    // Rough tax estimation
-    const taxesPaid = (taxableOrdinary * 0.12) + taxPenalty;
-    
-    const nextState: DPOptimizationState = {
-      age: state.age + 1,
-      preTaxBalance: state.preTaxBalance - rothConversion,
-      rothBalance: state.rothBalance + rothConversion,
-      taxableLots: nextLots.filter(l => l.shares > 0.001)
-    };
-
-    // Recurse
-    const nextResult = calculateOptimalMultiYearTaxPathDP(nextState, params, depth + 1);
-    
-    // Discounted Utility
-    // We add an early action bonus to mathematically strongly prefer doing Roth conversions 
-    // and concentrated stock liquidations as early as possible in the bridge timeline.
-    const earlyActionBonus = params.discountRate <= 0 ? (rothConversion * 0.002 + liquidityGenerated * 0.005) * Math.max(0, params.endAge - state.age) : 0;
-    const safeDiscount = Math.max(0, params.discountRate || 0);
-    const currentUtility = (liquidityGenerated - taxesPaid) + earlyActionBonus + (nextResult.utility / (1 + safeDiscount));
-
-    if (currentUtility > bestPath.utility) {
-      bestPath = {
-        utility: currentUtility,
-        rothConversionAmount: rothConversion,
-        lotsSold,
-        taxesPaid
-      };
+  // 1. Determine Target Bracket Rate
+  let targetOrdinaryRate = 0.12; 
+  const currentYear = new Date().getFullYear() + (state.age - (params.startAge || state.age));
+  if (params.rothMarginalBrackets && params.rothMarginalBrackets.length > 0) {
+    const activeBracket = params.rothMarginalBrackets.find(b => currentYear >= b.startYear && currentYear <= b.endYear);
+    if (activeBracket) {
+      targetOrdinaryRate = activeBracket.bracket;
     }
   }
+  
+  let ordinaryCeiling = 94300; // 12% default
+  if (targetOrdinaryRate <= 0.10) ordinaryCeiling = 23200;
+  else if (targetOrdinaryRate <= 0.12) ordinaryCeiling = 94300;
+  else if (targetOrdinaryRate <= 0.22) ordinaryCeiling = 201050;
+  else if (targetOrdinaryRate <= 0.24) ordinaryCeiling = 383900;
+  else ordinaryCeiling = 487450;
 
+  // 2. Determine Stock Liquidation Targets (Prioritized)
+  let stockTargets = [params.guytonKlingerTarget];
+  
+  if (!params.stockLiquidationStartAge || state.age >= params.stockLiquidationStartAge) {
+    const hasConcentrated = sortedLots.some(l => l.isTargetConcentratedPosition);
+    if (hasConcentrated) {
+       // Prioritize Liquidation: Assume 0 Roth conversion when calculating max gains
+       const maxGains0Percent = Math.max(0, 98900 + STANDARD_DEDUCTION - baseOrdinary);
+       let currentGain = 0;
+       let currentLiquidity = 0;
+       for (const lot of sortedLots) {
+          if (!lot.isTargetConcentratedPosition) continue;
+          const gainRatio = Math.max(0, lot.currentPrice - lot.costBasisPerShare) / lot.currentPrice;
+          if (gainRatio === 0) {
+              currentLiquidity += lot.shares * lot.currentPrice;
+          } else {
+              const remainingGain = maxGains0Percent - currentGain;
+              if (remainingGain <= 0) break;
+              const maxSharesForGain = remainingGain / (lot.currentPrice - lot.costBasisPerShare);
+              const sharesToSell = Math.min(lot.shares, maxSharesForGain);
+              currentGain += sharesToSell * (lot.currentPrice - lot.costBasisPerShare);
+              currentLiquidity += sharesToSell * lot.currentPrice;
+          }
+       }
+       stockTargets.push(Math.max(params.guytonKlingerTarget, currentLiquidity));
     }
+  } else {
+    stockTargets = [0];
+  }
+  
+  stockTargets = Array.from(new Set(stockTargets.map(amt => Math.floor(amt)))).sort((a, b) => a - b);
+
+  // 3. Evaluate each Stock Target
+  for (const effectiveTarget of stockTargets) {
+    let capitalGainsHarvested = 0;
+    let liquidityGenerated = 0;
+    const lotsSold: { id: string, sharesSold: number }[] = [];
+    const nextLots = state.taxableLots.map(l => ({ ...l }));
+    
+    for (const lot of sortedLots) {
+      if (liquidityGenerated >= effectiveTarget) break;
+      const lotIndex = nextLots.findIndex(l => l.id === lot.id);
+      const liquidityNeeded = effectiveTarget - liquidityGenerated;
+      const sharesToSell = Math.min(lot.shares, liquidityNeeded / lot.currentPrice);
+      if (sharesToSell > 0) {
+        lotsSold.push({ id: lot.id, sharesSold: sharesToSell });
+        liquidityGenerated += sharesToSell * lot.currentPrice;
+        capitalGainsHarvested += sharesToSell * Math.max(0, lot.currentPrice - lot.costBasisPerShare);
+        nextLots[lotIndex].shares -= sharesToSell;
+      }
+    }
+
+    // 4. Determine Roth Conversion Options (Remaining Space)
+    let rothOptions = [0];
+    if (!params.rothConversionStartAge || state.age >= params.rothConversionStartAge) {
+      const fillStandardDeduction = Math.max(0, STANDARD_DEDUCTION - baseOrdinary);
+      
+      // Calculate remaining space in the 0% LTCG bracket
+      const baselineTaxableOrdinary = Math.max(0, baseOrdinary - STANDARD_DEDUCTION);
+      const combinedTaxableSoFar = baselineTaxableOrdinary + capitalGainsHarvested;
+      const remainingLTCGCapacity = Math.max(0, 98900 - combinedTaxableSoFar);
+      
+      // Ordinary limit is bounded by the target ordinary ceiling AND the remaining LTCG capacity
+      // so that Roth conversions don't push the prioritized stock sales into the 15% bracket
+      const fillTargetBracket = Math.max(0, ordinaryCeiling + STANDARD_DEDUCTION - baseOrdinary);
+      const safeRothToProtectLTCG = remainingLTCGCapacity + Math.max(0, STANDARD_DEDUCTION - baseOrdinary);
+      const optimalRothConversion = Math.min(fillTargetBracket, safeRothToProtectLTCG);
+      
+      rothOptions = [0, fillStandardDeduction, optimalRothConversion]
+        .map(amt => Math.floor(amt))
+        .filter(amt => amt <= state.preTaxBalance && amt >= 0);
+      rothOptions = Array.from(new Set(rothOptions)).sort((a, b) => a - b);
+    }
+
+    // 5. Evaluate Roth Options for this Stock Target
+    for (const rothConversion of rothOptions) {
+      // 1. Calculate Ordinary Income & RRB Taxation
+      const baseMagi = baseOrdinary + rothConversion;
+      const { taxableRRB } = calculateProvisionalIncome(baseMagi, params.rrbTier1Benefits);
+      const totalOrdinaryIncome = baseMagi + taxableRRB;
+      const taxableOrdinary = Math.max(0, totalOrdinaryIncome - STANDARD_DEDUCTION);
+
+      // 2. Prevent IRMAA Cliff
+      if (checkIrmaaCliff(baseMagi)) continue; // Reject path if it trips IRMAA cliff
+
+      // 4. Tax Stacking (LTCG on top of Ordinary)
+      const combinedTaxableIncome = taxableOrdinary + capitalGainsHarvested;
+      // Calculate Tax Torpedo Avoidance (15% LTCG bracket threshold = $98,900 MFJ 2026)
+      let taxPenalty = 0;
+      if (combinedTaxableIncome > 98900) {
+         if (taxableOrdinary <= 98900) {
+           // Pushed into the 15% bracket partially or fully
+           taxPenalty += (combinedTaxableIncome - 98900) * 0.15;
+         } else {
+           // All capital gains are in the 15% bracket
+           taxPenalty += capitalGainsHarvested * 0.15;
+         }
+      }
+
+      // Rough tax estimation
+      const taxesPaid = (taxableOrdinary * 0.12) + taxPenalty;
+      
+      const nextState: DPOptimizationState = {
+        age: state.age + 1,
+        preTaxBalance: state.preTaxBalance - rothConversion,
+        rothBalance: state.rothBalance + rothConversion,
+        taxableLots: nextLots.filter(l => l.shares > 0.001)
+      };
+
+      // Recurse
+      const nextResult = calculateOptimalMultiYearTaxPathDP(nextState, params, depth + 1);
+      
+      // Discounted Utility
+      // We add an early action bonus to mathematically strongly prefer doing Roth conversions 
+      // and concentrated stock liquidations as early as possible in the bridge timeline.
+      const earlyActionBonus = params.discountRate <= 0 ? (rothConversion * 0.002 + liquidityGenerated * 0.005) * Math.max(0, params.endAge - state.age) : 0;
+      const safeDiscount = Math.max(0, params.discountRate || 0);
+      const currentUtility = (liquidityGenerated - taxesPaid) + earlyActionBonus + (nextResult.utility / (1 + safeDiscount));
+
+      if (currentUtility > bestPath.utility) {
+        bestPath = {
+          utility: currentUtility,
+          rothConversionAmount: rothConversion,
+          lotsSold,
+          taxesPaid
+        };
+      }
+    }
+  }
 
   dpMemoCache.set(stateKey, bestPath);
   return bestPath;

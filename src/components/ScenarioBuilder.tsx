@@ -35,7 +35,6 @@ import { LongTermPortfolioChart } from "./LongTermPortfolioChart";
 import { BucketWaterfallChart } from "./BucketWaterfallChart";
 import { AssetModel } from "../lib/db";
 
-import { BridgeOptimizationDashboard } from "./BridgeOptimizationDashboard";
 import { useBridgeOptimization } from "../hooks/useBridgeOptimization";
 import { MultistageModelingView } from "./MultistageModelingView";
 import { CurrencyToggle } from "./CurrencyToggle";
@@ -414,6 +413,7 @@ export default function ScenarioBuilder({
           rebalancingCapitalGainPercentage:
             budgetDoc?.rebalancingCapitalGainPercentage || 0,
           threeBuckets: scenario.threeBuckets || plan.threeBuckets,
+          appliedBridgeStrategies: scenario.appliedBridgeStrategies || [],
         });
       }
     });
@@ -2759,32 +2759,6 @@ export default function ScenarioBuilder({
                   </div>
                 </div>
               </div>
-            )}
-            
-            {activeScenario?.bridgeOptimizationEnabled !== false && (
-              <BridgeOptimizationDashboard 
-                data={bridgeData} 
-                onApplyYearlyStrategy={async (year, stockLiquidation, rothConversion) => {
-                  const doc = await db.plans.findOne(plan.id).exec();
-                  const updatedScenarios = plan.scenarios.map((s: any) =>
-                    s.id === activeScenario.id
-                      ? {
-                          ...s,
-                          budget: {
-                            ...s.budget,
-                            targetRothConversionAmount: rothConversion,
-                            taxableRebalancingSaleAmount: stockLiquidation,
-                          },
-                        }
-                      : s,
-                  );
-                  await doc.patch({
-                    scenarios: updatedScenarios,
-                    updatedAt: Date.now(),
-                  });
-                  handleRunSimulation();
-                }}
-              />
             )}
 
               </div>

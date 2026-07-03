@@ -565,11 +565,18 @@ The Time Horizon filter is especially useful for isolating critical transitional
 
 ## 7. Advanced Tax Optimization
 
-### 7.1. The "Tax Torpedo"
+### 7.1. The "Tax Torpedo" & Bracket Targeting
 The **Tax Torpedo** is a colloquial term for the rapid spike in marginal tax rates that occurs when additional ordinary income (such as traditional IRA withdrawals or Roth conversions) pushes previously untaxed Long-Term Capital Gains (LTCG) into a taxable bracket. 
-In the US tax code, capital gains sit *on top* of ordinary income. If your ordinary income fills the space up to the 0% LTCG threshold (e.g., $98,900 for Married Filing Jointly in 2026), any additional ordinary income you realize will not only be taxed at your ordinary rate, but it will also push an equivalent amount of capital gains out of the 0% bracket and into the 15% bracket. This effectively creates a marginal tax rate that is significantly higher than your nominal bracket. HorizonFI's Bridge Optimization DP engine is specifically programmed to detect this exact interaction and halt Roth conversions before they trigger this torpedo.
+In the US tax code, capital gains sit *on top* of ordinary income. If your ordinary income fills the space up to the 0% LTCG threshold (e.g., $98,900 for Married Filing Jointly in 2026), any additional ordinary income you realize will not only be taxed at your ordinary rate, but it will also push an equivalent amount of capital gains out of the 0% bracket and into the 15% bracket. This effectively creates a marginal tax rate that is significantly higher than your nominal bracket. 
 
-### 7.2. Provisional Income and Railroad Retirement/Social Security
+HorizonFI's Bridge Optimization DP engine is specifically programmed to navigate this interaction using a **Liquidation-Prioritized Heuristic**:
+1. **Prioritized Liquidity**: The engine first calculates necessary stock liquidations to meet your Guyton-Klinger target or to maximize the 0% LTCG bracket.
+2. **Selective Roth Filling**: Once the stock liquidation targets are set, the engine fills any remaining space in your *target ordinary bracket* with Roth conversions, strictly ensuring that these conversions do not inadvertently push the harvested capital gains into the 15% bracket.
+
+### 7.2. Taxable-First Drag Application
+When the long-term simulation estimates your annual tax drag (from pensions, Roth conversions, and capital gains), it utilizes a **Taxable-First Drag Application**. Instead of universally penalizing all assets (which would incorrectly reduce the value of your tax-advantaged accounts like Roths), the engine preferentially deducts the tax drag from your "Taxable" brokerage accounts first. If the taxable accounts are fully depleted, the engine falls back to a proportional deduction to maintain computational integrity.
+
+### 7.3. Provisional Income and Railroad Retirement/Social Security
 For retirees relying on Railroad Retirement Board (RRB) Tier 1 benefits or Social Security, benefits are not taxed straightaway. Instead, taxation is based on your **Provisional Income**, which is calculated as:
 `Modified Adjusted Gross Income (MAGI) + 50% of your RRB Tier 1 / Social Security Benefits`
 
@@ -602,14 +609,15 @@ When you hover over any year on the chart, the interactive tooltip expands to pr
 
 ## 13. Bridge Optimization & Actionable Strategy Ledger
 
-To seamlessly bridge the gap between early retirement and traditional retirement milestones (like Social Security and RMDs), HorizonFI employs a Dynamic Programming (DP) engine.
+To seamlessly bridge the gap between early retirement and traditional retirement milestones (like Social Security and RMDs), HorizonFI employs a Dynamic Programming (DP) engine. These advanced optimization results are rendered exclusively in the **Visualization and Analytics** tab of the **Multi-Stage Modeling** workspace to maintain a clean, non-duplicative user experience.
 
 ### 1. Early Action Bonus and Tax Isolation
 *   **Mathematical Pull-Forward:** The DP engine explicitly favors pulling Roth conversions and concentrated stock liquidations forward in your timeline. By employing an `earlyActionBonus`, the mathematical utility correctly reflects that paying taxes on a Roth conversion in early retirement is fundamentally advantageous to avoiding a 32% "RMD penalty" at age 75+.
 *   **Precision Tax Overlay:** The timeline explicitly isolates standard marginal taxes (calculated using backward-layered 32/24/22/12% progressive margins) from the **Capital Gains Tax Torpedo** (the 15% rate applied to stock liquidations when your combined income breaches the 0% LTCG bounds). 
 
 ### 2. Actionable Strategy Ledger UX
-The `BridgeOptimizationDashboard` exposes an **Actionable Strategy Ledger**.
+The Actionable Strategy Ledger (rendered via `BridgeStrategyTable.tsx` inside the Multi-Stage Modeling view) provides:
+*   **High Information Density Layout:** The strategy ledger utilizes extreme row-padding compression and sleek, compact executable controls. This maximizes the number of projection years visible simultaneously in the scrollable view without degrading legible tracking or typographic alignment.
 *   **Transparent Tax Telemetry:** The ledger horizontally expands to display the precise, isolated tax impacts of both Roth conversions (`Tax (Roth)`) and Stock Liquidations (`Tax (Stock)`), next to the `Est. Total Tax`. 
 *   **One-Click Execution:** Users can review the engine's suggested yearly optimization paths and click "Apply" to instantly patch specific yearly parameters (such as `targetRothConversionAmount`) straight into their active Scenario Budget for real-time visualization and compounding analysis.
 
