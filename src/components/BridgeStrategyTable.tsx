@@ -16,11 +16,13 @@ export interface BridgeOptimizationData {
 interface BridgeStrategyTableProps {
   data: BridgeOptimizationData[];
   onApplyYearlyStrategy?: (year: number, stockLiquidation: number, rothConversion: number) => void;
+  appliedStrategies?: { year: number; stockLiquidation: number; rothConversion: number; }[];
 }
 
 export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({ 
   data = [], 
-  onApplyYearlyStrategy 
+  onApplyYearlyStrategy,
+  appliedStrategies = []
 }) => {
   return (
     <div id="bridge-strategy-table-card" className="p-4 sm:p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm w-full overflow-hidden transition-colors">
@@ -48,36 +50,51 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
-              {data.map((row) => (
-                <tr key={row.year} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                  <td className="py-3.5 px-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{row.year}</td>
-                  <td className="py-3.5 px-4 text-sm text-emerald-600 dark:text-emerald-400 font-mono font-medium">
-                    ${row.stockLiquidation.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </td>
-                  <td className="py-3.5 px-4 text-sm text-blue-600 dark:text-blue-400 font-mono font-medium">
-                    ${row.rothConversion.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </td>
-                  <td className="py-3.5 px-4 text-sm text-red-500 dark:text-red-400 font-mono font-medium">
-                    {row.taxFromRoth !== undefined ? '$' + row.taxFromRoth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
-                  </td>
-                  <td className="py-3.5 px-4 text-sm text-amber-500 dark:text-amber-400 font-mono font-medium">
-                    {row.taxFromStock !== undefined ? '$' + row.taxFromStock.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
-                  </td>
-                  <td className="py-3.5 px-4 text-sm text-zinc-700 dark:text-zinc-300 font-mono font-bold">
-                    {row.estimatedTotalTax !== undefined ? '$' + row.estimatedTotalTax.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <button 
-                      type="button"
-                      onClick={() => onApplyYearlyStrategy?.(row.year, row.stockLiquidation, row.rothConversion)}
-                      className="min-w-[80px] min-h-[44px] px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500"
-                    >
-                      <CheckCircle2 size={14} />
-                      Apply
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {data.map((row) => {
+                const isApplied = appliedStrategies.some(
+                  (a) => a.year === row.year && 
+                         Math.abs((a.stockLiquidation || 0) - row.stockLiquidation) < 0.01 && 
+                         Math.abs((a.rothConversion || 0) - row.rothConversion) < 0.01
+                );
+
+                return (
+                  <tr key={row.year} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                    <td className="py-3.5 px-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{row.year}</td>
+                    <td className="py-3.5 px-4 text-sm text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+                      ${row.stockLiquidation.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </td>
+                    <td className="py-3.5 px-4 text-sm text-blue-600 dark:text-blue-400 font-mono font-medium">
+                      ${row.rothConversion.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </td>
+                    <td className="py-3.5 px-4 text-sm text-red-500 dark:text-red-400 font-mono font-medium">
+                      {row.taxFromRoth !== undefined ? '$' + row.taxFromRoth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
+                    </td>
+                    <td className="py-3.5 px-4 text-sm text-amber-500 dark:text-amber-400 font-mono font-medium">
+                      {row.taxFromStock !== undefined ? '$' + row.taxFromStock.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
+                    </td>
+                    <td className="py-3.5 px-4 text-sm text-zinc-700 dark:text-zinc-300 font-mono font-bold">
+                      {row.estimatedTotalTax !== undefined ? '$' + row.estimatedTotalTax.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      {isApplied ? (
+                        <span className="min-w-[80px] min-h-[44px] px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 animate-fade-in">
+                          <CheckCircle2 size={14} className="text-emerald-500" />
+                          Applied
+                        </span>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => onApplyYearlyStrategy?.(row.year, row.stockLiquidation, row.rothConversion)}
+                          className="min-w-[80px] min-h-[44px] px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500"
+                        >
+                          <CheckCircle2 size={14} />
+                          Apply
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {data.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">

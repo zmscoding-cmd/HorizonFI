@@ -503,6 +503,8 @@ export interface ThreeBucketConfig {
   rebalancingThresholdPercent?: number;
 }
 
+export type AppliedBridgeStrategy = { year: number; stockLiquidation: number; rothConversion: number; };
+
 export type MultiStageSimPayload = {
   type: 'MULTI_STAGE_DRAWDOWN';
   startYear: number;
@@ -527,6 +529,7 @@ export type MultiStageSimPayload = {
   threeBuckets?: ThreeBucketConfig;
   targetRothConversionAmount?: number;
   taxableRebalancingSaleAmount?: number;
+  appliedBridgeStrategies?: { year: number; stockLiquidation: number; rothConversion: number; }[];
   rebalancingCapitalGainPercentage?: number;
 };
 
@@ -1182,6 +1185,7 @@ export type MultiStageYearlySnapshot = {
   dividendDestinationBalance?: number;
   liquidationTargetSaleAmount?: number;
   liquidationTaxPaid?: number;
+  rothConversionAmount?: number;
 };
 
 export function computePresentValue(
@@ -1259,6 +1263,9 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       break;
     }
     const currentAge = payload.currentAge + step;
+    
+    const matchedStrategy = payload.appliedBridgeStrategies?.find(s => s.year === currentYear);
+    const targetRothConversionAmount = matchedStrategy ? matchedStrategy.rothConversion : (payload.targetRothConversionAmount || 0);
 
     // --- 0. Granular Asset Loop: Establish Total Portfolio Return ---
     let growthAppreciation = 0;
@@ -1510,7 +1517,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     
     if (liqTargetAsset && divDestAsset && liqTargetAsset.value > 0) {
       // 1. Calculate Taxable Ordinary Income this year (excluding capital gains)
-      const ordinaryIncomeThisYear = pensionIncome + rrbIncome + otherIncome + currentFutureIncome + (payload.targetRothConversionAmount || 0);
+      const ordinaryIncomeThisYear = pensionIncome + rrbIncome + otherIncome + currentFutureIncome + targetRothConversionAmount;
       const taxableOrdinaryIncomeThisYear = Math.max(0, ordinaryIncomeThisYear - STANDARD_DEDUCTION_2026_EST);
       
       // 2. Pre-existing LTCG this year
@@ -1560,6 +1567,9 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       
       // 7. Optimal sale amount: Maximize 0% LTCG space, but cover budget shortfall if required
       let optimalSaleAmount = Math.max(maxSaleFor0PercentLtcg, baselineBudgetShortfall);
+      if (matchedStrategy !== undefined && matchedStrategy.stockLiquidation !== undefined) {
+        optimalSaleAmount = matchedStrategy.stockLiquidation;
+      }
       optimalSaleAmount = Math.min(liqTargetAsset.value, optimalSaleAmount);
       
       if (optimalSaleAmount > 0) {
@@ -1718,7 +1728,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
        buckets: netDrawn,
        blendedCostBasisPercentage: 60,
        preExistingOrdinaryIncome: pensionIncome + rrbIncome + otherIncome + currentFutureIncome,
-       targetRothConversionAmount: payload.targetRothConversionAmount,
+       targetRothConversionAmount: targetRothConversionAmount,
        taxableRebalancingSaleAmount: payload.taxableRebalancingSaleAmount,
        rebalancingCapitalGainPercentage: payload.rebalancingCapitalGainPercentage
     });
@@ -1967,7 +1977,8 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       liquidationTargetBalance,
       dividendDestinationBalance,
       liquidationTargetSaleAmount,
-      liquidationTaxPaid
+      liquidationTaxPaid,
+      rothConversionAmount: targetRothConversionAmount
     });
     
     cumInflation *= (1 + payload.inflationRate);
@@ -1992,6 +2003,7 @@ export interface DPOptimizationState {
 }
 
 export interface DPOptimizationParams {
+  startAge?: number;
   endAge: number;
   rrbTier1Benefits: number;
   baseOrdinaryIncome: number;
@@ -1999,6 +2011,7 @@ export interface DPOptimizationParams {
   discountRate: number;
   rothConversionStartAge?: number;
   stockLiquidationStartAge?: number;
+  rothMarginalBrackets?: { startYear: number; endYear: number; bracket: number; }[];
 }
 
 export interface DPOptimalPath {
@@ -2098,13 +2111,28 @@ export function calculateOptimalMultiYearTaxPathDP(
     const baseOrdinary = params.baseOrdinaryIncome;
   let rothOptions = [0];
   if (!params.rothConversionStartAge || state.age >= params.rothConversionStartAge) {
-    const fillStandardDeduction = Math.max(0, STANDARD_DEDUCTION - baseOrdinary);
-    const fill12PercentBracket = Math.max(0, 94300 + STANDARD_DEDUCTION - baseOrdinary);
-    // Explicitly add an option to maximize the 22% and 24% brackets for aggressive Roth strategies
-    const fill22PercentBracket = Math.max(0, 201050 + STANDARD_DEDUCTION - baseOrdinary);
-    const fill24PercentBracket = Math.max(0, 383900 + STANDARD_DEDUCTION - baseOrdinary);
+    const currentYear = new Date().getFullYear() + (state.age - (params.startAge || state.age));
     
-    rothOptions = [0, fillStandardDeduction, fill12PercentBracket, fill22PercentBracket, fill24PercentBracket]
+    let targetBracketRate = 0.12; 
+    if (params.rothMarginalBrackets && params.rothMarginalBrackets.length > 0) {
+      const activeBracket = params.rothMarginalBrackets.find(b => currentYear >= b.startYear && currentYear <= b.endYear);
+      if (activeBracket) {
+        targetBracketRate = activeBracket.bracket;
+      }
+    }
+    
+    // Map bracket rates to their taxable income ceilings (2026 MFJ projected)
+    let bracketCeiling = 94300; // 12% default
+    if (targetBracketRate <= 0.10) bracketCeiling = 23200;
+    else if (targetBracketRate <= 0.12) bracketCeiling = 94300;
+    else if (targetBracketRate <= 0.22) bracketCeiling = 201050;
+    else if (targetBracketRate <= 0.24) bracketCeiling = 383900;
+    else bracketCeiling = 487450;
+
+    const fillStandardDeduction = Math.max(0, STANDARD_DEDUCTION - baseOrdinary);
+    const fillTargetBracket = Math.max(0, bracketCeiling + STANDARD_DEDUCTION - baseOrdinary);
+    
+    rothOptions = [0, fillStandardDeduction, fillTargetBracket]
       .map(amt => Math.floor(amt))
       .filter(amt => amt <= state.preTaxBalance && amt >= 0);
     rothOptions = Array.from(new Set(rothOptions)).sort((a, b) => a - b);
@@ -2138,6 +2166,8 @@ export function calculateOptimalMultiYearTaxPathDP(
             }
          }
          stockTargets.push(Math.max(params.guytonKlingerTarget, currentLiquidity));
+         
+
       }
     } else {
       stockTargets = [0];
@@ -2202,7 +2232,7 @@ export function calculateOptimalMultiYearTaxPathDP(
     // Discounted Utility
     // We add an early action bonus to mathematically strongly prefer doing Roth conversions 
     // and concentrated stock liquidations as early as possible in the bridge timeline.
-    const earlyActionBonus = params.discountRate <= 0 ? (rothConversion * 0.005 + liquidityGenerated * 0.002) * Math.max(0, params.endAge - state.age) : 0;
+    const earlyActionBonus = params.discountRate <= 0 ? (rothConversion * 0.002 + liquidityGenerated * 0.005) * Math.max(0, params.endAge - state.age) : 0;
     const safeDiscount = Math.max(0, params.discountRate || 0);
     const currentUtility = (liquidityGenerated - taxesPaid) + earlyActionBonus + (nextResult.utility / (1 + safeDiscount));
 
@@ -2312,5 +2342,16 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
     });
   }
   
-  return timeline;
+  const startAge = Math.max(
+    params.startAge || initialState.age,
+    Math.min(
+      params.stockLiquidationStartAge !== undefined ? params.stockLiquidationStartAge : (params.startAge || initialState.age),
+      params.rothConversionStartAge !== undefined ? params.rothConversionStartAge : (params.startAge || initialState.age)
+    )
+  );
+
+  return timeline.filter(row => {
+    const age = (params.startAge || initialState.age) + (row.year - new Date().getFullYear());
+    return age >= startAge;
+  });
 }

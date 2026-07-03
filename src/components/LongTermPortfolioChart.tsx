@@ -59,8 +59,7 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
         ? (snapshot.dividendDestinationBalance ?? 0) / divisor
         : (snapshot.dividendDestinationBalance ?? 0);
 
-      // Remaining assets grouped into other investments
-      const otherAssets = Math.max(0, total - liquidationTarget - dividendDestination);
+      const otherTaxable = Math.max(0, taxable - liquidationTarget - dividendDestination);
 
       return {
         year: snapshot.year,
@@ -68,7 +67,10 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
         Total: total,
         LIQUIDATION_TARGET: Math.max(0, liquidationTarget),
         DIVIDEND_DESTINATION: Math.max(0, dividendDestination),
-        OTHER_ASSETS: Math.max(0, otherAssets),
+        TAXABLE_OTHER: Math.max(0, otherTaxable),
+        PRE_TAX: Math.max(0, preTax),
+        ROTH: Math.max(0, roth),
+        CASH: Math.max(0, cash),
         // Absolute (non-stacked) values for overlaying comparative lines
         LIQUIDATION_TARGET_LINE: Math.max(0, liquidationTarget),
         DIVIDEND_DESTINATION_LINE: Math.max(0, dividendDestination),
@@ -79,6 +81,7 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
         taxDrag: (snapshot.taxDrag || 0) / divisor,
         liquidationTargetSaleAmount: (snapshot.liquidationTargetSaleAmount || 0) / divisor,
         liquidationTaxPaid: (snapshot.liquidationTaxPaid || 0) / divisor,
+        rothConversionAmount: (snapshot.rothConversionAmount || 0) / divisor,
         _nominalTotal: snapshot.totalNetWorth ?? (cash + taxable + preTax + roth),
         _nominalChange: snapshot.changeInNetWorth || 0,
         _divisor: divisor
@@ -129,7 +132,10 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
     
     const liqVal = dataObj.LIQUIDATION_TARGET;
     const divVal = dataObj.DIVIDEND_DESTINATION;
-    const otherVal = dataObj.OTHER_ASSETS;
+    const preTaxVal = dataObj.PRE_TAX;
+    const rothVal = dataObj.ROTH;
+    const cashVal = dataObj.CASH;
+    const taxableOtherVal = dataObj.TAXABLE_OTHER;
     
     const spend = dataObj.expectedSpend;
     const growth = dataObj.expectedGrowth;
@@ -180,9 +186,33 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
           <div className="flex justify-between gap-8 items-center">
             <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-              Other Assets
+              Taxable (Other)
             </span>
-            <span className="font-mono font-semibold text-zinc-850 dark:text-zinc-100">{formatCurrency(otherVal)}</span>
+            <span className="font-mono font-semibold text-zinc-850 dark:text-zinc-100">{formatCurrency(taxableOtherVal)}</span>
+          </div>
+
+          <div className="flex justify-between gap-8 items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-700" />
+              Cash
+            </span>
+            <span className="font-mono font-semibold text-zinc-850 dark:text-zinc-100">{formatCurrency(cashVal)}</span>
+          </div>
+
+          <div className="flex justify-between gap-8 items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+              Pre-Tax
+            </span>
+            <span className="font-mono font-semibold text-zinc-850 dark:text-zinc-100">{formatCurrency(preTaxVal)}</span>
+          </div>
+
+          <div className="flex justify-between gap-8 items-center">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+              Roth
+            </span>
+            <span className="font-mono font-semibold text-zinc-850 dark:text-zinc-100">{formatCurrency(rothVal)}</span>
           </div>
 
           <div className="flex justify-between gap-8 items-center border-t border-zinc-100 dark:border-zinc-850/60 pt-1.5 mt-1 font-bold">
@@ -192,10 +222,10 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
         </div>
 
         {/* Transition Metrics */}
-        {hasLiquidationTarget && (dataObj.liquidationTargetSaleAmount > 0 || dataObj.liquidationTaxPaid > 0) && (
+        {(dataObj.liquidationTargetSaleAmount > 0 || dataObj.liquidationTaxPaid > 0 || dataObj.rothConversionAmount > 0) && (
           <div className="border-t border-zinc-100 dark:border-zinc-800/85 pt-3 space-y-1.5">
             <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 mb-1.5">
-              Concentrated Liquidation {currencySuffix}
+              Strategy Execution {currencySuffix}
             </div>
             {dataObj.liquidationTargetSaleAmount > 0 && (
               <div className="flex justify-between items-center gap-4">
@@ -207,6 +237,12 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
               <div className="flex justify-between items-center gap-4">
                 <span className="text-zinc-600 dark:text-zinc-400">Cap Gains Tax Paid:</span>
                 <span className="font-mono text-rose-500 dark:text-rose-400 font-semibold">-{formatCurrency(dataObj.liquidationTaxPaid)}</span>
+              </div>
+            )}
+            {dataObj.rothConversionAmount > 0 && (
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-zinc-600 dark:text-zinc-400">Roth Conversion:</span>
+                <span className="font-mono text-purple-500 dark:text-purple-400 font-semibold">{formatCurrency(dataObj.rothConversionAmount)}</span>
               </div>
             )}
           </div>
@@ -264,7 +300,19 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
           margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
         >
           <defs>
-            <linearGradient id="colorOther" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="colorPreTax" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#6366f1" stopOpacity={0.1} />
+            </linearGradient>
+            <linearGradient id="colorRoth" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#a855f7" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#a855f7" stopOpacity={0.1} />
+            </linearGradient>
+            <linearGradient id="colorCash" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#047857" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#047857" stopOpacity={0.1} />
+            </linearGradient>
+            <linearGradient id="colorOtherTaxable" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
               <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
             </linearGradient>
@@ -313,11 +361,38 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
           {/* 1. Stacked Areas representing Net Worth breakdown */}
           <Area
             type="monotone"
-            dataKey="OTHER_ASSETS"
-            name="Other Assets"
+            dataKey="PRE_TAX"
+            name="Pre-Tax"
+            stackId="1"
+            stroke="#6366f1"
+            fill="url(#colorPreTax)"
+            activeDot={{ r: 4, strokeWidth: 0 }}
+          />
+          <Area
+            type="monotone"
+            dataKey="ROTH"
+            name="Roth"
+            stackId="1"
+            stroke="#a855f7"
+            fill="url(#colorRoth)"
+            activeDot={{ r: 4, strokeWidth: 0 }}
+          />
+          <Area
+            type="monotone"
+            dataKey="CASH"
+            name="Cash"
+            stackId="1"
+            stroke="#047857"
+            fill="url(#colorCash)"
+            activeDot={{ r: 4, strokeWidth: 0 }}
+          />
+          <Area
+            type="monotone"
+            dataKey="TAXABLE_OTHER"
+            name="Taxable (Other)"
             stackId="1"
             stroke="#3b82f6"
-            fill="url(#colorOther)"
+            fill="url(#colorOtherTaxable)"
             activeDot={{ r: 4, strokeWidth: 0 }}
           />
           

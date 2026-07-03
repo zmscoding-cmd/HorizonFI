@@ -137,6 +137,9 @@ export type SubScenario = {
   stockLiquidationStartYear?: number;
   rothConversionStartYear?: number;
   bridgeOptimizationEnabled?: boolean;
+  bridgeStockLiquidationStartYear?: number;
+  bridgeRothConversionStartYear?: number;
+  bridgeRothMarginalBrackets?: { startYear: number; endYear: number; bracket: number; }[];
 };
 
 export type PlanType = {
@@ -370,7 +373,20 @@ const planSchema = {
           displayStartYear: { type: 'number' },
           displayEndYear: { type: 'number' },
           stockLiquidationStartYear: { type: 'number' },
-          rothConversionStartYear: { type: 'number' }
+          rothConversionStartYear: { type: 'number' },
+          bridgeStockLiquidationStartYear: { type: 'number' },
+          bridgeRothConversionStartYear: { type: 'number' },
+          bridgeRothMarginalBrackets: { 
+            type: 'array', 
+            items: { 
+              type: 'object',
+              properties: {
+                startYear: { type: 'number' },
+                endYear: { type: 'number' },
+                bracket: { type: 'number' }
+              }
+            }
+          }
         }
       }
     },

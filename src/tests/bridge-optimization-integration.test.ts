@@ -113,7 +113,7 @@ describe('Bridge Period Optimization Module - UI Integration', () => {
     expect(cols1[0].props.children).toBe(2026); // Year
     
     // Simulate clicking "Apply" for the first row to ensure callback is invoked with correct parameters
-    const actionButton1 = cols1[4].props.children;
+    const actionButton1 = cols1[6].props.children;
     actionButton1.props.onClick();
 
     expect(onApplyMock).toHaveBeenCalledTimes(1);

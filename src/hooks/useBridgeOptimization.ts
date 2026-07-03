@@ -91,7 +91,8 @@ export function useBridgeOptimization(planId: string | undefined, scenarioId: st
           rrbTier1Benefits: 0,
           discountRate: 0.0,
           stockLiquidationStartAge,
-          rothConversionStartAge
+          rothConversionStartAge,
+          rothMarginalBrackets: scenario.bridgeRothMarginalBrackets || []
         };
 
         workerRef.current.postMessage({

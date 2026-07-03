@@ -73,6 +73,7 @@ export default function ScenarioBuilder({
   const [subModule, setSubModule] = useState<
     "simulation" | "budget" | "stages" | "velocity"
   >("simulation");
+  const [simViewMode, setSimViewMode] = useState<"config" | "visualizations">("visualizations");
 
   const [budgetDoc, setBudgetDoc] = useState<any>(null);
 
@@ -806,9 +807,35 @@ export default function ScenarioBuilder({
       )}
 
       {subModule === "simulation" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 lg:overflow-hidden pb-8 lg:pb-0">
-          {/* Left Sidebar - Scenarios List & Editor */}
-          <div className="col-span-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/80 rounded-2xl p-4 sm:p-5 flex flex-col gap-5 lg:overflow-y-auto shadow-sm transition-colors">
+        <div className="flex flex-col gap-4 flex-1 lg:overflow-hidden pb-8 lg:pb-0">
+          {/* Sub-view controller */}
+          <div className="flex bg-zinc-100 dark:bg-zinc-850 p-1 rounded-xl border border-zinc-200/50 dark:border-zinc-800 self-start shrink-0">
+            <button
+              onClick={() => setSimViewMode("config")}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition min-h-[32px] flex items-center justify-center cursor-pointer ${
+                simViewMode === "config"
+                  ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-sm border border-zinc-250/30"
+                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              Scenario Configuration
+            </button>
+            <button
+              onClick={() => setSimViewMode("visualizations")}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition min-h-[32px] flex items-center justify-center cursor-pointer ${
+                simViewMode === "visualizations"
+                  ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-sm border border-zinc-250/30"
+                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              Visualizations & Analytics
+            </button>
+          </div>
+
+          <div className="flex-1 lg:overflow-hidden">
+            {simViewMode === "config" ? (
+              /* Left Sidebar - Scenarios List & Editor */
+              <div className="h-full max-w-5xl mx-auto w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/80 rounded-2xl p-4 sm:p-5 flex flex-col gap-5 lg:overflow-y-auto shadow-sm transition-colors">
             <div className="space-y-2.5">
               <h3 className="font-bold text-sm tracking-tight mb-2 uppercase text-zinc-500 dark:text-zinc-400">
                 Scenarios
@@ -2760,10 +2787,10 @@ export default function ScenarioBuilder({
               />
             )}
 
-          </div>
-
-          {/* Right Area - Comparative Analytics */}
-          <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 sm:p-6 flex flex-col gap-6 lg:overflow-y-auto shadow-sm transition-colors">
+              </div>
+            ) : (
+              /* Right Area - Comparative Analytics */
+              <div className="h-full w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805/85 rounded-2xl p-4 sm:p-6 flex flex-col gap-6 lg:overflow-y-auto shadow-sm transition-colors">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">
@@ -2939,6 +2966,8 @@ export default function ScenarioBuilder({
                 </ResponsiveContainer>
               </div>
             </div>
+          </div>
+            )}
           </div>
         </div>
       )}

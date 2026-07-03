@@ -37,26 +37,53 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
 }) => {
   const currentResults = multiStageResults[activeScenarioId || ""] || [];
   const [notification, setNotification] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"config" | "visualizations">("visualizations");
 
   return (
-    <div id="multistage-modeling-view" className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 lg:overflow-hidden pb-8 lg:pb-0">
-      {/* Left Sidebar - Configuration */}
-      <div className="col-span-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-4 flex flex-col gap-5 lg:overflow-y-auto shadow-sm transition-colors">
-        <h3 className="font-bold text-sm tracking-tight uppercase text-zinc-500 dark:text-zinc-400">
-          Multi-Stage Configuration
-        </h3>
-        {activeScenario && (
-          <MultistageModelingConfig
-            activeScenario={activeScenario}
-            plan={plan}
-            db={db}
-            handleRunSimulation={handleRunSimulation}
-          />
-        )}
+    <div id="multistage-modeling-view" className="flex flex-col gap-4 flex-1 lg:overflow-hidden pb-8 lg:pb-0">
+      {/* Sub-view controller */}
+      <div className="flex bg-zinc-100 dark:bg-zinc-850 p-1 rounded-xl border border-zinc-200/50 dark:border-zinc-800 self-start shrink-0">
+        <button
+          onClick={() => setViewMode("config")}
+          className={`px-4 py-1.5 text-xs font-bold rounded-lg transition min-h-[32px] flex items-center justify-center cursor-pointer ${
+            viewMode === "config"
+              ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-sm border border-zinc-250/30"
+              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+          }`}
+        >
+          Multi-Stage Config
+        </button>
+        <button
+          onClick={() => setViewMode("visualizations")}
+          className={`px-4 py-1.5 text-xs font-bold rounded-lg transition min-h-[32px] flex items-center justify-center cursor-pointer ${
+            viewMode === "visualizations"
+              ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-sm border border-zinc-250/30"
+              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+          }`}
+        >
+          Visualizations & Analytics
+        </button>
       </div>
 
-      {/* Right Area - Visualizations and Analytics */}
-      <div className="lg:col-span-2 flex flex-col gap-6 lg:overflow-y-auto pb-6">
+      <div className="flex-1 lg:overflow-hidden">
+        {viewMode === "config" ? (
+          /* Left Sidebar - Configuration */
+          <div className="h-full max-w-5xl mx-auto w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-4 sm:p-5 flex flex-col gap-5 lg:overflow-y-auto shadow-sm transition-colors">
+            <h3 className="font-bold text-sm tracking-tight uppercase text-zinc-500 dark:text-zinc-400">
+              Multi-Stage Configuration
+            </h3>
+            {activeScenario && (
+              <MultistageModelingConfig
+                activeScenario={activeScenario}
+                plan={plan}
+                db={db}
+                handleRunSimulation={handleRunSimulation}
+              />
+            )}
+          </div>
+        ) : (
+          /* Right Area - Visualizations and Analytics */
+          <div className="h-full flex flex-col gap-6 lg:overflow-y-auto pb-6">
         {/* Controls */}
         <TimeHorizonControls db={db} planId={plan.id} scenarioId={activeScenarioId || ""} />
 
@@ -150,9 +177,37 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
                 )}
                 <BridgeStrategyTable 
                   data={bridgeData} 
-                  onApplyYearlyStrategy={(year, stockLiquidation, rothConversion) => {
-                    setNotification(`Year ${year} strategy integrated! Recommended stock liquidation ($${stockLiquidation.toLocaleString()}) and Roth conversion ($${rothConversion.toLocaleString()}) targets locked into active projection.`);
-                    setTimeout(() => setNotification(null), 5000);
+                  appliedStrategies={activeScenario?.appliedBridgeStrategies || []}
+                  onApplyYearlyStrategy={async (year, stockLiquidation, rothConversion) => {
+                    if (!db || !plan || !activeScenario) return;
+                    
+                    try {
+                      const doc = await db.plans.findOne(plan.id).exec();
+                      if (!doc) return;
+                      
+                      const applied = activeScenario.appliedBridgeStrategies || [];
+                      const existingIndex = applied.findIndex((a: any) => a.year === year);
+                      
+                      let newApplied = [...applied];
+                      if (existingIndex >= 0) {
+                        newApplied[existingIndex] = { year, stockLiquidation, rothConversion };
+                      } else {
+                        newApplied.push({ year, stockLiquidation, rothConversion });
+                      }
+                      
+                      const updatedScenarios = plan.scenarios.map((s: any) => 
+                        s.id === activeScenario.id ? { ...s, appliedBridgeStrategies: newApplied } : s
+                      );
+                      
+                      await doc.patch({ scenarios: updatedScenarios });
+                      
+                      setNotification(`Year ${year} strategy integrated! Recommended stock liquidation (${stockLiquidation.toLocaleString()}) and Roth conversion (${rothConversion.toLocaleString()}) targets locked into active projection.`);
+                      setTimeout(() => setNotification(null), 5000);
+                      
+                      if (handleRunSimulation) handleRunSimulation();
+                    } catch (err) {
+                      console.error("Failed to apply bridge strategy", err);
+                    }
                   }}
                 />
               </>
@@ -185,6 +240,8 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
             handleRunSimulation();
           }}
         />
+          </div>
+        )}
       </div>
     </div>
   );

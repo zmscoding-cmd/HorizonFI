@@ -260,7 +260,9 @@ If you hold a disproportionate amount of wealth in a single company stock, the b
 * **Overriding Budget Shortfall Safeguard:** If a severe budget deficit exists that cannot be covered by other available liquid assets, the engine executes an overriding cash flow carve-out, selling sufficient target assets to fund the baseline budget, even if it triggers the 15% LTCG bracket ("tax torpedo").
 
 #### 2. Multi-Year Roth Conversion Engine
-Simultaneously, the engine calculates the exact dollar gap between your current baseline taxable income and the upper limit of your target tax bracket (e.g., the 24% bracket) to execute multi-year Roth conversions. 
+Simultaneously, the engine evaluates Roth conversions to defuse future tax liabilities. **Crucially, the engine prioritizes stock liquidation over Roth conversions.** Because Roth conversions generate ordinary income—which sits *underneath* capital gains—large Roth conversions can crowd out your 0% Long-Term Capital Gains space, trapping you in a concentrated stock position. 
+
+To mitigate single-stock risk first and spread out the tax burden, the engine restricts Roth conversions to lower marginal brackets (e.g., the 12% bracket limit). This prevents massive single-year tax spikes and ensures Roth conversions are spread smoothly across the entire bridge period. 
 
 The Dynamic Programming engine treats strict legislative penalties as hard mathematical constraints:
 * **The Tax Torpedo:** The system calculates the phantom marginal tax rate. If an additional $1,000 of Roth conversion pushes $1,000 of capital gains from the 0% bracket into the 15% bracket, the true effective tax rate is much higher. The engine halts recommendations when this threshold is breached.
@@ -610,3 +612,7 @@ To seamlessly bridge the gap between early retirement and traditional retirement
 The `BridgeOptimizationDashboard` exposes an **Actionable Strategy Ledger**.
 *   **Transparent Tax Telemetry:** The ledger horizontally expands to display the precise, isolated tax impacts of both Roth conversions (`Tax (Roth)`) and Stock Liquidations (`Tax (Stock)`), next to the `Est. Total Tax`. 
 *   **One-Click Execution:** Users can review the engine's suggested yearly optimization paths and click "Apply" to instantly patch specific yearly parameters (such as `targetRothConversionAmount`) straight into their active Scenario Budget for real-time visualization and compounding analysis.
+
+
+### Bridge Strategy Execution Tracking
+The actionable strategy ledger outputs optimal yearly recommendations. Users can explicitly apply these recommendations (Stock Liquidation and Roth Conversions) directly into the Long-Term Portfolio Projection, overriding the simulation's automatic baseline heuristics. Once applied, these are explicitly modeled by moving pre-tax values into the Roth bucket, and honoring the requested concentrated stock liquidation amount to smooth tax burdens across the bridge phase.

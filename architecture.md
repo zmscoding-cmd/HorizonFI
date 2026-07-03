@@ -1908,3 +1908,70 @@ Trigger: User noted stock liquidation amounts varied unexpectedly ($197k -> $50k
 [x] Engine correctly sustains maximum stock liquidations in early non-Roth years (197k uninterrupted).
 [x] Bracket stacking telemetry returns exact integer representations of standard tax + roth tax overlay.
 [x] User UI is responsive and gracefully overflows on narrow viewports.
+
+### Checkpoint: Actionable Ledger Dynamic Start Year
+Trigger: The first row in the Actionable Strategy Ledger should start with the earlier of the Stock Liquidation Start Year or the Roth Conversion Start Year (which could be the same), filtering out initial idle $0 years.
+
+1. Architectural State Changes:
+- **Dynamic Worker-Side Filtering**: Refactored the `generateBridgeOptimizationTimeline` method in `src/workers/simulation.worker.ts` to calculate the earliest action year dynamically from `params.stockLiquidationStartAge` and `params.rothConversionStartAge`.
+- **Zero-Clutter Presentation**: Automatically filters out any initial timeline years before the calculated start year. This removes cluttered, inactive $0 rows from both the Actionable Strategy Ledger and the Multistage Tax Stack Projection chart, ensuring visual consistency.
+- **Robust Out-of-Bounds Guards**: Incorporates standard bounds check limits (preventing start years from going below the scenario's current age or future ages) to ensure robust and stable timeline generation in all configurations.
+
+2. ARCHITECTURE.md Diff/Additions:
+[New Section: Dynamic Strategy Timeline Alignment]
+- The simulation worker's timeline now dynamically matches the actual action window defined by the user. By filtering the generated timeline directly inside the Web Worker, both the plotting canvas and the strategy ledger align perfectly with the user's intent, avoiding unnecessary computation and UI noise.
+
+3. Validation Status:
+- [x] Zero-clutter timeline start year validation verified.
+- [x] Web Worker DP timeline generation compiled successfully.
+- [x] Chart and table rendering visual consistency confirmed.
+
+### Checkpoint: Algorithmic Shift for Risk Mitigation (Bridge Period)
+Trigger: The bridge period optimization needs to prioritize liquidation ahead of roth conversions to minimize risk associated with the large amount of investment in a single stock, and spread Roth conversions out instead of clustering them in the first couple of years.
+
+1. Architectural State Changes:
+- **Prioritize Stock Liquidation (Risk Reduction)**: Altered the DP Engine (`simulation.worker.ts`) early action bonus heuristic to heavily favor generating liquidity from concentrated stock (`liquidityGenerated * 0.005`) over early Roth conversions (`rothConversion * 0.002`).
+- **Spread Tax Burden (Roth Smoothing)**: Restricted the Roth conversion action space to the 12% marginal tax bracket. Previously, the engine permitted filling the 24% bracket ($383k+), which created massive single-year tax spikes and cannibalized the 0% LTCG space. Capping it at 12% ensures Roth conversions are spread evenly across the entire bridge period, allowing concentrated stock liquidations to utilize the highly valuable 0% LTCG space in the initial years.
+
+2. ARCHITECTURE.md Diff/Additions:
+[Updated Section: Bridge Optimization Heuristics]
+- The worker algorithm enforces a strict hierarchy: Mitigate single-stock risk FIRST by maximizing 0% LTCG space liquidations. Roth conversions act as a secondary smoothing mechanism, strictly capped at the 12% bracket to spread tax burden evenly and avoid crowding out capital gains.
+
+3. Validation Status:
+- [x] DP Engine successfully outputs $197k stock liquidation in early years with $0 Roth, followed by smooth $74k Roth conversions in later years.
+- [x] Tax spikes smoothed; single-stock risk effectively mitigated.
+
+### Checkpoint: Algorithmic Shift for Risk Mitigation (Bridge Period)
+Trigger: The bridge period optimization needs to prioritize liquidation ahead of roth conversions to minimize risk associated with the large amount of investment in a single stock, and spread Roth conversions out instead of clustering them in the first couple of years.
+
+1. Architectural State Changes:
+- **Prioritize Stock Liquidation (Risk Reduction)**: Altered the DP Engine (`simulation.worker.ts`) early action bonus heuristic to heavily favor generating liquidity from concentrated stock (`liquidityGenerated * 0.005`) over early Roth conversions (`rothConversion * 0.002`).
+- **Spread Tax Burden (Roth Smoothing)**: Restricted the Roth conversion action space to the 12% marginal tax bracket. Previously, the engine permitted filling the 24% bracket ($383k+), which created massive single-year tax spikes and cannibalized the 0% LTCG space. Capping it at 12% ensures Roth conversions are spread evenly across the entire bridge period, allowing concentrated stock liquidations to utilize the highly valuable 0% LTCG space in the initial years.
+
+2. ARCHITECTURE.md Diff/Additions:
+[Updated Section: Bridge Optimization Heuristics]
+- The worker algorithm enforces a strict hierarchy: Mitigate single-stock risk FIRST by maximizing 0% LTCG space liquidations. Roth conversions act as a secondary smoothing mechanism, strictly capped at the 12% bracket to spread tax burden evenly and avoid crowding out capital gains.
+
+3. Validation Status:
+- [x] DP Engine successfully outputs $197k stock liquidation in early years with $0 Roth, followed by smooth $74k Roth conversions in later years.
+- [x] Tax spikes smoothed; single-stock risk effectively mitigated.
+
+
+## V. Bridge Phase Actionable Execution (Checkpoint 2)
+* **Actionable Ledger Override**: Instead of purely static rules, `simulateMultiStageDrawdownWorker` now accepts an `appliedBridgeStrategies` array that overrides heuristic defaults for specific years. 
+* **Mathematical Integrity**: Roth conversions requested by the user from the optimization ledger are explicitly extracted from the `PRE_TAX` asset values and transferred to `ROTH` asset values inside the Web Worker. This ensures the tax drag and expected growth calculations accurately reflect the multi-decade tax-advantaged growth, maintaining strict zero-trust separation from purely visual logic.
+* **Asset Breakdown Visualizer**: The Long-Term Portfolio Projection UI uses direct granular keys (`PRE_TAX`, `ROTH`, `TAXABLE_OTHER`, `CASH`) instead of aggregating into a generic 'Other Assets' bucket, ensuring precise visual verification of the algorithmic transfers over the 40-year horizon.
+
+
+## VI. Configurable Marginal Brackets (Checkpoint 3)
+* **Variable Tax Ceilings**: The Dynamic Programming engine (`calculateOptimalMultiYearTaxPathDP`) inside `simulation.worker.ts` now accepts user-defined variable marginal tax bracket targets bounded by specific year ranges (`bridgeRothMarginalBrackets`). This enforces that Roth conversion optimization respects evolving tax policies across the bridge period, rather than a hard-coded 12% statutory default.
+
+
+## VII. Actionable Strategy Applied Integration (Checkpoint 4)
+* **Feedback-driven State Synchronization**: Added an elegant, state-driven visual verification cycle to the "Actionable Strategy Ledger" (`BridgeStrategyTable.tsx`). The interface now dynamically parses `appliedBridgeStrategies` stored on the active database record (`activeScenario`) and substitutes the interactive "Apply" buttons with high-contrast, emerald-themed **"Applied"** validation badges with a direct micro-animation feedback loop.
+* **Algorithmic Projection Alignment**: The main multi-stage projection engine (`simulateMultiStageDrawdownWorker` in `simulation.worker.ts`) now consumes the applied strategy payload. When a user locks in a specific year's strategy, the simulator's chronological year loop dynamically overrides its default heuristic calculations, forcing the exact stock liquidation and Roth conversion targets to execute precisely. This ensures that the long-term portfolio survival curves, tax drag, and asset class distributions are mathematically consistent with the user's active, hand-selected plan.
+
+
+## VIII. Spacious Segmented View Layouts (Checkpoint 5)
+* **Single-Pane Full-Width Presentation**: Replaced the cramped multi-column split layout on the "Long-Term Simulation" and "Multi-Stage Modeling" views with dynamic full-width single panes. These are toggled seamlessly via custom high-contrast Segmented controllers matching HorizonFI premium slate styling. This layout refactoring provides extensive horizontal canvas for multi-decade Recharts line/area visualizations, data tables, and dynamic timeline grids.
+* **Ergonomic Configuration Containers**: Implemented local state-driven view selectors (`"config"` vs `"visualizations"`) inside both components. Config screens are wrapped in polished `max-w-5xl mx-auto` containers to preserve typography hierarchy, prevent input field stretching, and guarantee clean mobile-first responsive interactions across ultra-wide desktop browsers and handheld device wrappers alike.
