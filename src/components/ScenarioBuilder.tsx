@@ -783,14 +783,13 @@ export default function ScenarioBuilder({
             </div>
           ) : (
             <>
-              <FundingAllocation
+              <BudgetDashboard 
+                db={db} 
+                userId={auth.currentUser?.uid || ""} 
                 plan={plan}
                 activeScenario={activeScenario}
-                db={db}
-                userId={auth.currentUser?.uid || ""}
                 handleRunSimulation={handleRunSimulation}
               />
-              <BudgetDashboard db={db} userId={auth.currentUser?.uid || ""} />
             </>
           )}
         </div>

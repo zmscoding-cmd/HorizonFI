@@ -1278,7 +1278,10 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     const currentAge = payload.currentAge + step;
     
     const matchedStrategy = payload.appliedBridgeStrategies?.find(s => s.year === currentYear);
-    const targetRothConversionAmount = matchedStrategy ? matchedStrategy.rothConversion : (payload.targetRothConversionAmount || 0);
+    const hasAnyApplied = payload.appliedBridgeStrategies && payload.appliedBridgeStrategies.length > 0;
+    const targetRothConversionAmount = matchedStrategy 
+      ? matchedStrategy.rothConversion 
+      : (hasAnyApplied ? 0 : (payload.targetRothConversionAmount || 0));
 
     // --- 0. Granular Asset Loop: Establish Total Portfolio Return ---
     let growthAppreciation = 0;
@@ -1674,8 +1677,23 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       
       // 7. Optimal sale amount: Maximize 0% LTCG space, but cover budget shortfall if required
       let optimalSaleAmount = Math.max(maxSaleFor0PercentLtcg, baselineBudgetShortfall);
-      if (matchedStrategy !== undefined && matchedStrategy.stockLiquidation !== undefined) {
-        optimalSaleAmount = matchedStrategy.stockLiquidation;
+      if (hasAnyApplied) {
+        if (matchedStrategy !== undefined && matchedStrategy.stockLiquidation !== undefined) {
+          const lastLiquidationYear = Math.max(...payload.appliedBridgeStrategies!.filter(s => s.stockLiquidation > 0).map(s => s.year));
+          if (currentYear === lastLiquidationYear) {
+             // DP doesn't grow the asset, so in the final liquidation year, we must force it to 100% to match user expectations
+             optimalSaleAmount = liqTargetAsset.value;
+          } else {
+             optimalSaleAmount = matchedStrategy.stockLiquidation;
+          }
+        } else {
+          // If we are strictly applying a ledger, unmapped years should NOT do algorithmic 0% LTCG harvesting
+          optimalSaleAmount = baselineBudgetShortfall;
+        }
+      } else {
+        if (matchedStrategy !== undefined && matchedStrategy.stockLiquidation !== undefined) {
+          optimalSaleAmount = matchedStrategy.stockLiquidation;
+        }
       }
       optimalSaleAmount = Math.min(liqTargetAsset.value, optimalSaleAmount);
       

@@ -31,10 +31,24 @@ import {
   Edit2,
   Check,
   X,
-  Download
+  Download,
+  Percent
 } from 'lucide-react';
+import FundingAllocation from './FundingAllocation';
 
-export default function BudgetDashboard({ db, userId }: { db: any; userId: string }) {
+export default function BudgetDashboard({ 
+  db, 
+  userId,
+  plan,
+  activeScenario,
+  handleRunSimulation
+}: { 
+  db: any; 
+  userId: string;
+  plan?: any;
+  activeScenario?: any;
+  handleRunSimulation?: any;
+}) {
   const { theme } = useTheme();
   const isNightWatch = theme === 'night-watch';
   const isDark = theme === 'dark' || theme === 'night-watch';
@@ -116,7 +130,7 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
   const [isComputing, setIsComputing] = useState(false);
 
   // Interactive Tab controls
-  const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'actuals' | 'categories' | 'assets'>('overview');
+  const [activeTab, setActiveTab] = useState<'funding' | 'overview' | 'expenses' | 'actuals' | 'categories' | 'assets'>('funding');
 
   // Month Ledger selection for variance logging
   const [selectedLedgerMonth, setSelectedLedgerMonth] = useState<string>(() => {
@@ -951,76 +965,85 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
         )}
       </div>
 
-      {/* Main Grid View */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        
-        {/* Tab switcher left sidebar or upper header bar */}
-        <div className="md:col-span-3 space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-2">Navigation</p>
-          <div className="flex md:flex-col flex-wrap gap-1">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`flex-1 md:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 cursor-pointer min-h-[44px] ${
-                activeTab === 'overview'
-                  ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
-              }`}
-            >
-              <FileText size={18} className="shrink-0" /> Budget vs Actual
-            </button>
-            <button
-              onClick={() => setActiveTab('expenses')}
-              className={`flex-1 md:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 cursor-pointer min-h-[44px] ${
-                activeTab === 'expenses'
-                  ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
-              }`}
-            >
-              <DollarSign size={18} className="shrink-0" /> Planned Expenses & Taxes ({expenses.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('actuals')}
-              className={`flex-1 md:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 cursor-pointer min-h-[44px] ${
-                activeTab === 'actuals'
-                  ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
-              }`}
-            >
-              <PiggyBank size={18} className="shrink-0" /> Actual Expenses
-            </button>
-            <button
-              onClick={() => setActiveTab('categories')}
-              className={`flex-1 md:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 cursor-pointer min-h-[44px] ${
-                activeTab === 'categories'
-                  ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
-              }`}
-            >
-              <Layers size={18} className="shrink-0" /> Categories ({categories.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('assets')}
-              className={`flex-1 md:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 cursor-pointer min-h-[44px] ${
-                activeTab === 'assets'
-                  ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
-              }`}
-            >
-              <Briefcase size={18} className="shrink-0" /> Target Assets ({assets.length})
-            </button>
-          </div>
-
-          {/* Inline info block about Kahn algorithm execution */}
-          <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/80 rounded-2xl p-4 space-y-2.5 hidden md:block">
-            <h5 className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Computational Engine</h5>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
-              Kahn’s Algorithm resolves relational formulas by checking dependency ranks. Deletion attempts on parent assets/categories are strictly halted locally in IndexedDB using schema filters.
-            </p>
-          </div>
+      {/* Top-aligned Horizontal Navigation Menu */}
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-2 shadow-sm">
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setActiveTab('funding')}
+            className={`flex-1 sm:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-2.5 cursor-pointer min-h-[44px] ${
+              activeTab === 'funding'
+                ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
+                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
+            }`}
+          >
+            <Percent size={18} className="shrink-0" /> Funding Allocation and Taxes
+          </button>
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex-1 sm:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-2.5 cursor-pointer min-h-[44px] ${
+              activeTab === 'overview'
+                ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
+                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
+            }`}
+          >
+            <FileText size={18} className="shrink-0" /> Budget vs. Variance
+          </button>
+          <button
+            onClick={() => setActiveTab('expenses')}
+            className={`flex-1 sm:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-2.5 cursor-pointer min-h-[44px] ${
+              activeTab === 'expenses'
+                ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
+                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
+            }`}
+          >
+            <DollarSign size={18} className="shrink-0" /> Planned Expenses ({expenses.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('actuals')}
+            className={`flex-1 sm:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-2.5 cursor-pointer min-h-[44px] ${
+              activeTab === 'actuals'
+                ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
+                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
+            }`}
+          >
+            <PiggyBank size={18} className="shrink-0" /> Actual Expenses
+          </button>
+          <button
+            onClick={() => setActiveTab('categories')}
+            className={`flex-1 sm:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-2.5 cursor-pointer min-h-[44px] ${
+              activeTab === 'categories'
+                ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
+                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
+            }`}
+          >
+            <Layers size={18} className="shrink-0" /> Categories ({categories.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('assets')}
+            className={`flex-1 sm:flex-initial text-left px-4 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-2.5 cursor-pointer min-h-[44px] ${
+              activeTab === 'assets'
+                ? 'bg-blue-600 text-white dark:bg-red-950/40 dark:text-red-400 dark:border dark:border-red-900/50 shadow-sm'
+                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
+            }`}
+          >
+            <Briefcase size={18} className="shrink-0" /> Target Assets ({assets.length})
+          </button>
         </div>
+      </div>
 
-        {/* Active Content Window */}
-        <div className="md:col-span-9 space-y-6">
+      {/* Active Content Window (Full Width) */}
+      <div className="space-y-6 w-full">
+
+        {/* Funding Allocation and Taxes tab content */}
+        {activeTab === 'funding' && (
+          <FundingAllocation
+            plan={plan}
+            activeScenario={activeScenario}
+            db={db}
+            userId={userId}
+            handleRunSimulation={handleRunSimulation}
+          />
+        )}
 
           {/* OVERVIEW PANEL - Visualizes comparative ComposedChart */}
           {activeTab === 'overview' && (
@@ -1155,7 +1178,7 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                     <h4 className="font-bold text-zinc-900 dark:text-zinc-100">Actual Monthly Expenditure Ledger</h4>
                     <p className="text-xs text-zinc-500">Record and review real expenditures below to balance your simulation boundaries.</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-end gap-3 sm:ml-auto">
                     <button 
                       onClick={exportActualsToCSV}
                       className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shrink-0"
@@ -1169,7 +1192,8 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                       <select
                         value={selectedLedgerMonth}
                         onChange={(e) => setSelectedLedgerMonth(e.target.value)}
-                        className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-100 rounded-lg p-2 text-xs font-bold font-sans h-10 min-w-[120px] outline-none"
+                        className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-100 rounded-lg p-2 text-xs font-bold font-sans h-10 min-w-[120px] outline-none text-right"
+                        style={{ textAlignLast: 'right' }}
                       >
                         {[
                           'January', 'February', 'March', 'April', 'May', 'June',
@@ -1185,7 +1209,8 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                       <select
                         value={selectedLedgerYear}
                         onChange={(e) => setSelectedLedgerYear(Number(e.target.value))}
-                        className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-100 rounded-lg p-2 text-xs font-bold font-sans h-10 min-w-[100px] outline-none"
+                        className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-100 rounded-lg p-2 text-xs font-bold font-sans h-10 min-w-[100px] outline-none text-right"
+                        style={{ textAlignLast: 'right' }}
                       >
                         {Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
                           <option key={y} value={y}>{y}</option>
@@ -2321,6 +2346,15 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
                   </div>
                 )}
               </div>
+
+              {/* Computational Engine Info Block */}
+              <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/80 rounded-2xl p-4 space-y-2.5">
+                <h5 className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Computational Engine</h5>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                  Kahn’s Algorithm resolves relational formulas by checking dependency ranks. Deletion attempts on parent assets/categories are strictly halted locally in IndexedDB using schema filters.
+                </p>
+              </div>
+
             </div>
           )}
 
@@ -2599,7 +2633,6 @@ export default function BudgetDashboard({ db, userId }: { db: any; userId: strin
             </div>
           )}
 
-        </div>
       </div>
     </div>
   );
