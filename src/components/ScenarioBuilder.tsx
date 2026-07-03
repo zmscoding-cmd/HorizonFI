@@ -1424,7 +1424,7 @@ export default function ScenarioBuilder({
                       ))}
                     </div>
                   </div>
-                  <div>
+                  <div className="md:col-span-3 w-full">
                     {/* Collapsible Custom Variables & Assumptions */}
                     <div className="border-t border-zinc-200/50 dark:border-zinc-800/80 pt-3">
                       <button

@@ -2052,3 +2052,10 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 * **Contextual Add-Asset Shortcuts**: Integrated column-specific, card-height dashed action buttons (`Add Pre-Tax`, `Add Taxable`, etc.) that seamlessly launch the edit modal pre-configured with the column's asset type, boosting data entry efficiency.
 * **Touch-Target Compliance & Offline Resilience**: Ensured all action triggers adhere to the 44x44px minimum touch-target size constraint for flawless accessibility across touch devices while maintaining robust local-first IndexedDB persistence.
 
+
+## XXV. Global Grid Spacing & Column Nesting Correction (Checkpoint 22)
+* **Resolved Single-Column Layout Nesting Trap**: Identified a major layout nesting bottleneck where the entire configuration sub-dashboard (containing Timeline Assumptions, Guyton-Klinger Rules, Temporal Milestones & Income Streams, and Auxiliary Income) was wrapped in a default `div` inside a parent `grid-cols-3` container. By upgrading this wrapper to `className="md:col-span-3 w-full"`, these critical modules now occupy the full horizontal width of the card.
+* **Balanced Bento-Style Layout Density**: With the nesting bug resolved, the inner columns (`grid-cols-3` and `grid-cols-4`) now correctly expand to fill the entire horizontal viewport space. This prevents awkward text wrapping (e.g. `TYPE AMOUNT ($ / YR)` breaking across lines) and minimizes unnecessary vertical scrolling.
+* **Preserved Mathematical Integrity & Reactive Redux Flow**: Kept all database-triggered recalculation flows intact, allowing the web worker simulations to immediately re-run upon defocus (`onBlur`) of any baseline inputs or milestone parameters.
+
+
