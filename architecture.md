@@ -2138,3 +2138,9 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 * **Rigorous Mathematical Assertions**: Engineered and validated a comprehensive Vitest unit test suite (`rmd.worker.test.ts`) that asserts precise SECURE 2.0 Act age triggers (73 vs 75) across historical birth cohorts and mathematically validates that excess RMD balances are securely added to designated taxable asset ledgers after accounting for provisional tax drag.
 * **Eradicated Secret Scan**: Verified the absolute elimination of hardcoded secrets or sensitive developer parameters across all modified components, satisfying the Zero-Trust Secrets Management framework.
 
+## XLI. Timeline-Driven Multistage Tax Stack Projection (Checkpoint 38)
+* **Dynamic Timeline Filtering**: Extended the `BridgeOptimizationChartProps` interface and updated the `BridgeOptimizationChart` component to accept and process optional `displayStartYear` and `displayEndYear` boundaries.
+* **Consistent Visualization Range**: Connected the `displayStartYear` and `displayEndYear` state selected at the top of the multi-stage modeling workspace down to the `BridgeOptimizationChart` rendered in the analytics views.
+* **Reactive Calculations**: Re-engineered stats, domains (`maxDomain`, `maxTaxDomain`), and chart data binding to dynamically react to the filtered dataset, ensuring total tax metrics and peak marginal rate calculations accurately match the active viewport duration.
+* **Eradicated Secret Scan**: Audited all changes and confirmed zero hardcoded keys or configurations, maintaining complete adherence to zero-trust standards.
+

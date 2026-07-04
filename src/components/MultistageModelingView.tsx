@@ -171,7 +171,11 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
               </div>
             ) : (
               <>
-                <BridgeOptimizationChart data={bridgeData} />
+                <BridgeOptimizationChart 
+                  data={bridgeData} 
+                  displayStartYear={displayStartYear}
+                  displayEndYear={displayEndYear}
+                />
                 {notification && (
                   <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-between gap-3 animate-fade-in transition-all">
                     <span>{notification}</span>

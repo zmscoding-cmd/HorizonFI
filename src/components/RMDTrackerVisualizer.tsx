@@ -341,45 +341,49 @@ export function RMDTrackerVisualizer({ data, displayStartYear, displayEndYear }:
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/60 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-              {processedData.map((d, index) => {
-                const hasRMD = d.rmdAmount > 0;
-                return (
-                  <tr 
-                    key={d.year} 
-                    className={`transition-colors hover:bg-zinc-50/50 dark:hover:bg-zinc-950/20 ${!hasRMD ? 'opacity-40' : ''}`}
-                  >
-                    <td className="px-4 py-3.5 font-mono text-zinc-900 dark:text-zinc-100 font-bold">{d.year}</td>
-                    <td className="px-4 py-3.5 font-mono">{d.age}</td>
-                    <td className={`px-4 py-3.5 text-right font-mono font-semibold ${hasRMD ? 'text-blue-600 dark:text-blue-400' : ''}`}>
-                      {hasRMD ? formatCurrency(d.rmdAmount) : '—'}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-mono text-zinc-600 dark:text-zinc-400">
-                      {hasRMD ? formatCurrency(d.rmdUsedForBudget) : '—'}
-                    </td>
-                    <td className={`px-4 py-3.5 text-right font-mono font-bold ${d.rmdExcessReinvested > 0 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
-                      {d.rmdExcessReinvested > 0 ? formatCurrency(d.rmdExcessReinvested) : '—'}
-                    </td>
-                    <td className={`px-4 py-3.5 text-right font-mono ${hasRMD ? 'text-rose-500' : ''}`}>
-                      {hasRMD ? formatCurrency(d.estimatedRmdTaxDrag) : '—'}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      {!hasRMD ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
-                          Pre-RMD
-                        </span>
-                      ) : d.rmdExcessReinvested > 0 ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
-                          Reinvested
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
-                          Budget Met
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {processedData.filter(d => d.rmdAmount > 0).length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 font-medium font-mono">
+                    No active RMD years in the selected projection period.
+                  </td>
+                </tr>
+              ) : (
+                processedData.filter(d => d.rmdAmount > 0).map((d) => {
+                  const hasRMD = d.rmdAmount > 0;
+                  return (
+                    <tr 
+                      key={d.year} 
+                      className="transition-colors hover:bg-zinc-50/50 dark:hover:bg-zinc-950/20"
+                    >
+                      <td className="px-4 py-3.5 font-mono text-zinc-900 dark:text-zinc-100 font-bold">{d.year}</td>
+                      <td className="px-4 py-3.5 font-mono">{d.age}</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-semibold text-blue-600 dark:text-blue-400">
+                        {formatCurrency(d.rmdAmount)}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-mono text-zinc-600 dark:text-zinc-400">
+                        {formatCurrency(d.rmdUsedForBudget)}
+                      </td>
+                      <td className={`px-4 py-3.5 text-right font-mono font-bold ${d.rmdExcessReinvested > 0 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
+                        {d.rmdExcessReinvested > 0 ? formatCurrency(d.rmdExcessReinvested) : '—'}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-mono text-rose-500">
+                        {formatCurrency(d.estimatedRmdTaxDrag)}
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        {d.rmdExcessReinvested > 0 ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+                            Reinvested
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                            Budget Met
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

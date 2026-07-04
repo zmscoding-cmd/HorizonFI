@@ -30,6 +30,8 @@ export interface BridgeOptimizationData {
 
 interface BridgeOptimizationChartProps {
   data: BridgeOptimizationData[];
+  displayStartYear?: number;
+  displayEndYear?: number;
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -124,8 +126,22 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-export const BridgeOptimizationChart: React.FC<BridgeOptimizationChartProps> = ({ data = [] }) => {
+export const BridgeOptimizationChart: React.FC<BridgeOptimizationChartProps> = ({ 
+  data = [], 
+  displayStartYear, 
+  displayEndYear 
+}) => {
   const [activeTab, setActiveTab] = useState<'stack' | 'tax'>('stack');
+
+  // Filter data based on display timeline limits
+  const filteredData = useMemo(() => {
+    if (!data) return [];
+    return data.filter(d => {
+      if (displayStartYear && d.year < displayStartYear) return false;
+      if (displayEndYear && d.year > displayEndYear) return false;
+      return true;
+    });
+  }, [data, displayStartYear, displayEndYear]);
 
   // 2026 Tax Brackets (MFJ)
   const STANDARD_DEDUCTION = 30000;
@@ -139,7 +155,7 @@ export const BridgeOptimizationChart: React.FC<BridgeOptimizationChartProps> = (
     let totalStockTax = 0;
     let maxMarginalRate = 0;
 
-    data.forEach(d => {
+    filteredData.forEach(d => {
       const tax = d.estimatedTotalTax ?? ((d.ordinaryIncome + d.capitalGains) * d.effectiveMarginalRate);
       totalTax += tax;
       totalRothTax += d.taxFromRoth || 0;
@@ -155,25 +171,25 @@ export const BridgeOptimizationChart: React.FC<BridgeOptimizationChartProps> = (
       totalStockTax,
       maxMarginalRate
     };
-  }, [data]);
+  }, [filteredData]);
 
   const maxDomain = useMemo(() => {
     let max = 0;
-    data.forEach(d => {
+    filteredData.forEach(d => {
       const total = d.ordinaryIncome + d.capitalGains;
       if (total > max) max = total;
     });
     return Math.max(max, ORDINARY_22_LIMIT) * 1.1;
-  }, [data, ORDINARY_22_LIMIT]);
+  }, [filteredData, ORDINARY_22_LIMIT]);
 
   const maxTaxDomain = useMemo(() => {
     let max = 0;
-    data.forEach(d => {
+    filteredData.forEach(d => {
       const tax = d.estimatedTotalTax ?? ((d.ordinaryIncome + d.capitalGains) * d.effectiveMarginalRate);
       if (tax > max) max = tax;
     });
     return Math.max(max, 10000) * 1.1;
-  }, [data]);
+  }, [filteredData]);
 
   return (
     <div id="bridge-optimization-chart-card" className="p-4 sm:p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm w-full transition-colors">
@@ -266,7 +282,7 @@ export const BridgeOptimizationChart: React.FC<BridgeOptimizationChartProps> = (
       <div className="w-full h-72 sm:h-80">
         <ResponsiveContainer width="100%" height="100%">
           {activeTab === 'stack' ? (
-            <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+            <AreaChart data={filteredData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" />
               <XAxis 
                 dataKey="year" 
@@ -308,7 +324,7 @@ export const BridgeOptimizationChart: React.FC<BridgeOptimizationChartProps> = (
               />
             </AreaChart>
           ) : (
-            <ComposedChart data={data} margin={{ top: 20, right: 5, left: 0, bottom: 0 }}>
+            <ComposedChart data={filteredData} margin={{ top: 20, right: 5, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" />
               <XAxis 
                 dataKey="year" 
