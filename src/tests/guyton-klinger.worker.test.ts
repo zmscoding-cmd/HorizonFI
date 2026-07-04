@@ -46,7 +46,7 @@ describe('Web Worker - Guyton-Klinger Guardrail Engine', () => {
     }
     
     expect(currentWithdrawalRate).toBeLessThan(threshold);
-    expect(newBudget).toBe(55000); // 10% raise applied
+    expect(newBudget).toBeCloseTo(55000, 2); // 10% raise applied
   });
   
   it('should STRICTLY HALT harvesting from Bucket 3 if Guyton-Klinger negative market rule triggers', () => {

@@ -241,7 +241,7 @@ export const BridgeOptimizationChart: React.FC<BridgeOptimizationChartProps> = (
           <div className="text-base font-bold text-zinc-800 dark:text-zinc-100 font-mono">
             ${Math.round(stats.totalTax).toLocaleString()}
           </div>
-          <p className="text-[10px] text-zinc-400 mt-0.5">Taxes owed over the bridge period</p>
+          <p className="text-[10px] text-zinc-400 mt-0.5">Taxes owed over the display period</p>
         </div>
 
         <div className="p-3 bg-zinc-50 dark:bg-zinc-950/40 rounded-xl border border-zinc-200/50 dark:border-zinc-800/80 transition-colors">

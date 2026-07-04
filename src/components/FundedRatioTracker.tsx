@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
 import { filterSimulationDataForView } from '../lib/chart-utils';
+import { Info } from 'lucide-react';
 
 export function FundedRatioTracker({ data, stages, activeScenario, handleUpdateDiscountRate, displayStartYear, displayEndYear }: { data: any[], stages: any[], activeScenario: any, handleUpdateDiscountRate: (rate: number) => void, displayStartYear?: number, displayEndYear?: number }) {
   const filteredData = useMemo(() => {
@@ -151,6 +152,49 @@ export function FundedRatioTracker({ data, stages, activeScenario, handleUpdateD
             />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+
+      <div className="mt-6 p-5 bg-zinc-50 dark:bg-zinc-950/40 rounded-xl border border-zinc-200/50 dark:border-zinc-800/80">
+        <div className="flex gap-3">
+          <Info className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              How to Interpret the Funded Ratio
+            </h4>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed font-medium">
+              The **Funded Ratio** measures your long-term retirement safety as a continuous metric. It divides your total pre-funded capital (current portfolio balances) plus the present value of all expected future cash flows (pensions, social security, real estate income, auxiliary gifts) by the present value of your future liabilities (living expenses and tax drag) across the remaining timeline, discounted by the selected rate.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                  Safe Zone (&gt; 1.0x / 100%+)
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                  Your current assets and future cash streams are more than sufficient to cover all planned spending. Your retirement is fully pre-funded.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400">
+                  <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                  Balanced Zone (1.0x / 100%)
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                  Assets and planned outflows are perfectly matched. Your timeline is fully funded, but has minimal margin for unexpected costs or extended down markets.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500">
+                  <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+                  Funding Gap (&lt; 1.0x / &lt; 100%)
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                  A potential shortfall exists over your remaining timeline. Consider adjusting your multi-stage budget targets, deferring retirement stages, or increasing savings.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

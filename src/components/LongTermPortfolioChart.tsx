@@ -79,7 +79,7 @@ export function LongTermPortfolioChart({ data, assets, displayStartYear, display
         // Absolute (non-stacked) values for overlaying comparative lines
         LIQUIDATION_TARGET_LINE: Math.max(0, liquidationTarget),
         DIVIDEND_DESTINATION_LINE: Math.max(0, dividendDestination),
-        expectedSpend: (isCurrent ? snapshot.targetBudgetReal : snapshot.targetBudgetNominal) || 0,
+        expectedSpend: (isCurrent ? (snapshot.grossTargetBudgetReal || snapshot.targetBudgetReal) : (snapshot.grossTargetBudgetNominal || snapshot.targetBudgetNominal)) || 0,
         expectedGrowth: (snapshot.expectedGrowth || 0) / divisor,
         expectedYield: (snapshot.expectedYield || 0) / divisor,
         actualSpend: (isCurrent ? snapshot.realWithdrawal : snapshot.nominalWithdrawal) || 0,

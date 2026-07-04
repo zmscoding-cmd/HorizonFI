@@ -1544,6 +1544,8 @@ export type MultiStageYearlySnapshot = {
   giftAmountUsed: number;
   targetBudgetNominal?: number;
   targetBudgetReal?: number;
+  grossTargetBudgetNominal?: number;
+  grossTargetBudgetReal?: number;
   cumulativeInflation?: number;
   lifestyleShrinking?: boolean;
   lifestyleGrowing?: boolean;
@@ -2887,6 +2889,8 @@ export function simulateMultiStageDrawdownWorker(
       giftAmountUsed,
       targetBudgetNominal: stageTargetBudgetNominal,
       targetBudgetReal: stageTargetBudgetNominal / cumInflation,
+      grossTargetBudgetNominal: stageTargetBudgetNominal + estimatedTaxDrag,
+      grossTargetBudgetReal: (stageTargetBudgetNominal + estimatedTaxDrag) / cumInflation,
       cumulativeInflation: cumInflation,
       lifestyleShrinking,
       lifestyleGrowing,

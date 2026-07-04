@@ -2138,9 +2138,31 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 * **Rigorous Mathematical Assertions**: Engineered and validated a comprehensive Vitest unit test suite (`rmd.worker.test.ts`) that asserts precise SECURE 2.0 Act age triggers (73 vs 75) across historical birth cohorts and mathematically validates that excess RMD balances are securely added to designated taxable asset ledgers after accounting for provisional tax drag.
 * **Eradicated Secret Scan**: Verified the absolute elimination of hardcoded secrets or sensitive developer parameters across all modified components, satisfying the Zero-Trust Secrets Management framework.
 
-## XLI. Timeline-Driven Multistage Tax Stack Projection (Checkpoint 38)
-* **Dynamic Timeline Filtering**: Extended the `BridgeOptimizationChartProps` interface and updated the `BridgeOptimizationChart` component to accept and process optional `displayStartYear` and `displayEndYear` boundaries.
-* **Consistent Visualization Range**: Connected the `displayStartYear` and `displayEndYear` state selected at the top of the multi-stage modeling workspace down to the `BridgeOptimizationChart` rendered in the analytics views.
-* **Reactive Calculations**: Re-engineered stats, domains (`maxDomain`, `maxTaxDomain`), and chart data binding to dynamically react to the filtered dataset, ensuring total tax metrics and peak marginal rate calculations accurately match the active viewport duration.
-* **Eradicated Secret Scan**: Audited all changes and confirmed zero hardcoded keys or configurations, maintaining complete adherence to zero-trust standards.
+## XLII. Income Shift Visualization RMD Integration (Checkpoint 39)
+* **Comprehensive Withdrawal Tracking**: Modified `MultiStageChart.tsx` to structurally isolate and render `rmdExcessReinvested` directly in the Income Shift stack. Previously, excess RMD transfers were omitted from the stacked distribution graph, while the correlated taxes paid from Taxable Principal dominated the visual field.
+* **Precise 401k/IRA Attribution**: Reconciled the `withdrawnTaxAdvantaged` metric within the rendering layer to dynamically include `rmdUsedForBudget`. This explicitly attributes RMD distributions that fund the target budget to the "401k/IRA" category, ensuring the total stack accurately spans the target budget.
+* **Distinct Visual Encoding**: Mapped `rmdExcessReinvested` to a distinct teal hex (`#14b8a6`) named "Excess RMD (Reinvested)" in the Recharts rendering engine, fully separating it from generic "Taxable Principal" withdrawals or auxiliary pension reinvestments.
+* **Eradicated Secret Scan**: Audited rendering changes and confirmed zero hardcoded secrets, maintaining absolute local-first zero-trust isolation boundaries.
+
+## XLIII. Timeline-Driven Tax Stack Projection Data Source (Checkpoint 40)
+* **Full Timeline DP Optimization**: Refactored `useBridgeOptimization.ts` to calculate dynamic programming optimization paths up to the user's selected `displayEndYear`, overriding the truncated bridge horizon.
+* **Synchronized Views**: This ensures the Multistage Tax Stack Projection explicitly models taxes across the full active display period rather than artificially ending early. The total estimated taxes and peak marginal rate dynamically reflect the selected boundaries.
+* **Eradicated Secret Scan**: Audited changes and confirmed zero hardcoded secrets, maintaining absolute local-first zero-trust isolation boundaries.
+
+## XLIV. Visualizing Gross Target Budget via Tax Iteration (Checkpoint 41)
+* **Gross Target Budget Integration**: Modified `simulation.worker.ts` to actively export `grossTargetBudgetNominal` and `grossTargetBudgetReal` within the `MultiStageYearlySnapshot`, effectively exposing the mathematically rigorous "Gross Budget" (base budget + estimated tax drag).
+* **Render Synchronization**: Altered `MultiStageChart.tsx` (Income Shift Visualization) and `LongTermPortfolioChart.tsx` (Long-Term Portfolio Projection) to bind their visual overlay lines to these grossed-up target budgets rather than the unadjusted net budget, ensuring visual consistency when analyzing withdrawal stacks that already include tax burdens.
+* **Eradicated Secret Scan**: Verified the absence of hardcoded keys, API endpoints, or developer overrides in all updated analytical visualizer modules.
+
+## XLV. Interactive Multi-Stage Retirement Funded Ratio Guidance (Checkpoint 42)
+* **Liability-Driven Explanation Block**: Integrated a comprehensive, high-fidelity interpretation card within `FundedRatioTracker.tsx` to provide users with visual, descriptive, and mathematical guidance on interpreting the Funded Ratio metric.
+* **Continuous Safety Assessment**: Formally explained the Safe Zone (>= 1.0x / 100%+), Balanced Zone (1.0x), and Underfunded Zone (< 1.0x) so users can analyze the fractional safety of their retirement plan on a continuous cash-flow and discounted balance-sheet basis.
+* **Eradicated Secret Scan**: Verified the absence of hardcoded keys, API endpoints, or developer overrides in the interactive guidance module.
+
+## XLVI. Wealth Velocity Playbook & Interactive Guidance (Checkpoint 43)
+* **Visual Playbook & Sandbox Guide**: Integrated a rich interactive guide and structured playbook into `WealthVelocityChart.tsx` explaining how to configure input parameters (Capital Balance, Growth, Withdrawals, Inflation, and Spending Smile) and how to interpret sandbox outputs.
+* **Continuous Phase Definitions**: Defined color-coded, visual-pulse indicators for each core retirement phase (Velocity Point Phase at ≤ 5% drawdown, Accumulation Phase at ≤ 0% drawdown, and Distribution / Drawdown Phase at > 5% drawdown) along with clear guidelines for referencing the historical 4% Safe Velocity baseline.
+* **Eradicated Secret Scan**: Verified zero hardcoded keys, secrets, or administrative overrides are present in the interactive documentation block or component state.
+
+
 

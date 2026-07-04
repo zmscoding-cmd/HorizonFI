@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export function useBridgeOptimization(planId: string | undefined, scenarioId: string | undefined, db: any) {
+export function useBridgeOptimization(planId: string | undefined, scenarioId: string | undefined, db: any, displayEndYear?: number) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const workerRef = useRef<Worker | null>(null);
@@ -82,10 +82,15 @@ export function useBridgeOptimization(planId: string | undefined, scenarioId: st
         const rothConversionStartYear = scenario.bridgeRothConversionStartYear ?? 2030;
         const stockLiquidationStartAge = startAge + (stockLiquidationStartYear - currentYear);
         const rothConversionStartAge = startAge + (rothConversionStartYear - currentYear);
+        
+        let effectiveEndAge = scenario.bridgeOptimizationEndAge || 75;
+        if (displayEndYear) {
+          effectiveEndAge = startAge + (displayEndYear - currentYear);
+        }
 
         const params = {
           startAge,
-          endAge: scenario.bridgeOptimizationEndAge || 75,
+          endAge: effectiveEndAge,
           baseOrdinaryIncome: scenario.baseOrdinaryIncome || 50000,
           guytonKlingerTarget: scenario.guytonKlingerTarget || 50000,
           rrbTier1Benefits: 0,
@@ -110,7 +115,7 @@ export function useBridgeOptimization(planId: string | undefined, scenarioId: st
         workerRef.current = null;
       }
     };
-  }, [planId, scenarioId, db]);
+  }, [planId, scenarioId, db, displayEndYear]);
 
   return { data, loading };
 }

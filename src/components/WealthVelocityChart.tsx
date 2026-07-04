@@ -493,6 +493,88 @@ export const WealthVelocityChart: React.FC<WealthVelocityChartProps> = ({
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Configuration & Interpretation Guide */}
+      <div className="lg:col-span-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-6 transition-colors text-zinc-950 dark:text-zinc-50">
+        <div className="flex gap-3">
+          <Info className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
+          <div className="space-y-4 w-full">
+            <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              Wealth Velocity Playbook & Interpretation Guide
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* How to Configure Inputs */}
+              <div className="space-y-3">
+                <h5 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  Configuring the Sandbox Inputs
+                </h5>
+                <ul className="space-y-2.5 text-xs text-zinc-600 dark:text-zinc-400">
+                  <li className="leading-relaxed">
+                    <strong className="text-zinc-850 dark:text-zinc-200 font-bold">Capital Balance:</strong> Adjust this slider to represent your total starting nest egg. A higher starting balance cushions against early distribution drag.
+                  </li>
+                  <li className="leading-relaxed">
+                    <strong className="text-zinc-850 dark:text-zinc-200 font-bold">Annual Growth Rate:</strong> Model your expected average investment return. Small 0.5% shifts significantly alter terminal net worth over 30 years due to the power of compounding.
+                  </li>
+                  <li className="leading-relaxed">
+                    <strong className="text-zinc-850 dark:text-zinc-200 font-bold">Initial Withdrawal Rate:</strong> Your baseline starting annual withdrawal percentage. Higher initial rates elevate the risk of distribution lockouts unless offset by spending contractions.
+                  </li>
+                  <li className="leading-relaxed">
+                    <strong className="text-zinc-850 dark:text-zinc-200 font-bold">Base Inflation Rate:</strong> Set the general cost increase. High inflation eats into purchasing power, requiring your portfolio's growth to work harder to maintain real value.
+                  </li>
+                  <li className="leading-relaxed">
+                    <strong className="text-zinc-850 dark:text-zinc-200 font-bold">Spending Smile Drop:</strong> Model your lifestyle adjustments. A higher curve drop (e.g., -40%) simulates a realistic retirement where spending naturally declines in your active mid-retirement years (bottoming around year 15) before slightly recovering later.
+                  </li>
+                </ul>
+              </div>
+
+              {/* How to Interpret Results */}
+              <div className="space-y-3">
+                <h5 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  Interpreting the Phases & Velocity
+                </h5>
+                <div className="space-y-3">
+                  <div className="p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-950/20">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Velocity Point Phase (≤ 5% Drawdown)
+                    </div>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                      The optimal "Safe Velocity" zone. In this phase, your spending is sustainable enough that your compound growth exceeds or matches the withdrawal drag plus inflation, protecting your principal.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-950/20">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">
+                      <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                      Accumulation Phase (≤ 0% Drawdown)
+                    </div>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                      Rapid capital expansion. Portfolio growth is unburdened by active withdrawals. All earnings are reinvested to compound exponentially.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-950/20">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 mb-1">
+                      <span className="h-2 w-2 rounded-full bg-rose-500"></span>
+                      Distribution / Drawdown Phase (&gt; 5% Drawdown)
+                    </div>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                      Withdrawal drag exceeds the sustainable threshold. Your portfolio balance may begin to decline unless investment returns are exceptionally high.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
+                * Note: The red dashed **4% Safe Velocity** line on the chart serves as a critical historical anchor. Keeping your active Spending Smile rate below or near this line for the majority of your timeline significantly maximizes your plan's terminal safety and compounding momentum.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -28,7 +28,7 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
   
   const rawChartData = filteredData.map((d) => {
     const divisor = isCurrent ? (d.cumulativeInflation || 1) : 1;
-    const budgetVal = isCurrent ? (d.targetBudgetReal || (d.targetBudgetNominal / divisor)) : d.targetBudgetNominal;
+    const budgetVal = isCurrent ? (d.grossTargetBudgetReal || (d.grossTargetBudgetNominal / divisor)) : d.grossTargetBudgetNominal;
     
     const startAssets = (d.endingBalance || 0) - (d.changeInNetWorth || 0);
     const withdrawalRate = startAssets > 0 ? ((d.nominalWithdrawal || 0) / startAssets) * 100 : 0;
@@ -56,9 +56,10 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
       nonPortfolioCoveredPercent: d.nonPortfolioCoveredPercent !== undefined ? d.nonPortfolioCoveredPercent : 0,
       withdrawnDividends: (d.withdrawnDividends || 0) / divisor,
       withdrawnTaxable: (d.withdrawnTaxable || 0) / divisor,
-      withdrawnTaxAdvantaged: (d.withdrawnTaxAdvantaged || 0) / divisor,
+      withdrawnTaxAdvantaged: ((d.withdrawnTaxAdvantaged || 0) + (d.rmdUsedForBudget || 0)) / divisor,
       withdrawalRate: Math.max(0, Math.min(100, withdrawalRate)),
       excessExternalIncome: (d.excessExternalIncome || 0) / divisor,
+      rmdExcessReinvested: (d.rmdExcessReinvested || 0) / divisor,
     };
   });
 
@@ -244,6 +245,7 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxable" name="Taxable Principal" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxAdvantaged" name="401k/IRA" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="excessExternalIncome" name="Excess Income (Reinvested)" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.8} />
+          <Area yAxisId="left" type="monotone" dataKey="rmdExcessReinvested" name="Excess RMD (Reinvested)" stackId="1" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.8} />
           
           <Line 
             yAxisId="left"
