@@ -642,3 +642,32 @@ The Multistage Tax Stack Projection is engineered to be highly intuitive, breaki
 
 ### Bridge Strategy Execution Tracking
 The actionable strategy ledger outputs optimal yearly recommendations. Users can explicitly apply these recommendations (Stock Liquidation and Roth Conversions) directly into the Long-Term Portfolio Projection, overriding the simulation's automatic baseline heuristics. Once applied, these are explicitly modeled by moving pre-tax values into the Roth bucket, and honoring the requested concentrated stock liquidation amount to smooth tax burdens across the bridge phase.
+
+## 14. Advanced Workflow: Extended Feature Modeling
+
+HorizonFI includes advanced functional capabilities to support complex retirement timelines and alternative asset structures.
+
+### Non-Taxable Gifts & Auxiliary Incomes
+Non-taxable gifts and auxiliary income sources (e.g., inheritances, VA disability) are modeled as **Prioritized Inflow Offsets**. When defining a non-taxable gift inside the timeline, the simulation engine automatically deducts this amount from your active Phase Target Budget before drawing down on any tax-advantaged accounts or brokerage assets, protecting your primary capital base from depletion.
+
+### 3-Bucket Phased Budgets
+To optimize withdrawal strategies against volatile markets, HorizonFI implements a 3-Bucket phased approach:
+1. **Bucket 1 (Cash Buffer):** 1-3 years of living expenses to shield against immediate downturns.
+2. **Bucket 2 (Income/Bonds):** 3-7 years of intermediate stability.
+3. **Bucket 3 (Growth/Equities):** Long-term capital appreciation.
+These buckets seamlessly feed the multi-stage budget phases (e.g., "The Go-Go Years", "The Slow-Go Years", "The No-Go Years") mapped dynamically on your timeline.
+
+### Chart Time Horizon Filtering
+As documented in the UX controls, adjusting the visual `displayStartYear` and `displayEndYear` boundaries strictly filters the front-end Recharts overlay. The underlying multi-decade timeline calculations within the Web Worker remain uninterrupted, ensuring all compounding limits, bracket trajectories, and Guyton-Klinger guardrails are perfectly preserved regardless of your visual zoom level.
+
+### Race Start Sequence & Net Worth Tracking
+* **Race Start Sequence:** You can establish a definitive "Race Start Year" (e.g., the year you sever employment) which anchors all subsequent calculations and milestones to a clear `t=0` starting line.
+* **Net Worth Tracking (Historical Datapoints):** HorizonFI includes a dedicated interface for capturing real-time monthly or annual net worth snapshots. While standard metrics are stored in plaintext to prevent N+1 query charting bottlenecks, all granular asset/liability structures are heavily encrypted via `crypto-js` at rest in the offline IndexedDB ledger.
+
+### Manual Strategic Tax Events in Recharts UI
+The Recharts interface supports interactive modeling of manual strategic tax events. To execute a manual action:
+1. Navigate to the **Multi-Stage Modeling** view.
+2. Scroll to the **Actionable Strategy Ledger**.
+3. Review the DP Engine's optimal targets for **Target Roth Conversion** and **Stock Liquidation**.
+4. Click the **Apply** button on a specific year's row to instantly patch that event into your active scenario.
+5. The Recharts dashboard will immediately update the visual stack, isolating the specific tax drag of the Roth Conversion (e.g., crossing standard 22% bracket) versus the Stock Liquidation (e.g., triggering the 15% LTCG threshold) so you can visually verify the long-term compounding impact of the manual action.

@@ -2325,14 +2325,14 @@ export default function BudgetDashboard({
                                   setEditLinkUrl('');
                                   setActiveIndexEditExpenseLinkEdit(null);
                                 }}
-                                className="text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
+                                className="text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
                                 title="Edit Planned Expense"
                               >
                                 <Edit2 size={15} />
                               </button>
                               <button
                                 onClick={() => handleDeleteExpense(exp.id)}
-                                className="text-zinc-400 hover:text-red-500 dark:hover:text-red-400 p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
+                                className="text-zinc-400 hover:text-red-500 dark:hover:text-red-400 p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
                                 title="Delete Planned Expense"
                               >
                                 <Trash2 size={15} />
@@ -2610,14 +2610,14 @@ export default function BudgetDashboard({
                                   setEditingCategoryName(cat.name || '');
                                   setEditingCategoryColor(cat.color || '#3b82f6');
                                 }}
-                                className="text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 hover:bg-blue-50 dark:hover:bg-blue-950/10 rounded-xl transition min-w-[38px] min-h-[38px] flex items-center justify-center cursor-pointer"
+                                className="text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 hover:bg-blue-50 dark:hover:bg-blue-950/10 rounded-xl transition min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
                                 title="Edit Category Name & Color"
                               >
                                 <Edit2 size={15} />
                               </button>
                               <button
                                 onClick={() => handleDeleteCategory(cat.id)}
-                                className="text-zinc-400 hover:text-red-500 dark:hover:text-red-400 p-2 hover:bg-red-50 dark:hover:bg-red-950/10 rounded-xl transition min-w-[38px] min-h-[38px] flex items-center justify-center cursor-pointer"
+                                className="text-zinc-400 hover:text-red-500 dark:hover:text-red-400 p-2 hover:bg-red-50 dark:hover:bg-red-950/10 rounded-xl transition min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
                                 title="Delete Category"
                               >
                                 <Trash2 size={15} />

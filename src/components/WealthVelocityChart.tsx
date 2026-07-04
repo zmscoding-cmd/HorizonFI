@@ -418,7 +418,7 @@ export const WealthVelocityChart: React.FC<WealthVelocityChartProps> = ({
                 axisLine={false} 
                 stroke={tickStroke}
                 tick={{ fill: textFill }}
-                tickFormatter={(val) => `$${(val / 1000).toFixed(0)}k`} 
+                tickFormatter={(val) => `$${(val / 1000000).toFixed(1).replace(/\.0$/, '')}M`} 
               />
 
               {/* Right Y-Axis for currentSpendingRate Line */}

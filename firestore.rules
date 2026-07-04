@@ -17,102 +17,45 @@ service cloud.firestore {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
     }
 
-    function isCheckpoint(id) {
-      return id is string && id.matches('^checkpoint-.*');
-    }
-
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
     function isHouseholdMember(householdId) {
-      return isSignedIn() &&
-             exists(/databases/$(database)/documents/households/$(householdId)) &&
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/households/$(householdId)) && 
              (request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.members);
-    }
-
-    function isValidHistoricalDatapoint(data) {
-      return true;
-    }
-
-    function isValidScenarioItem(scenario) {
-      return true;
-    }
-
-    function isScenarioValid(sc) {
-      return true;
     }
 
     function isValidAsset(data) {
       let typeOk = data.assetType == 'CASH' || data.assetType == 'TAXABLE' || data.assetType == 'PRE_TAX' || data.assetType == 'ROTH';
       let growthOk = isNumeric(data.expectedGrowthRate) && data.expectedGrowthRate >= -1.0 && data.expectedGrowthRate <= 1.0;
       let dividendOk = isNumeric(data.expectedDividendYield) && data.expectedDividendYield >= -1.0 && data.expectedDividendYield <= 1.0;
+      let valueOk = isNumeric(data.value) && data.value >= 0;
       
-      return typeOk && growthOk && dividendOk;
+      return typeOk && growthOk && dividendOk && valueOk;
     }
-
     
     function isValidTaxLot(data) {
       return data.id is string &&
              data.accountId is string &&
              data.ticker is string &&
-             isNumeric(data.shares) &&
-             isNumeric(data.costBasisPerShare) &&
+             isNumeric(data.shares) && data.shares >= 0 &&
+             isNumeric(data.costBasisPerShare) && data.costBasisPerShare >= 0 &&
              data.acquisitionDate is string &&
              data.isTargetConcentratedPosition is bool;
     }
-
     
     function isValidBridgeOptimization(data) {
       return data.id is string &&
              data.scenarioId is string &&
-             isNumeric(data.optimalRothConversion) &&
-             isNumeric(data.optimalLiquidation);
-    }
-
-    function isValidCategory(data) {
-      return true;
-    }
-
-    function isValidThreeBuckets(tb) {
-      return true;
-    }
-
-    function isValidBudgetPhase(phase) {
-      return true;
-    }
-
-    function areBudgetPhasesValid(phases) {
-      return true;
-    }
-
-    function isValidHousehold(data) {
-      return true;
-    }
-
-    function isValidPlan(data) {
-      return true;
-    }
-
-    function isValidPlannedExpense(data) {
-      return true;
-    }
-
-    function isValidBudget(data) {
-      return true;
+             isNumeric(data.optimalRothConversion) && data.optimalRothConversion >= 0 &&
+             isNumeric(data.optimalLiquidation) && data.optimalLiquidation >= 0;
     }
 
     function isValidActualExpense(data) {
       return true;
     }
 
-    function isValidLink(data) {
-      return true;
-    }
-    
     // Allow any collection ending with -rxdb-replication-state at the root
     match /{collectionName}/{docId} {
       allow read, write: if isSignedIn() && collectionName.matches('.*-rxdb-replication-state');
@@ -121,17 +64,21 @@ service cloud.firestore {
     // Allow nested collections under users
     match /users/{userId}/{collectionName}/{docId} {
       allow read, delete: if isSignedIn() && request.auth.uid == userId;
-            allow create, update: if isSignedIn() && request.auth.uid == userId && 
+      
+      allow create, update: if isSignedIn() && request.auth.uid == userId && 
         (
-          (collectionName != 'assets' && collectionName != 'tax_lots' && collectionName != 'bridge_optimizations') || 
           (collectionName == 'assets' && isValidAsset(request.resource.data)) ||
           (collectionName == 'tax_lots' && isValidTaxLot(request.resource.data)) ||
-          (collectionName == 'bridge_optimizations' && isValidBridgeOptimization(request.resource.data))
+          (collectionName == 'bridge_optimizations' && isValidBridgeOptimization(request.resource.data)) ||
+          (collectionName != 'assets' && collectionName != 'tax_lots' && collectionName != 'bridge_optimizations')
         );
     }
 
     match /households/{householdId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid in resource.data.members);
+      allow create: if isSignedIn() && (request.auth.uid in request.resource.data.members);
+      allow update: if isSignedIn() && (request.auth.uid in resource.data.members) && (request.auth.uid in request.resource.data.members);
+      allow delete: if isSignedIn() && (request.auth.uid in resource.data.members);
     }
 
     match /actual_expenses/{actualId} {
