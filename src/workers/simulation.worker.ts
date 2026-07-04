@@ -6,10 +6,10 @@ export type SimulationRequest = {
   inflationRate: number; // e.g. 0.03 for 3%
   lifestyleCreepRate?: number; // e.g. 0.02 for 2%, defaults to 0.02
   previousNominalWithdrawal: number;
-  initialWithdrawalRate: number; 
+  initialWithdrawalRate: number;
   cumulativeInflation: number;
   maxRealWithdrawal: number; // Cap on real growth
-  
+
   // Custom G-K parameters
   upperGuardrailMultiplier?: number;
   lowerGuardrailMultiplier?: number;
@@ -47,20 +47,20 @@ export type SimulationResponse = SimulationSuccess | SimulationError;
 export type WealthVelocityResult = {
   currentSpendingRate: number;
   adjustedSpending: number;
-  velocityStatus: 'Accumulation' | 'Velocity Point' | 'Distribution/Drawdown';
+  velocityStatus: "Accumulation" | "Velocity Point" | "Distribution/Drawdown";
   projectedGrowthDelta: number;
   yearsToNext100k: number;
 };
 
 /**
  * Calculates current Wealth Velocity metrics.
- * 
+ *
  * --- BOUNDS AND SPENDING SMILE CALCULATION RULES ---
  * 1. Explicit Bounds-Checking: withdrawalRate and inflationRate must be within [0, 1].
  * 2. "Spending Smile": Adjusted Spending = Inflation - 0.01 (hard floor of 0.015).
  * 3. Status Determination: <=0 is 'Accumulation', (0, 0.05] is 'Velocity Point' and otherwise 'Distribution/Drawdown'.
  * 4. Next $100k milestone projection: yearsToNext100k based on projectedGrowthDelta.
- * 
+ *
  * --- CALLING LOGIC & DECIMATION EXAMPLE IN 600-MILESTONE LOOP ---
  * ```typescript
  * // Example: Calling within simulation loop running for N years/milestones:
@@ -79,7 +79,7 @@ export type WealthVelocityResult = {
  *   });
  *   currentBalance += velocity.projectedGrowthDelta;
  * }
- * 
+ *
  * // Array decimation for memory optimization (maximum limit of 600 elements)
  * const decimatedArray: any[] = [];
  * if (rawDatapoints.length <= 600) {
@@ -98,13 +98,21 @@ export function calculateWealthVelocity(
   currentBalance: number,
   growthRate: number,
   activePhaseBudget: number,
-  inflationRate: number
+  inflationRate: number,
 ): WealthVelocityResult {
-  const withdrawalRate = currentBalance > 0 ? activePhaseBudget / currentBalance : 0;
-  
+  const withdrawalRate =
+    currentBalance > 0 ? activePhaseBudget / currentBalance : 0;
+
   // Explicit Bounds-Checking: withdrawalRate and inflationRate must be within 0 to 1 bounds
-  if (withdrawalRate < 0 || withdrawalRate > 1 || inflationRate < 0 || inflationRate > 1) {
-    throw new Error("Invalid parameters: withdrawalRate must be >= 0 and <= 1, and inflationRate must be between 0 and 1.");
+  if (
+    withdrawalRate < 0 ||
+    withdrawalRate > 1 ||
+    inflationRate < 0 ||
+    inflationRate > 1
+  ) {
+    throw new Error(
+      "Invalid parameters: withdrawalRate must be >= 0 and <= 1, and inflationRate must be between 0 and 1.",
+    );
   }
 
   // Apply the "Spending Smile" calculation: Adjusted Spending = Inflation - 0.01 (min floor of 0.015)
@@ -114,17 +122,19 @@ export function calculateWealthVelocity(
   const currentSpendingRate = withdrawalRate;
 
   // Determine velocity status: <=0 is Accumulation, <=0.04 (4% target against active phase budget) is Velocity Point, otherwise Distribution/Drawdown
-  let velocityStatus: 'Accumulation' | 'Velocity Point' | 'Distribution/Drawdown';
+  let velocityStatus:
+    "Accumulation" | "Velocity Point" | "Distribution/Drawdown";
   if (withdrawalRate <= 0) {
-    velocityStatus = 'Accumulation';
+    velocityStatus = "Accumulation";
   } else if (withdrawalRate <= 0.04) {
-    velocityStatus = 'Velocity Point';
+    velocityStatus = "Velocity Point";
   } else {
-    velocityStatus = 'Distribution/Drawdown';
+    velocityStatus = "Distribution/Drawdown";
   }
 
   // Calculate projected growth delta: (currentBalance * growthRate) - (currentBalance * withdrawalRate)
-  const projectedGrowthDelta = (currentBalance * growthRate) - (currentBalance * withdrawalRate);
+  const projectedGrowthDelta =
+    currentBalance * growthRate - currentBalance * withdrawalRate;
 
   // Calculate the next $100k milestone yearsToNext100k (handle negative/zero growth as Infinity)
   let yearsToNext100k = Infinity;
@@ -139,7 +149,7 @@ export function calculateWealthVelocity(
     adjustedSpending,
     velocityStatus,
     projectedGrowthDelta,
-    yearsToNext100k
+    yearsToNext100k,
   };
 }
 
@@ -150,58 +160,117 @@ function sanitizeInput(req: SimulationRequest): SimulationRequest {
     portfolioBalance: Math.max(0, Number(req.portfolioBalance) || 0),
     marketReturn: Math.max(-1, Math.min(10, Number(req.marketReturn) || 0)),
     inflationRate: Math.max(-0.5, Math.min(10, Number(req.inflationRate) || 0)),
-    lifestyleCreepRate: Math.max(-0.5, Math.min(10, Number(req.lifestyleCreepRate) || 0)),
-    previousNominalWithdrawal: Math.max(0, Number(req.previousNominalWithdrawal) || 0),
-    initialWithdrawalRate: Math.max(0, Math.min(1, Number(req.initialWithdrawalRate) || 0)),
+    lifestyleCreepRate: Math.max(
+      -0.5,
+      Math.min(10, Number(req.lifestyleCreepRate) || 0),
+    ),
+    previousNominalWithdrawal: Math.max(
+      0,
+      Number(req.previousNominalWithdrawal) || 0,
+    ),
+    initialWithdrawalRate: Math.max(
+      0,
+      Math.min(1, Number(req.initialWithdrawalRate) || 0),
+    ),
     cumulativeInflation: Math.max(0.01, Number(req.cumulativeInflation) || 1),
     maxRealWithdrawal: Math.max(0, Number(req.maxRealWithdrawal) || 0),
-    upperGuardrailMultiplier: req.upperGuardrailMultiplier !== undefined ? Math.max(0.1, Number(req.upperGuardrailMultiplier)) : undefined,
-    lowerGuardrailMultiplier: req.lowerGuardrailMultiplier !== undefined ? Math.max(0.1, Number(req.lowerGuardrailMultiplier)) : undefined,
-    guardrailUpwardFactor: req.guardrailUpwardFactor !== undefined ? Math.max(0.1, Number(req.guardrailUpwardFactor)) : undefined,
-    guardrailDownwardFactor: req.guardrailDownwardFactor !== undefined ? Math.max(0.1, Number(req.guardrailDownwardFactor)) : undefined,
+    upperGuardrailMultiplier:
+      req.upperGuardrailMultiplier !== undefined
+        ? Math.max(0.1, Number(req.upperGuardrailMultiplier))
+        : undefined,
+    lowerGuardrailMultiplier:
+      req.lowerGuardrailMultiplier !== undefined
+        ? Math.max(0.1, Number(req.lowerGuardrailMultiplier))
+        : undefined,
+    guardrailUpwardFactor:
+      req.guardrailUpwardFactor !== undefined
+        ? Math.max(0.1, Number(req.guardrailUpwardFactor))
+        : undefined,
+    guardrailDownwardFactor:
+      req.guardrailDownwardFactor !== undefined
+        ? Math.max(0.1, Number(req.guardrailDownwardFactor))
+        : undefined,
   };
 }
 
 function sanitizeNetWorthRequest(req: any): NetWorthSimRequest {
-  if (!req || typeof req !== 'object') {
+  if (!req || typeof req !== "object") {
     throw new Error("Invalid NetWorth request object.");
   }
-  
-  const startYear = Math.max(1900, Math.min(2100, Number(req.startYear) || 2026));
-  const endYear = Math.max(startYear, Math.min(startYear + 100, Number(req.targetEndYear) || Number(req.endYear) || (startYear + 50)));
+
+  const startYear = Math.max(
+    1900,
+    Math.min(2100, Number(req.startYear) || 2026),
+  );
+  const endYear = Math.max(
+    startYear,
+    Math.min(
+      startYear + 100,
+      Number(req.targetEndYear) || Number(req.endYear) || startYear + 50,
+    ),
+  );
   const currentAge = Math.max(0, Math.min(120, Number(req.currentAge) || 40));
   const numPaths = Math.max(1, Math.min(500, Number(req.numPaths) || 100));
-  const inflationRate = Math.max(-0.2, Math.min(1.0, Number(req.inflationRate) || 0.03));
-  
-  const rrt1AmountAt67 = Math.max(0, Math.min(1000000, Number(req.rrt1AmountAt67) || 0));
-  const rrt2AmountAt67 = Math.max(0, Math.min(1000000, Number(req.rrt2AmountAt67) || 0));
-  const pensionAmountAt65 = Math.max(0, Math.min(1000000, Number(req.pensionAmountAt65) || 0));
+  const inflationRate = Math.max(
+    -0.2,
+    Math.min(1.0, Number(req.inflationRate) || 0.03),
+  );
 
-  const assets: NetWorthAssetInput[] = Array.isArray(req.assets) 
+  const rrt1AmountAt67 = Math.max(
+    0,
+    Math.min(1000000, Number(req.rrt1AmountAt67) || 0),
+  );
+  const rrt2AmountAt67 = Math.max(
+    0,
+    Math.min(1000000, Number(req.rrt2AmountAt67) || 0),
+  );
+  const pensionAmountAt65 = Math.max(
+    0,
+    Math.min(1000000, Number(req.pensionAmountAt65) || 0),
+  );
+
+  const assets: NetWorthAssetInput[] = Array.isArray(req.assets)
     ? req.assets.slice(0, 100).map((a: any) => ({
-        id: String(a?.id || '').substring(0, 128),
-        name: String(a?.name || 'Asset').substring(0, 120),
+        id: String(a?.id || "").substring(0, 128),
+        name: String(a?.name || "Asset").substring(0, 120),
         value: Math.max(0, Math.min(1e12, Number(a?.value) || 0)),
-        type: ['taxable_brokerage', 'traditional_ira', 'roth_ira', 'cash', 'other_asset'].includes(a?.type) ? a.type : 'other_asset',
+        type: [
+          "taxable_brokerage",
+          "traditional_ira",
+          "roth_ira",
+          "cash",
+          "other_asset",
+        ].includes(a?.type)
+          ? a.type
+          : "other_asset",
         growthRate: Math.max(-0.5, Math.min(2.0, Number(a?.growthRate) || 0)),
-        dividendYield: a?.dividendYield !== undefined ? Math.max(0, Math.min(1.0, Number(a?.dividendYield) || 0)) : undefined,
-        dividendReinvestment: ['reinvest', 'payout'].includes(a?.dividendReinvestment) ? a.dividendReinvestment : undefined
+        dividendYield:
+          a?.dividendYield !== undefined
+            ? Math.max(0, Math.min(1.0, Number(a?.dividendYield) || 0))
+            : undefined,
+        dividendReinvestment: ["reinvest", "payout"].includes(
+          a?.dividendReinvestment,
+        )
+          ? a.dividendReinvestment
+          : undefined,
       }))
     : [];
-    
+
   const liabilities: NetWorthLiabilityInput[] = Array.isArray(req.liabilities)
     ? req.liabilities.slice(0, 100).map((l: any) => ({
-        id: String(l?.id || '').substring(0, 128),
-        name: String(l?.name || 'Liability').substring(0, 120),
+        id: String(l?.id || "").substring(0, 128),
+        name: String(l?.name || "Liability").substring(0, 120),
         value: Math.max(0, Math.min(1e12, Number(l?.value) || 0)),
-        type: ['mortgage', 'other_liability'].includes(l?.type) ? l.type : 'other_liability',
-        interestRate: Math.max(0, Math.min(1.0, Number(l?.interestRate) || 0))
+        type: ["mortgage", "other_liability"].includes(l?.type)
+          ? l.type
+          : "other_liability",
+        interestRate: Math.max(0, Math.min(1.0, Number(l?.interestRate) || 0)),
       }))
     : [];
-    
+
   return {
-    type: 'COMPUTE_NET_WORTH',
-    userId: String(req.userId || '').substring(0, 128),
+    type: "COMPUTE_NET_WORTH",
+    userId: String(req.userId || "").substring(0, 128),
     startYear,
     endYear,
     targetEndYear: Number(req.targetEndYear) || endYear,
@@ -213,142 +282,295 @@ function sanitizeNetWorthRequest(req: any): NetWorthSimRequest {
     pensionAmountAt65,
     inflationRate,
     numPaths,
-    milestones: Array.isArray(req.milestones) ? req.milestones.slice(0, 50) : undefined
+    milestones: Array.isArray(req.milestones)
+      ? req.milestones.slice(0, 50)
+      : undefined,
   };
 }
 
 function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
-  if (!req || typeof req !== 'object') {
+  if (!req || typeof req !== "object") {
     throw new Error("Invalid MultiStageDrawdown payload.");
   }
-  
-  const startYear = Math.max(1900, Math.min(2100, Number(req.startYear) || 2026));
-  const endYear = Math.max(startYear, Math.min(startYear + 100, Number(req.targetEndYear) || Number(req.endYear) || (startYear + 50)));
+
+  const startYear = Math.max(
+    1900,
+    Math.min(2100, Number(req.startYear) || 2026),
+  );
+  const endYear = Math.max(
+    startYear,
+    Math.min(
+      startYear + 100,
+      Number(req.targetEndYear) || Number(req.endYear) || startYear + 50,
+    ),
+  );
   const currentAge = Math.max(0, Math.min(120, Number(req.currentAge) || 40));
-  const inflationRate = Math.max(-0.2, Math.min(1.0, Number(req.inflationRate) || 0.03));
-  const targetConstantMarketReturn = Math.max(-0.5, Math.min(2.0, Number(req.targetConstantMarketReturn) || 0.07));
-  const maxRealWithdrawal = Math.max(0, Math.min(1e9, Number(req.maxRealWithdrawal) || 1000000));
-  const liquidBufferYears = Math.max(0, Math.min(20, Number(req.liquidBufferYears) || 2));
-  const uprrDivestmentAnnualAmount = Math.max(0, Math.min(1e9, Number(req.uprrDivestmentAnnualAmount) || 0));
-  const globalDiscountRate = req.globalDiscountRate !== undefined ? Math.max(0, Math.min(1.0, Number(req.globalDiscountRate))) : undefined;
+  const inflationRate = Math.max(
+    -0.2,
+    Math.min(1.0, Number(req.inflationRate) || 0.03),
+  );
+  const targetConstantMarketReturn = Math.max(
+    -0.5,
+    Math.min(2.0, Number(req.targetConstantMarketReturn) || 0.07),
+  );
+  const maxRealWithdrawal = Math.max(
+    0,
+    Math.min(1e9, Number(req.maxRealWithdrawal) || 1000000),
+  );
+  const liquidBufferYears = Math.max(
+    0,
+    Math.min(20, Number(req.liquidBufferYears) || 2),
+  );
+  const uprrDivestmentAnnualAmount = Math.max(
+    0,
+    Math.min(1e9, Number(req.uprrDivestmentAnnualAmount) || 0),
+  );
+  const globalDiscountRate =
+    req.globalDiscountRate !== undefined
+      ? Math.max(0, Math.min(1.0, Number(req.globalDiscountRate)))
+      : undefined;
 
   const assets: NetWorthAssetInput[] = Array.isArray(req.assets)
     ? req.assets.slice(0, 100).map((a: any) => {
-        let newType = 'TAXABLE';
+        let newType = "TAXABLE";
         if (a?.assetType) {
-          if (['CASH', 'TAXABLE', 'PRE_TAX', 'ROTH'].includes(a.assetType)) {
-             newType = a.assetType;
+          if (["CASH", "TAXABLE", "PRE_TAX", "ROTH"].includes(a.assetType)) {
+            newType = a.assetType;
           }
         } else if (a?.type) {
-          if (a.type === 'traditional_ira' || a.type === 'PRE_TAX') newType = 'PRE_TAX';
-          else if (a.type === 'roth_ira' || a.type === 'ROTH') newType = 'ROTH';
-          else if (a.type === 'cash' || a.type === 'CASH') newType = 'CASH';
+          if (a.type === "traditional_ira" || a.type === "PRE_TAX")
+            newType = "PRE_TAX";
+          else if (a.type === "roth_ira" || a.type === "ROTH") newType = "ROTH";
+          else if (a.type === "cash" || a.type === "CASH") newType = "CASH";
         }
-        
+
         return {
-          id: String(a?.id || '').substring(0, 128),
-          name: String(a?.name || 'Asset').substring(0, 120),
+          id: String(a?.id || "").substring(0, 128),
+          name: String(a?.name || "Asset").substring(0, 120),
           value: Math.max(0, Math.min(1e12, Number(a?.value) || 0)),
-          assetType: newType as 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH',
-          expectedGrowthRate: Math.max(-1.0, Math.min(1.0, a?.expectedGrowthRate !== undefined ? Number(a.expectedGrowthRate) : (Number(a?.growthRate) || 0.05))),
-          expectedDividendYield: Math.max(-1.0, Math.min(1.0, a?.expectedDividendYield !== undefined ? Number(a.expectedDividendYield) : (Number(a?.dividendYield) || 0.02))),
-          availableDate: a?.availableDate ? String(a.availableDate).substring(0, 64) : undefined,
+          assetType: newType as "CASH" | "TAXABLE" | "PRE_TAX" | "ROTH",
+          expectedGrowthRate: Math.max(
+            -1.0,
+            Math.min(
+              1.0,
+              a?.expectedGrowthRate !== undefined
+                ? Number(a.expectedGrowthRate)
+                : Number(a?.growthRate) || 0.05,
+            ),
+          ),
+          expectedDividendYield: Math.max(
+            -1.0,
+            Math.min(
+              1.0,
+              a?.expectedDividendYield !== undefined
+                ? Number(a.expectedDividendYield)
+                : Number(a?.dividendYield) || 0.02,
+            ),
+          ),
+          availableDate: a?.availableDate
+            ? String(a.availableDate).substring(0, 64)
+            : undefined,
           type: a?.type,
-          growthRate: a?.growthRate !== undefined ? Number(a.growthRate) : undefined,
-          dividendYield: a?.dividendYield !== undefined ? Number(a.dividendYield) : undefined,
-          dividendReinvestment: ['reinvest', 'payout'].includes(a?.dividendReinvestment) ? a.dividendReinvestment : undefined,
-          isLiquidationTarget: a?.isLiquidationTarget !== undefined ? !!a.isLiquidationTarget : undefined,
-          isDividendDestination: a?.isDividendDestination !== undefined ? !!a.isDividendDestination : undefined
+          growthRate:
+            a?.growthRate !== undefined ? Number(a.growthRate) : undefined,
+          dividendYield:
+            a?.dividendYield !== undefined
+              ? Number(a.dividendYield)
+              : undefined,
+          dividendReinvestment: ["reinvest", "payout"].includes(
+            a?.dividendReinvestment,
+          )
+            ? a.dividendReinvestment
+            : undefined,
+          isLiquidationTarget:
+            a?.isLiquidationTarget !== undefined
+              ? !!a.isLiquidationTarget
+              : undefined,
+          isDividendDestination:
+            a?.isDividendDestination !== undefined
+              ? !!a.isDividendDestination
+              : undefined,
         };
       })
     : [];
 
   const stages: Stage[] = Array.isArray(req.stages)
     ? req.stages.slice(0, 20).map((s: any) => ({
-        id: String(s?.id || '').substring(0, 128),
-        name: String(s?.name || 'Stage').substring(0, 120),
-        triggerMilestoneId: s?.triggerMilestoneId ? String(s.triggerMilestoneId).substring(0, 128) : undefined,
-        startYearType: s?.startYearType === 'milestone' ? 'milestone' : 'absolute',
-        startMilestoneId: s?.startMilestoneId ? String(s.startMilestoneId).substring(0, 128) : undefined,
-        startAbsoluteYear: s?.startAbsoluteYear !== undefined ? Number(s.startAbsoluteYear) : undefined,
-        fundingPriorities: Array.isArray(s?.fundingPriorities) ? s.fundingPriorities.slice(0, 10).map((p: any) => String(p).substring(0, 128)) : [],
+        id: String(s?.id || "").substring(0, 128),
+        name: String(s?.name || "Stage").substring(0, 120),
+        triggerMilestoneId: s?.triggerMilestoneId
+          ? String(s.triggerMilestoneId).substring(0, 128)
+          : undefined,
+        startYearType:
+          s?.startYearType === "milestone" ? "milestone" : "absolute",
+        startMilestoneId: s?.startMilestoneId
+          ? String(s.startMilestoneId).substring(0, 128)
+          : undefined,
+        startAbsoluteYear:
+          s?.startAbsoluteYear !== undefined
+            ? Number(s.startAbsoluteYear)
+            : undefined,
+        fundingPriorities: Array.isArray(s?.fundingPriorities)
+          ? s.fundingPriorities
+              .slice(0, 10)
+              .map((p: any) => String(p).substring(0, 128))
+          : [],
         includeGlobalIncomeStreams: Boolean(s?.includeGlobalIncomeStreams),
-        includeAuxiliaryTaxFreeIncome: Boolean(s?.includeAuxiliaryTaxFreeIncome)
+        includeAuxiliaryTaxFreeIncome: Boolean(
+          s?.includeAuxiliaryTaxFreeIncome,
+        ),
       }))
     : [];
 
-  const futureIncomeStreams: FutureIncomeStreamInput[] = Array.isArray(req.futureIncomeStreams)
+  const futureIncomeStreams: FutureIncomeStreamInput[] = Array.isArray(
+    req.futureIncomeStreams,
+  )
     ? req.futureIncomeStreams.slice(0, 30).map((stream: any) => ({
-        id: String(stream?.id || '').substring(0, 128),
-        name: String(stream?.name || 'Income').substring(0, 120),
-        type: ['Pension', 'SocialSecurity', 'Annuity', 'Other'].includes(stream?.type) ? stream.type : 'Other',
-        monthlyAmount: Math.max(0, Math.min(1e6, Number(stream?.monthlyAmount) || 0)),
-        activationAge: Math.max(0, Math.min(120, Number(stream?.activationAge) || 65)),
-        inflationAdjusted: !!stream?.inflationAdjusted
+        id: String(stream?.id || "").substring(0, 128),
+        name: String(stream?.name || "Income").substring(0, 120),
+        type: ["Pension", "SocialSecurity", "Annuity", "Other"].includes(
+          stream?.type,
+        )
+          ? stream.type
+          : "Other",
+        monthlyAmount: Math.max(
+          0,
+          Math.min(1e6, Number(stream?.monthlyAmount) || 0),
+        ),
+        activationAge: Math.max(
+          0,
+          Math.min(120, Number(stream?.activationAge) || 65),
+        ),
+        inflationAdjusted: !!stream?.inflationAdjusted,
       }))
     : [];
 
-  const futureLiabilities: FutureLiabilityInput[] = Array.isArray(req.futureLiabilities)
+  const futureLiabilities: FutureLiabilityInput[] = Array.isArray(
+    req.futureLiabilities,
+  )
     ? req.futureLiabilities.slice(0, 30).map((liab: any) => ({
-        id: String(liab?.id || '').substring(0, 128),
-        name: String(liab?.name || 'Liability').substring(0, 120),
-        type: ['Mortgage', 'Loan', 'Healthcare', 'Other'].includes(liab?.type) ? liab.type : 'Other',
-        monthlyAmount: Math.max(0, Math.min(1e6, Number(liab?.monthlyAmount) || 0)),
-        activationAge: Math.max(0, Math.min(120, Number(liab?.activationAge) || 40)),
-        endAge: liab?.endAge !== undefined ? Math.max(0, Math.min(120, Number(liab?.endAge))) : undefined
+        id: String(liab?.id || "").substring(0, 128),
+        name: String(liab?.name || "Liability").substring(0, 120),
+        type: ["Mortgage", "Loan", "Healthcare", "Other"].includes(liab?.type)
+          ? liab.type
+          : "Other",
+        monthlyAmount: Math.max(
+          0,
+          Math.min(1e6, Number(liab?.monthlyAmount) || 0),
+        ),
+        activationAge: Math.max(
+          0,
+          Math.min(120, Number(liab?.activationAge) || 40),
+        ),
+        endAge:
+          liab?.endAge !== undefined
+            ? Math.max(0, Math.min(120, Number(liab?.endAge)))
+            : undefined,
       }))
     : [];
 
   const nonTaxableGifts: NonTaxableType[] = Array.isArray(req.nonTaxableGifts)
     ? req.nonTaxableGifts.slice(0, 20).map((gift: any) => ({
-        id: String(gift?.id || '').substring(0, 128),
-        name: String(gift?.name || 'Gift').substring(0, 120),
-        annualAmount: Math.max(0, Math.min(1e9, Number(gift?.annualAmount) || 0)),
-        startAge: gift?.startAge !== undefined ? Math.max(0, Math.min(120, Number(gift?.startAge))) : undefined,
-        startYear: gift?.startYear !== undefined ? Math.max(1900, Math.min(2100, Number(gift?.startYear))) : undefined,
-        endAge: gift?.endAge !== undefined ? Math.max(0, Math.min(120, Number(gift?.endAge))) : undefined,
-        endYear: gift?.endYear !== undefined ? Math.max(1900, Math.min(2100, Number(gift?.endYear))) : undefined,
-        inflationAdjusted: !!gift?.inflationAdjusted
+        id: String(gift?.id || "").substring(0, 128),
+        name: String(gift?.name || "Gift").substring(0, 120),
+        annualAmount: Math.max(
+          0,
+          Math.min(1e9, Number(gift?.annualAmount) || 0),
+        ),
+        startAge:
+          gift?.startAge !== undefined
+            ? Math.max(0, Math.min(120, Number(gift?.startAge)))
+            : undefined,
+        startYear:
+          gift?.startYear !== undefined
+            ? Math.max(1900, Math.min(2100, Number(gift?.startYear)))
+            : undefined,
+        endAge:
+          gift?.endAge !== undefined
+            ? Math.max(0, Math.min(120, Number(gift?.endAge)))
+            : undefined,
+        endYear:
+          gift?.endYear !== undefined
+            ? Math.max(1900, Math.min(2100, Number(gift?.endYear)))
+            : undefined,
+        inflationAdjusted: !!gift?.inflationAdjusted,
       }))
     : [];
 
-  const threeBuckets: ThreeBucketConfig | undefined = req.threeBuckets && typeof req.threeBuckets === 'object'
-    ? {
-        bucket1LiquiditySecuredYears: Math.max(0, Math.min(50, Number(req.threeBuckets.bucket1LiquiditySecuredYears) || 0)),
-        bucket2IncomeSecuredYears: Math.max(0, Math.min(50, Number(req.threeBuckets.bucket2IncomeSecuredYears) || 0)),
-        bucket3GrowthRemainingYears: Math.max(0, Math.min(100, Number(req.threeBuckets.bucket3GrowthRemainingYears) || 0)),
-        rebalancingTriggerType: ['Chronological', 'Threshold', 'Opportunistic'].includes(req.threeBuckets.rebalancingTriggerType) 
-          ? req.threeBuckets.rebalancingTriggerType 
-          : 'Chronological',
-        rebalancingThresholdPercent: req.threeBuckets.rebalancingThresholdPercent !== undefined 
-          ? Math.max(0, Math.min(100, Number(req.threeBuckets.rebalancingThresholdPercent))) 
-          : undefined
-      }
-    : undefined;
+  const threeBuckets: ThreeBucketConfig | undefined =
+    req.threeBuckets && typeof req.threeBuckets === "object"
+      ? {
+          bucket1LiquiditySecuredYears: Math.max(
+            0,
+            Math.min(
+              50,
+              Number(req.threeBuckets.bucket1LiquiditySecuredYears) || 0,
+            ),
+          ),
+          bucket2IncomeSecuredYears: Math.max(
+            0,
+            Math.min(
+              50,
+              Number(req.threeBuckets.bucket2IncomeSecuredYears) || 0,
+            ),
+          ),
+          bucket3GrowthRemainingYears: Math.max(
+            0,
+            Math.min(
+              100,
+              Number(req.threeBuckets.bucket3GrowthRemainingYears) || 0,
+            ),
+          ),
+          rebalancingTriggerType: [
+            "Chronological",
+            "Threshold",
+            "Opportunistic",
+          ].includes(req.threeBuckets.rebalancingTriggerType)
+            ? req.threeBuckets.rebalancingTriggerType
+            : "Chronological",
+          rebalancingThresholdPercent:
+            req.threeBuckets.rebalancingThresholdPercent !== undefined
+              ? Math.max(
+                  0,
+                  Math.min(
+                    100,
+                    Number(req.threeBuckets.rebalancingThresholdPercent),
+                  ),
+                )
+              : undefined,
+        }
+      : undefined;
 
   return {
-    type: 'MULTI_STAGE_DRAWDOWN',
+    type: "MULTI_STAGE_DRAWDOWN",
     startYear,
     endYear,
     targetEndYear: Number(req.targetEndYear) || endYear,
     currentAge,
     assets,
     stages,
-    milestones: Array.isArray(req.milestones) ? req.milestones.slice(0, 50) : [],
+    milestones: Array.isArray(req.milestones)
+      ? req.milestones.slice(0, 50)
+      : [],
     uprrDivestmentAnnualAmount,
-    dividendEtfId: String(req.dividendEtfId || '').substring(0, 128),
-    uprrId: String(req.uprrId || '').substring(0, 128),
+    dividendEtfId: String(req.dividendEtfId || "").substring(0, 128),
+    uprrId: String(req.uprrId || "").substring(0, 128),
     targetConstantMarketReturn,
     inflationRate,
-    budgetPhases: Array.isArray(req.budgetPhases) ? req.budgetPhases.slice(0, 20).map((p: any) => ({
-      phaseId: String(p.phaseId || '').substring(0, 128),
-      startYear: Number(p.startYear) || startYear,
-      endYear: Number(p.endYear) || endYear,
-      baselineAmount: Number(p.baselineAmount) || 0,
-      applyLifestyleAdjustment: Boolean(p.applyLifestyleAdjustment),
-      lifestyleAdjustmentRate: Number(p.lifestyleAdjustmentRate) || 0,
-      cashBufferMultiplier: p.cashBufferMultiplier !== undefined ? Number(p.cashBufferMultiplier) : 2.0
-    })) : undefined,
+    budgetPhases: Array.isArray(req.budgetPhases)
+      ? req.budgetPhases.slice(0, 20).map((p: any) => ({
+          phaseId: String(p.phaseId || "").substring(0, 128),
+          startYear: Number(p.startYear) || startYear,
+          endYear: Number(p.endYear) || endYear,
+          baselineAmount: Number(p.baselineAmount) || 0,
+          applyLifestyleAdjustment: Boolean(p.applyLifestyleAdjustment),
+          lifestyleAdjustmentRate: Number(p.lifestyleAdjustmentRate) || 0,
+          cashBufferMultiplier:
+            p.cashBufferMultiplier !== undefined
+              ? Number(p.cashBufferMultiplier)
+              : 2.0,
+        }))
+      : undefined,
     maxRealWithdrawal,
     liquidBufferYears,
     globalDiscountRate,
@@ -358,62 +580,81 @@ function sanitizeMultiStageDrawdownPayload(req: any): MultiStageSimPayload {
     threeBuckets,
     targetRothConversionAmount: Number(req.targetRothConversionAmount) || 0,
     taxableRebalancingSaleAmount: Number(req.taxableRebalancingSaleAmount) || 0,
-    rebalancingCapitalGainPercentage: Number(req.rebalancingCapitalGainPercentage) || 0,
-    appliedBridgeStrategies: Array.isArray(req.appliedBridgeStrategies) ? req.appliedBridgeStrategies.map((s: any) => ({
-      year: Number(s.year) || startYear,
-      stockLiquidation: Number(s.stockLiquidation) || 0,
-      rothConversion: Number(s.rothConversion) || 0
-    })) : []
+    rebalancingCapitalGainPercentage:
+      Number(req.rebalancingCapitalGainPercentage) || 0,
+    appliedBridgeStrategies: Array.isArray(req.appliedBridgeStrategies)
+      ? req.appliedBridgeStrategies.map((s: any) => ({
+          year: Number(s.year) || startYear,
+          stockLiquidation: Number(s.stockLiquidation) || 0,
+          rothConversion: Number(s.rothConversion) || 0,
+        }))
+      : [],
   };
 }
 
 function sanitizeBudgetPayload(req: any): BudgetSimulationPayload {
-  if (!req || typeof req !== 'object') {
+  if (!req || typeof req !== "object") {
     throw new Error("Invalid budget simulation payload.");
   }
-  
+
   const expenses: PlannedExpenseModel[] = Array.isArray(req.expenses)
     ? req.expenses.slice(0, 200).map((e: any) => ({
-        id: String(e?.id || '').substring(0, 128),
-        userId: String(e?.userId || '').substring(0, 128),
-        name: String(e?.name || 'Expense').substring(0, 120),
-        frequency: ['Monthly', 'Annual'].includes(e?.frequency) ? e.frequency : 'Monthly',
-        valuationType: ['Static', 'Relational'].includes(e?.valuationType) ? e.valuationType : 'Static',
-        categoryId: e?.categoryId ? String(e.categoryId).substring(0, 128) : undefined,
-        staticAmount: e?.staticAmount !== undefined ? Math.max(0, Math.min(1e9, Number(e.staticAmount) || 0)) : undefined,
-        relationalTargetId: e?.relationalTargetId ? String(e.relationalTargetId).substring(0, 128) : undefined,
-        relationalPercent: e?.relationalPercent !== undefined ? Math.max(0, Math.min(100, Number(e.relationalPercent) || 0)) : undefined,
+        id: String(e?.id || "").substring(0, 128),
+        userId: String(e?.userId || "").substring(0, 128),
+        name: String(e?.name || "Expense").substring(0, 120),
+        frequency: ["Monthly", "Annual"].includes(e?.frequency)
+          ? e.frequency
+          : "Monthly",
+        valuationType: ["Static", "Relational"].includes(e?.valuationType)
+          ? e.valuationType
+          : "Static",
+        categoryId: e?.categoryId
+          ? String(e.categoryId).substring(0, 128)
+          : undefined,
+        staticAmount:
+          e?.staticAmount !== undefined
+            ? Math.max(0, Math.min(1e9, Number(e.staticAmount) || 0))
+            : undefined,
+        relationalTargetId: e?.relationalTargetId
+          ? String(e.relationalTargetId).substring(0, 128)
+          : undefined,
+        relationalPercent:
+          e?.relationalPercent !== undefined
+            ? Math.max(0, Math.min(100, Number(e.relationalPercent) || 0))
+            : undefined,
         notes: e?.notes ? String(e.notes).substring(0, 1000) : undefined,
         excluded: e?.excluded !== undefined ? !!e.excluded : undefined,
         urls: Array.isArray(e?.urls)
           ? e.urls.slice(0, 10).map((u: any) => {
-              if (typeof u === 'string') {
-                return { url: String(u).substring(0, 500), name: '' };
+              if (typeof u === "string") {
+                return { url: String(u).substring(0, 500), name: "" };
               }
               return {
-                url: String(u?.url || '').substring(0, 500),
-                name: String(u?.name || '').substring(0, 120)
+                url: String(u?.url || "").substring(0, 500),
+                name: String(u?.name || "").substring(0, 120),
               };
             })
           : undefined,
-        renewalDate: e?.renewalDate ? String(e.renewalDate).substring(0, 100) : undefined,
+        renewalDate: e?.renewalDate
+          ? String(e.renewalDate).substring(0, 100)
+          : undefined,
         createdAt: Number(e?.createdAt) || undefined,
-        updatedAt: Number(e?.updatedAt) || undefined
+        updatedAt: Number(e?.updatedAt) || undefined,
       }))
     : [];
-    
+
   const assets: AssetReferenceModel[] = Array.isArray(req.assets)
     ? req.assets.slice(0, 100).map((a: any) => ({
-        id: String(a?.id || '').substring(0, 128),
-        name: String(a?.name || 'Asset').substring(0, 120),
-        value: Math.max(0, Math.min(1e12, Number(a?.value) || 0))
+        id: String(a?.id || "").substring(0, 128),
+        name: String(a?.name || "Asset").substring(0, 120),
+        value: Math.max(0, Math.min(1e12, Number(a?.value) || 0)),
       }))
     : [];
-    
+
   return {
-    type: 'BUDGET_SIMULATION',
+    type: "BUDGET_SIMULATION",
     expenses,
-    assets
+    assets,
   };
 }
 
@@ -422,7 +663,7 @@ export type NetWorthAssetInput = {
   id: string;
   name: string;
   value: number;
-  assetType: 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH';
+  assetType: "CASH" | "TAXABLE" | "PRE_TAX" | "ROTH";
   expectedGrowthRate: number;
   expectedDividendYield: number;
   availableDate?: string;
@@ -437,7 +678,7 @@ export type NetWorthAssetInput = {
 export type FutureIncomeStreamInput = {
   id: string;
   name: string;
-  type: 'Pension' | 'SocialSecurity' | 'Annuity' | 'Other';
+  type: "Pension" | "SocialSecurity" | "Annuity" | "Other";
   monthlyAmount: number;
   activationAge: number;
   inflationAdjusted: boolean;
@@ -446,7 +687,7 @@ export type FutureIncomeStreamInput = {
 export type FutureLiabilityInput = {
   id: string;
   name: string;
-  type: 'Mortgage' | 'Loan' | 'Healthcare' | 'Other';
+  type: "Mortgage" | "Loan" | "Healthcare" | "Other";
   monthlyAmount: number;
   activationAge: number;
   endAge?: number;
@@ -467,7 +708,7 @@ export type Stage = {
   id: string;
   name: string;
   triggerMilestoneId?: string;
-  startYearType?: 'absolute' | 'milestone';
+  startYearType?: "absolute" | "milestone";
   startMilestoneId?: string;
   startAbsoluteYear?: number;
   fundingPriorities: string[];
@@ -475,31 +716,36 @@ export type Stage = {
   includeAuxiliaryTaxFreeIncome?: boolean;
 };
 
-function resolveStageStartYear(stage: Stage, payload: MultiStageSimPayload): number {
-  if (stage.startYearType === 'milestone') {
+function resolveStageStartYear(
+  stage: Stage,
+  payload: MultiStageSimPayload,
+): number {
+  if (stage.startYearType === "milestone") {
     const msId = stage.startMilestoneId || stage.triggerMilestoneId;
     if (msId && payload.milestones) {
-      const ms = payload.milestones.find(m => m.id === msId);
+      const ms = payload.milestones.find((m) => m.id === msId);
       if (ms) {
-        return ms.isTriggerByAge 
+        return ms.isTriggerByAge
           ? payload.startYear + ((ms.triggerAge ?? 65) - payload.currentAge)
           : (ms.triggerYear ?? 2030);
       }
     }
-  } else if (stage.startYearType === 'absolute') {
+  } else if (stage.startYearType === "absolute") {
     return stage.startAbsoluteYear ?? payload.startYear;
   }
-  
+
   // Legacy fallback
   if (stage.triggerMilestoneId && payload.milestones) {
-    const ms = payload.milestones.find(m => m.id === stage.triggerMilestoneId);
+    const ms = payload.milestones.find(
+      (m) => m.id === stage.triggerMilestoneId,
+    );
     if (ms) {
-      return ms.isTriggerByAge 
+      return ms.isTriggerByAge
         ? payload.startYear + ((ms.triggerAge ?? 65) - payload.currentAge)
         : (ms.triggerYear ?? 2030);
     }
   }
-  
+
   return payload.startYear;
 }
 
@@ -507,14 +753,18 @@ export interface ThreeBucketConfig {
   bucket1LiquiditySecuredYears: number;
   bucket2IncomeSecuredYears: number;
   bucket3GrowthRemainingYears: number;
-  rebalancingTriggerType: 'Chronological' | 'Threshold' | 'Opportunistic';
+  rebalancingTriggerType: "Chronological" | "Threshold" | "Opportunistic";
   rebalancingThresholdPercent?: number;
 }
 
-export type AppliedBridgeStrategy = { year: number; stockLiquidation: number; rothConversion: number; };
+export type AppliedBridgeStrategy = {
+  year: number;
+  stockLiquidation: number;
+  rothConversion: number;
+};
 
 export type MultiStageSimPayload = {
-  type: 'MULTI_STAGE_DRAWDOWN';
+  type: "MULTI_STAGE_DRAWDOWN";
   startYear: number;
   endYear: number;
   targetEndYear?: number;
@@ -537,7 +787,16 @@ export type MultiStageSimPayload = {
   threeBuckets?: ThreeBucketConfig;
   targetRothConversionAmount?: number;
   taxableRebalancingSaleAmount?: number;
-  appliedBridgeStrategies?: { year: number; stockLiquidation: number; rothConversion: number; }[];
+  appliedBridgeStrategies?: {
+    year: number;
+    stockLiquidation: number;
+    rothConversion: number;
+  }[];
+  primaryBirthYear?: number;
+  spouseBirthYear?: number;
+  isSpouseSoleBeneficiary?: boolean;
+  rmdReinvestmentAssetId?: string;
+  delayInitialRMD?: boolean;
   rebalancingCapitalGainPercentage?: number;
 };
 
@@ -545,12 +804,12 @@ export type NetWorthLiabilityInput = {
   id: string;
   name: string;
   value: number;
-  type: 'mortgage' | 'other_liability';
+  type: "mortgage" | "other_liability";
   interestRate: number;
 };
 
 export type NetWorthSimRequest = {
-  type: 'COMPUTE_NET_WORTH';
+  type: "COMPUTE_NET_WORTH";
   userId: string;
   startYear: number;
   endYear: number;
@@ -589,7 +848,7 @@ export interface AllocationBuckets {
 
 export interface TaxEngineInput {
   targetNetExpense: number;
-  allocationMode: 'PERCENTAGE' | 'DOLLARS';
+  allocationMode: "PERCENTAGE" | "DOLLARS";
   buckets: AllocationBuckets;
   blendedCostBasisPercentage: number;
   preExistingOrdinaryIncome: number; // For structural streams like pensions
@@ -634,75 +893,100 @@ export function calculateOptimalTaxMoves(
   currentLTCG: number,
   targetOrdinaryBracket: number,
   targetLTCGBracket: number,
-  estimatedCostBasisPercentage: number
+  estimatedCostBasisPercentage: number,
 ): OptimalTaxMovesResult {
   // Post-2026 TCJA Threshold Baselines (MFJ)
   const STANDARD_DEDUCTION = 30000;
-  
+
   // These represent the maximum gross ordinary income that keeps you within a specific bracket.
   // Taxable limit + Standard Deduction.
   const ordinaryGrossLimits: Record<number, number> = {
-    0.00: STANDARD_DEDUCTION,
-    0.10: STANDARD_DEDUCTION + 23200,
+    0.0: STANDARD_DEDUCTION,
+    0.1: STANDARD_DEDUCTION + 23200,
     0.12: STANDARD_DEDUCTION + 94300,
     0.22: STANDARD_DEDUCTION + 201050,
-    0.24: Infinity
+    0.24: Infinity,
   };
 
   const ltcgBrackets: TaxBracket[] = [
     { limit: 98900, rate: 0.0 },
     { limit: 613700, rate: 0.15 },
-    { limit: Infinity, rate: 0.20 }
+    { limit: Infinity, rate: 0.2 },
   ];
 
   // 1. Calculate remaining capacity in targetOrdinaryBracket
-  const targetOrdinaryGrossLimit = ordinaryGrossLimits[targetOrdinaryBracket] || Infinity;
-  const remainingOrdinaryCapacity = Math.max(0, targetOrdinaryGrossLimit - currentOrdinaryIncome);
-  
+  const targetOrdinaryGrossLimit =
+    ordinaryGrossLimits[targetOrdinaryBracket] || Infinity;
+  const remainingOrdinaryCapacity = Math.max(
+    0,
+    targetOrdinaryGrossLimit - currentOrdinaryIncome,
+  );
+
   // This exact capacity is the Maximum Recommended Roth Conversion
   const maxRecommendedRothConversion = remainingOrdinaryCapacity;
 
   // 2. Stack that simulated Roth conversion on top of currentOrdinaryIncome
-  const simulatedOrdinaryIncome = currentOrdinaryIncome + maxRecommendedRothConversion;
-  
+  const simulatedOrdinaryIncome =
+    currentOrdinaryIncome + maxRecommendedRothConversion;
+
   // Calculate new baseline for Capital Gains (Taxable Ordinary Income)
-  const simulatedTaxableOrdinaryIncome = Math.max(0, simulatedOrdinaryIncome - STANDARD_DEDUCTION);
+  const simulatedTaxableOrdinaryIncome = Math.max(
+    0,
+    simulatedOrdinaryIncome - STANDARD_DEDUCTION,
+  );
 
   // 3. Calculate remaining capacity in targetLTCGBracket
   // Find the limit for the requested LTCG bracket
-  const targetLtcgBracketLimit = ltcgBrackets.find(b => b.rate === targetLTCGBracket)?.limit || Infinity;
-  
+  const targetLtcgBracketLimit =
+    ltcgBrackets.find((b) => b.rate === targetLTCGBracket)?.limit || Infinity;
+
   // LTCG stacks on top of Taxable Ordinary Income
   const combinedTaxableIncome = simulatedTaxableOrdinaryIncome + currentLTCG;
-  const remainingLtcgCapacity = Math.max(0, targetLtcgBracketLimit - combinedTaxableIncome);
+  const remainingLtcgCapacity = Math.max(
+    0,
+    targetLtcgBracketLimit - combinedTaxableIncome,
+  );
 
   // 4. Calculate Max Stock Sale using estimatedCostBasisPercentage
   // Ensure we use a value between 0 and 100 for cost basis
-  const safeCostBasisPct = Math.max(0, Math.min(100, estimatedCostBasisPercentage));
-  const gainsRatio = Math.max(0, Math.min(1, 1.0 - (safeCostBasisPct / 100)));
-  
+  const safeCostBasisPct = Math.max(
+    0,
+    Math.min(100, estimatedCostBasisPercentage),
+  );
+  const gainsRatio = Math.max(0, Math.min(1, 1.0 - safeCostBasisPct / 100));
+
   // Max Stock Sale = Remaining LTCG Capacity / (1 - Cost Basis Percentage)
-  const maxRecommendedStockSale = gainsRatio > 0 ? remainingLtcgCapacity / gainsRatio : Infinity;
+  const maxRecommendedStockSale =
+    gainsRatio > 0 ? remainingLtcgCapacity / gainsRatio : Infinity;
 
   return {
     maxRecommendedRothConversion,
     maxRecommendedStockSale,
     remainingOrdinaryCapacity,
-    remainingLtcgCapacity
+    remainingLtcgCapacity,
   };
 }
 
 export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
-  const { targetNetExpense, allocationMode, buckets, blendedCostBasisPercentage, preExistingOrdinaryIncome } = input;
+  const {
+    targetNetExpense,
+    allocationMode,
+    buckets,
+    blendedCostBasisPercentage,
+    preExistingOrdinaryIncome,
+  } = input;
 
   let netTargets = { ...buckets };
 
-  if (allocationMode === 'PERCENTAGE') {
+  if (allocationMode === "PERCENTAGE") {
     const totalPct = Object.values(buckets).reduce((a, b) => a + b, 0) || 100;
     netTargets = {
-      qualifiedDividends: (buckets.qualifiedDividends / totalPct) * targetNetExpense,
-      taxableBrokerage: (buckets.taxableBrokerage / totalPct) * targetNetExpense,
-      traditional401kIra: (buckets.traditional401kIra / totalPct) * targetNetExpense,
+      qualifiedDividends:
+        (buckets.qualifiedDividends / totalPct) * targetNetExpense,
+      taxableBrokerage:
+        (buckets.taxableBrokerage / totalPct) * targetNetExpense,
+      traditional401kIra:
+        (buckets.traditional401kIra / totalPct) * targetNetExpense,
       rothIra: (buckets.rothIra / totalPct) * targetNetExpense,
       nonTaxableGift: (buckets.nonTaxableGift / totalPct) * targetNetExpense,
     };
@@ -710,26 +994,35 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
     // If sum of explicit DOLLARS falls short of targetNetExpense, add to nonTaxableGift buffer
     const sumNet = Object.values(buckets).reduce((a, b) => a + b, 0);
     if (sumNet < targetNetExpense) {
-      netTargets.nonTaxableGift += (targetNetExpense - sumNet);
+      netTargets.nonTaxableGift += targetNetExpense - sumNet;
     }
   }
 
-  // 2026 MFJ Threshold Baselines
+  // Post-TCJA Sunset Reversion Brackets (2026 MFJ Estimates)
   const ordinaryBrackets: TaxBracket[] = [
-    { limit: 23200, rate: 0.10 },
-    { limit: 94300, rate: 0.12 },
-    { limit: 201050, rate: 0.22 },
-    { limit: Infinity, rate: 0.24 }
+    { limit: 24000, rate: 0.1 },
+    { limit: 97000, rate: 0.15 },
+    { limit: 195000, rate: 0.25 },
+    { limit: 295000, rate: 0.28 },
+    { limit: 525000, rate: 0.33 },
+    { limit: 600000, rate: 0.35 },
+    { limit: Infinity, rate: 0.396 },
   ];
 
   const ltcgBrackets: TaxBracket[] = [
     { limit: 98900, rate: 0.0 },
     { limit: 613700, rate: 0.15 },
-    { limit: Infinity, rate: 0.20 }
+    { limit: Infinity, rate: 0.2 },
   ];
 
-  const brokerageGainRatio = Math.max(0, Math.min(1, 1.0 - (blendedCostBasisPercentage / 100)));
-  const rebalancingGainRatio = Math.max(0, Math.min(1, (input.rebalancingCapitalGainPercentage || 0) / 100));
+  const brokerageGainRatio = Math.max(
+    0,
+    Math.min(1, 1.0 - blendedCostBasisPercentage / 100),
+  );
+  const rebalancingGainRatio = Math.max(
+    0,
+    Math.min(1, (input.rebalancingCapitalGainPercentage || 0) / 100),
+  );
   const targetRothConversionAmount = input.targetRothConversionAmount || 0;
   const taxableRebalancingSaleAmount = input.taxableRebalancingSaleAmount || 0;
 
@@ -740,17 +1033,19 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
   let rothGross = netTargets.rothIra;
   let cashGross = netTargets.nonTaxableGift;
 
-  const totalAllocationNet = traditionalGross + brokerageGross + dividendGross + rothGross + cashGross;
+  const totalAllocationNet =
+    traditionalGross + brokerageGross + dividendGross + rothGross + cashGross;
 
   const TOLERANCE = 0.01;
   const MAX_ITERATIONS = 40;
   let iteration = 0;
-  
+
   // Apply Standard Deduction (2026 MFJ projected standard deduction: $30,000)
   const STANDARD_DEDUCTION = 30000;
-  
+
   // 1. Manual Tax Events Pre-Calculation (Strategic Tax Events)
-  const manualOrdinaryIncome = preExistingOrdinaryIncome + targetRothConversionAmount;
+  const manualOrdinaryIncome =
+    preExistingOrdinaryIncome + targetRothConversionAmount;
   const manualLtcgIncome = taxableRebalancingSaleAmount * rebalancingGainRatio;
 
   let computedTaxTotal = 0;
@@ -760,22 +1055,48 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
 
     // Compute active progressive taxable incomes
     const totalOrdinaryIncome = manualOrdinaryIncome + traditionalGross;
-    const taxableOrdinaryIncome = Math.max(0, totalOrdinaryIncome - STANDARD_DEDUCTION);
-    
+    const taxableOrdinaryIncome = Math.max(
+      0,
+      totalOrdinaryIncome - STANDARD_DEDUCTION,
+    );
+
     // Stack Capital Gains (LTCG sits on top of ordinary income)
-    const totalLtcgGains = manualLtcgIncome + dividendGross + (brokerageGross * brokerageGainRatio);
-    
+    const totalLtcgGains =
+      manualLtcgIncome + dividendGross + brokerageGross * brokerageGainRatio;
+
     // Note: If standard deduction wasn't fully used by ordinary income, the remainder offsets LTCG
-    const remainingStandardDeduction = Math.max(0, STANDARD_DEDUCTION - totalOrdinaryIncome);
-    const taxableLtcgGains = Math.max(0, totalLtcgGains - remainingStandardDeduction);
+    const remainingStandardDeduction = Math.max(
+      0,
+      STANDARD_DEDUCTION - totalOrdinaryIncome,
+    );
+    const taxableLtcgGains = Math.max(
+      0,
+      totalLtcgGains - remainingStandardDeduction,
+    );
 
     // Run structural statutory stacking logic
-    const ordTax = computeProgressiveTax(taxableOrdinaryIncome, 0, ordinaryBrackets);
-    const ltcgTax = computeStackedLtcgTax(taxableLtcgGains, taxableOrdinaryIncome, ltcgBrackets);
-    const totalCalculatedTax = ordTax + ltcgTax;
+    const ordTax = computeProgressiveTax(
+      taxableOrdinaryIncome,
+      0,
+      ordinaryBrackets,
+    );
+    const ltcgTax = computeStackedLtcgTax(
+      taxableLtcgGains,
+      taxableOrdinaryIncome,
+      ltcgBrackets,
+    );
+    const stateTaxRate = 0.0; // Florida Residency (forced to zero)
+    const stateTax = taxableOrdinaryIncome * stateTaxRate;
+    const totalCalculatedTax = ordTax + ltcgTax + stateTax;
     computedTaxTotal = totalCalculatedTax;
 
-    const actualNetAchieved = (traditionalGross + brokerageGross + dividendGross + rothGross + cashGross) - totalCalculatedTax;
+    const actualNetAchieved =
+      traditionalGross +
+      brokerageGross +
+      dividendGross +
+      rothGross +
+      cashGross -
+      totalCalculatedTax;
     const missingNetShortfall = totalAllocationNet - actualNetAchieved;
 
     if (Math.abs(missingNetShortfall) < TOLERANCE) {
@@ -787,16 +1108,32 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
       cashGross += missingNetShortfall;
     } else {
       // Dynamic adjustment of gross parameters based on source weightings
-      traditionalGross += missingNetShortfall * (netTargets.traditional401kIra / totalAllocationNet);
-      brokerageGross += missingNetShortfall * (netTargets.taxableBrokerage / totalAllocationNet);
-      dividendGross += missingNetShortfall * (netTargets.qualifiedDividends / totalAllocationNet);
-      rothGross += missingNetShortfall * (netTargets.rothIra / totalAllocationNet);
-      cashGross += missingNetShortfall * (netTargets.nonTaxableGift / totalAllocationNet);
+      traditionalGross +=
+        missingNetShortfall *
+        (netTargets.traditional401kIra / totalAllocationNet);
+      brokerageGross +=
+        missingNetShortfall *
+        (netTargets.taxableBrokerage / totalAllocationNet);
+      dividendGross +=
+        missingNetShortfall *
+        (netTargets.qualifiedDividends / totalAllocationNet);
+      rothGross +=
+        missingNetShortfall * (netTargets.rothIra / totalAllocationNet);
+      cashGross +=
+        missingNetShortfall * (netTargets.nonTaxableGift / totalAllocationNet);
     }
   }
 
   return {
-    grossWithdrawalTotal: Math.round((traditionalGross + brokerageGross + dividendGross + rothGross + cashGross) * 100) / 100,
+    grossWithdrawalTotal:
+      Math.round(
+        (traditionalGross +
+          brokerageGross +
+          dividendGross +
+          rothGross +
+          cashGross) *
+          100,
+      ) / 100,
     totalTaxOwed: Math.round(computedTaxTotal * 100) / 100,
     bucketBreakdown: {
       qualifiedDividendsGross: Math.round(dividendGross * 100) / 100,
@@ -806,16 +1143,22 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
       nonTaxableGiftGross: Math.round(cashGross * 100) / 100,
     },
     netBreakdown: {
-      qualifiedDividendsNet: Math.round(netTargets.qualifiedDividends * 100) / 100,
+      qualifiedDividendsNet:
+        Math.round(netTargets.qualifiedDividends * 100) / 100,
       taxableBrokerageNet: Math.round(netTargets.taxableBrokerage * 100) / 100,
-      traditional401kIraNet: Math.round(netTargets.traditional401kIra * 100) / 100,
+      traditional401kIraNet:
+        Math.round(netTargets.traditional401kIra * 100) / 100,
       rothIraNet: Math.round(netTargets.rothIra * 100) / 100,
       nonTaxableGiftNet: Math.round(netTargets.nonTaxableGift * 100) / 100,
-    }
+    },
   };
 }
 
-function computeProgressiveTax(amount: number, base: number, brackets: TaxBracket[]): number {
+function computeProgressiveTax(
+  amount: number,
+  base: number,
+  brackets: TaxBracket[],
+): number {
   let tax = 0;
   let remaining = amount;
   let currentBase = base;
@@ -834,7 +1177,11 @@ function computeProgressiveTax(amount: number, base: number, brackets: TaxBracke
   return tax;
 }
 
-function computeStackedLtcgTax(gains: number, ordinaryBase: number, brackets: TaxBracket[]): number {
+function computeStackedLtcgTax(
+  gains: number,
+  ordinaryBase: number,
+  brackets: TaxBracket[],
+): number {
   let tax = 0;
   let remainingGains = gains;
   let currentBase = ordinaryBase;
@@ -859,8 +1206,8 @@ export type PlannedExpenseModel = {
   userId?: string;
   categoryId?: string;
   name: string;
-  frequency: 'Monthly' | 'Annual';
-  valuationType: 'Static' | 'Relational';
+  frequency: "Monthly" | "Annual";
+  valuationType: "Static" | "Relational";
   staticAmount?: number;
   relationalTargetId?: string;
   relationalPercent?: number;
@@ -881,14 +1228,14 @@ export type AssetReferenceModel = {
 };
 
 export type BudgetSimulationPayload = {
-  type: 'BUDGET_SIMULATION';
+  type: "BUDGET_SIMULATION";
   expenses: PlannedExpenseModel[];
   assets: AssetReferenceModel[];
 };
 
 export type BudgetSimulationResponse = {
   success: boolean;
-  type: 'BUDGET_SIMULATION';
+  type: "BUDGET_SIMULATION";
   data?: {
     expenses: PlannedExpenseModel[];
     totalMonthly: number;
@@ -904,16 +1251,24 @@ export type BudgetSimulationResponse = {
  */
 export function computeBudgetSimulation(
   expenses: PlannedExpenseModel[],
-  assets: AssetReferenceModel[]
-): { expenses: PlannedExpenseModel[]; totalMonthly: number; totalAnnual: number } {
+  assets: AssetReferenceModel[],
+): {
+  expenses: PlannedExpenseModel[];
+  totalMonthly: number;
+  totalAnnual: number;
+} {
   const nodesById = new Map<string, PlannedExpenseModel>();
   const assetsById = new Map<string, AssetReferenceModel>();
   const categoryToExpenses = new Map<string, PlannedExpenseModel[]>();
 
   // Initialize maps
-  expenses.forEach(exp => {
+  expenses.forEach((exp) => {
     // Clone to avoid side-effects on original structures
-    const clone: PlannedExpenseModel = { ...exp, monthlyValue: 0, annualValue: 0 };
+    const clone: PlannedExpenseModel = {
+      ...exp,
+      monthlyValue: 0,
+      annualValue: 0,
+    };
     nodesById.set(exp.id, clone);
 
     if (exp.categoryId) {
@@ -924,7 +1279,7 @@ export function computeBudgetSimulation(
     }
   });
 
-  assets.forEach(asset => {
+  assets.forEach((asset) => {
     assetsById.set(asset.id, asset);
   });
 
@@ -934,17 +1289,17 @@ export function computeBudgetSimulation(
   const inDegree = new Map<string, number>();
 
   // Set initial inDegrees to 0
-  expenses.forEach(exp => {
+  expenses.forEach((exp) => {
     inDegree.set(exp.id, 0);
     adj.set(exp.id, []);
   });
 
-  expenses.forEach(u => {
+  expenses.forEach((u) => {
     const parents = new Set<string>(); // Use a set to avoid duplicate dependency counts
 
-    if (u.valuationType === 'Relational' && u.relationalTargetId) {
+    if (u.valuationType === "Relational" && u.relationalTargetId) {
       const targetId = u.relationalTargetId;
-      
+
       // If target is an asset, no expense-level dependency exists (assets are static inputs)
       if (!assetsById.has(targetId)) {
         // If targeting another expense directly
@@ -953,7 +1308,7 @@ export function computeBudgetSimulation(
         } else {
           // Check if targeting a category. If so, depends on all expenses within that category
           const catExpenses = categoryToExpenses.get(targetId) || [];
-          catExpenses.forEach(parentExp => {
+          catExpenses.forEach((parentExp) => {
             parents.add(parentExp.id);
           });
         }
@@ -961,7 +1316,7 @@ export function computeBudgetSimulation(
     }
 
     inDegree.set(u.id, parents.size);
-    parents.forEach(pId => {
+    parents.forEach((pId) => {
       if (!adj.has(pId)) {
         adj.set(pId, []);
       }
@@ -971,7 +1326,7 @@ export function computeBudgetSimulation(
 
   // Kahn's Algorithm (Topological Sort)
   const queue: string[] = [];
-  expenses.forEach(exp => {
+  expenses.forEach((exp) => {
     if ((inDegree.get(exp.id) || 0) === 0) {
       queue.push(exp.id);
     }
@@ -983,7 +1338,7 @@ export function computeBudgetSimulation(
     sortedOrder.push(currId);
 
     const children = adj.get(currId) || [];
-    children.forEach(childId => {
+    children.forEach((childId) => {
       const deg = (inDegree.get(childId) || 0) - 1;
       inDegree.set(childId, deg);
       if (deg === 0) {
@@ -1001,15 +1356,15 @@ export function computeBudgetSimulation(
   let totalMonthly = 0;
   let totalAnnual = 0;
 
-  sortedOrder.forEach(uId => {
+  sortedOrder.forEach((uId) => {
     const u = nodesById.get(uId)!;
 
     if (u.excluded) {
       u.monthlyValue = 0;
       u.annualValue = 0;
-    } else if (u.valuationType === 'Static') {
+    } else if (u.valuationType === "Static") {
       const amt = u.staticAmount || 0;
-      if (u.frequency === 'Monthly') {
+      if (u.frequency === "Monthly") {
         u.monthlyValue = amt;
         u.annualValue = amt * 12;
       } else {
@@ -1020,14 +1375,14 @@ export function computeBudgetSimulation(
       // Relational
       const percent = u.relationalPercent || 0;
       const pct = percent / 100;
-      const targetId = u.relationalTargetId || '';
+      const targetId = u.relationalTargetId || "";
 
       if (assetsById.has(targetId)) {
         // Asset Target: percentage of asset total balance calculated as annual distribution
         const asset = assetsById.get(targetId)!;
         const assetVal = asset.value || 0;
         const calculatedAnnual = pct * assetVal;
-        
+
         u.annualValue = calculatedAnnual;
         u.monthlyValue = calculatedAnnual / 12;
       } else if (nodesById.has(targetId)) {
@@ -1035,15 +1390,15 @@ export function computeBudgetSimulation(
         const targetExp = nodesById.get(targetId)!;
         const targetMonthly = targetExp.monthlyValue || 0;
         const calcMonthly = pct * targetMonthly;
-        
+
         u.monthlyValue = calcMonthly;
         u.annualValue = calcMonthly * 12;
       } else {
         // Category Target (e.g. 10% of total Expenses in Category C)
         const catExpenses = categoryToExpenses.get(targetId) || [];
         let categoryMonthlySum = 0;
-        
-        catExpenses.forEach(exp => {
+
+        catExpenses.forEach((exp) => {
           if (exp.id !== u.id) {
             categoryMonthlySum += exp.monthlyValue || 0;
           }
@@ -1060,45 +1415,63 @@ export function computeBudgetSimulation(
   });
 
   // Rebuild final cloned sorted results map to original layout order
-  const finalExpenses = expenses.map(original => nodesById.get(original.id)!);
+  const finalExpenses = expenses.map((original) => nodesById.get(original.id)!);
 
   return {
     expenses: finalExpenses,
     totalMonthly,
-    totalAnnual
+    totalAnnual,
   };
 }
 
-const workerGlobal = typeof self !== 'undefined' ? self : globalThis as any;
+const workerGlobal = typeof self !== "undefined" ? self : (globalThis as any);
 
 // Web Worker handler supporting multi-message execution with strict schema validation & input sanitization
 workerGlobal.onmessage = (e: MessageEvent<any>) => {
   try {
-    if (!e.data || typeof e.data !== 'object') {
+    if (!e.data || typeof e.data !== "object") {
       throw new Error("Invalid request payload. Expected an object.");
     }
 
-    if (e.data.type === 'MULTI_STAGE_DRAWDOWN') {
+    if (e.data.type === "MULTI_STAGE_DRAWDOWN") {
       const safePayload = sanitizeMultiStageDrawdownPayload(e.data);
       const result = simulateMultiStageDrawdownWorker(safePayload);
-      self.postMessage({ success: true, type: 'MULTI_STAGE_DRAWDOWN', scenarioId: (safePayload as any).scenarioId || (e.data as any).scenarioId, data: result });
-    } else if (e.data.type === 'BUDGET_SIMULATION') {
+      self.postMessage({
+        success: true,
+        type: "MULTI_STAGE_DRAWDOWN",
+        scenarioId:
+          (safePayload as any).scenarioId || (e.data as any).scenarioId,
+        data: result,
+      });
+    } else if (e.data.type === "BUDGET_SIMULATION") {
       const safePayload = sanitizeBudgetPayload(e.data);
-      const result = computeBudgetSimulation(safePayload.expenses || [], safePayload.assets || []);
-      self.postMessage({ success: true, type: 'BUDGET_SIMULATION', data: result });
-    } else if (e.data.type === 'BRIDGE_OPTIMIZATION') {
+      const result = computeBudgetSimulation(
+        safePayload.expenses || [],
+        safePayload.assets || [],
+      );
+      self.postMessage({
+        success: true,
+        type: "BUDGET_SIMULATION",
+        data: result,
+      });
+    } else if (e.data.type === "BRIDGE_OPTIMIZATION") {
       const { state, params, scenarioId } = e.data;
       clearDPMemoCache(); // Clear cache before full run
       const result = generateBridgeOptimizationTimeline(state, params);
-      self.postMessage({ success: true, type: 'BRIDGE_OPTIMIZATION', scenarioId, data: result });
+      self.postMessage({
+        success: true,
+        type: "BRIDGE_OPTIMIZATION",
+        scenarioId,
+        data: result,
+      });
     } else {
-      throw new Error('Unsupported or removed simulation type: ' + e.data.type);
+      throw new Error("Unsupported or removed simulation type: " + e.data.type);
     }
   } catch (error: any) {
-    self.postMessage({ 
-      success: false, 
-      type: e.data?.type || 'SIMULATE_DRAWDOWN',
-      error: error.message || 'Unknown worker error' 
+    self.postMessage({
+      success: false,
+      type: e.data?.type || "SIMULATE_DRAWDOWN",
+      error: error.message || "Unknown worker error",
     });
   }
 };
@@ -1108,16 +1481,19 @@ workerGlobal.onmessage = (e: MessageEvent<any>) => {
  */
 // Box-Muller transform for normal distributions
 function randomNormal(mean: number, stdDev: number): number {
-  let u = 0, v = 0;
-  while(u === 0) u = Math.random();
-  while(v === 0) v = Math.random();
-  return mean + stdDev * Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  let u = 0,
+    v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return (
+    mean + stdDev * Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+  );
 }
 
 // Post-TCJA Tax Bracket Helper
 export const STANDARD_DEDUCTION_2026_EST = 30000;
 export const TCJA_BRACKETS_2026 = [
-  { rate: 0.10, limit: 23200 },
+  { rate: 0.1, limit: 23200 },
   { rate: 0.12, limit: 94300 },
   { rate: 0.22, limit: 201050 },
   { rate: 0.24, limit: 383900 },
@@ -1132,7 +1508,8 @@ function estimateOrdinaryIncomeTax(taxableOrdinaryIncome: number): number {
   let previousLimit = 0;
   for (const bracket of TCJA_BRACKETS_2026) {
     if (taxableOrdinaryIncome > previousLimit) {
-      const taxableAtThisRate = Math.min(taxableOrdinaryIncome, bracket.limit) - previousLimit;
+      const taxableAtThisRate =
+        Math.min(taxableOrdinaryIncome, bracket.limit) - previousLimit;
       tax += taxableAtThisRate * bracket.rate;
       previousLimit = bracket.limit;
     } else {
@@ -1199,11 +1576,14 @@ export type MultiStageYearlySnapshot = {
   futureIncomeUsed?: number;
   totalNonPortfolioIncome?: number;
   nonPortfolioCoveredPercent?: number;
+  rmdAmount?: number;
+  rmdUsedForBudget?: number;
+  rmdExcessReinvested?: number;
 };
 
 export function computePresentValue(
   annualCashflows: number[],
-  discountRate: number
+  discountRate: number,
 ): number {
   let pv = 0;
   for (let i = 0; i < annualCashflows.length; i++) {
@@ -1212,76 +1592,196 @@ export function computePresentValue(
   return pv;
 }
 
-export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload): MultiStageYearlySnapshot[] {
-  if (payload.startYear > payload.endYear) {
-    throw new Error('Simulation end year must be strictly greater than or equal to start year.');
+// --------------------------------------------------------
+// SECURE 2.0 Act RMD Actuarial Logic
+// --------------------------------------------------------
+
+export function getRMDStartAge(birthYear?: number): number {
+  if (!birthYear) return 75; // Default max delay if undefined
+  if (birthYear <= 1950) return 72;
+  // The 1959 drafting error: corrected to 73 for 1951-1959.
+  if (birthYear <= 1959) return 73;
+  return 75;
+}
+
+// IRS Uniform Lifetime Table (Table III) Denominators
+const IRS_TABLE_III: Record<number, number> = {
+  72: 27.4,
+  73: 26.5,
+  74: 25.5,
+  75: 24.6,
+  76: 23.7,
+  77: 22.9,
+  78: 22.0,
+  79: 21.1,
+  80: 20.2,
+  81: 19.4,
+  82: 18.5,
+  83: 17.7,
+  84: 16.8,
+  85: 16.0,
+  86: 15.2,
+  87: 14.4,
+  88: 13.7,
+  89: 12.9,
+  90: 12.2,
+  91: 11.5,
+  92: 10.8,
+  93: 10.1,
+  94: 9.5,
+  95: 8.9,
+  96: 8.4,
+  97: 7.8,
+  98: 7.3,
+  99: 6.8,
+  100: 6.4,
+  101: 6.0,
+  102: 5.6,
+  103: 5.2,
+  104: 4.9,
+  105: 4.6,
+  106: 4.3,
+  107: 4.1,
+  108: 3.9,
+  109: 3.7,
+  110: 3.5,
+  111: 3.4,
+  112: 3.3,
+  113: 3.1,
+  114: 3.0,
+  115: 2.9,
+  116: 2.8,
+  117: 2.7,
+  118: 2.5,
+  119: 2.3,
+  120: 2.0,
+};
+
+// IRS Joint and Last Survivor Table (Table II) approximation for >10 years younger spouse.
+// The actual table is a massive 2D matrix. We approximate by taking the spouse's age,
+// looking up single life expectancy and adding a blending factor, or we can just add the difference.
+// For the purpose of this engine, a simple actuarial heuristic for >10yr difference is to
+// increase the denominator by (Age Diff - 10) * 0.8.
+function getRMDDenominator(
+  age: number,
+  spouseAge?: number,
+  isSoleBeneficiary?: boolean,
+): number {
+  if (age > 120) return 1.9;
+
+  let baseDenominator = IRS_TABLE_III[age] || 27.4;
+
+  if (isSoleBeneficiary && spouseAge !== undefined) {
+    const ageDiff = age - spouseAge;
+    if (ageDiff > 10) {
+      // Shift to Table II approximation
+      baseDenominator += (ageDiff - 10) * 0.85;
+    }
   }
-  
+  return baseDenominator;
+}
+
+export function simulateMultiStageDrawdownWorker(
+  payload: MultiStageSimPayload,
+): MultiStageYearlySnapshot[] {
+  if (payload.startYear > payload.endYear) {
+    throw new Error(
+      "Simulation end year must be strictly greater than or equal to start year.",
+    );
+  }
+
   if (payload.assets && payload.assets.length > 200) {
-    throw new Error('Asset count exceeds computational limits (max 200).');
+    throw new Error("Asset count exceeds computational limits (max 200).");
   }
 
   if (payload.inflationRate < -0.2 || payload.inflationRate > 1.0) {
-    throw new Error('Inflation rate out of bounds. Must be between -20% and 100%.');
+    throw new Error(
+      "Inflation rate out of bounds. Must be between -20% and 100%.",
+    );
   }
 
   const chronologicalLedger: MultiStageYearlySnapshot[] = [];
-  
+
   // Clone assets to prevent reference mutation
-  let currentAssets = payload.assets.map(a => ({ ...a }));
+  let currentAssets = payload.assets.map((a) => ({ ...a }));
   let cumInflation = 1.0;
-  
+
   const targetEndYear = payload.targetEndYear ?? payload.endYear;
   const totalYears = targetEndYear - payload.startYear;
-  
+
   // Initialize Buckets 1, 2, and 3 abstract layers
-  const use3Bucket = !!payload.threeBuckets || !!payload.budgetPhases?.some(p => p.cashBufferMultiplier !== undefined);
+  const use3Bucket =
+    !!payload.threeBuckets ||
+    !!payload.budgetPhases?.some((p) => p.cashBufferMultiplier !== undefined);
   let bucket1Balance = 0;
   let bucket2Balance = 0;
   let bucket3Balance = 0;
-  
+
   if (use3Bucket && payload.stages && payload.stages.length > 0) {
     const totalAssets = currentAssets.reduce((sum, a) => sum + a.value, 0);
-    const initialActivePhase = payload.budgetPhases?.find(p => payload.startYear >= p.startYear && payload.startYear <= p.endYear) || payload.budgetPhases?.[0];
+    const initialActivePhase =
+      payload.budgetPhases?.find(
+        (p) =>
+          payload.startYear >= p.startYear && payload.startYear <= p.endYear,
+      ) || payload.budgetPhases?.[0];
     const initialTargetBudget = initialActivePhase?.baselineAmount || 0;
-    const b1Target = initialTargetBudget * (initialActivePhase?.cashBufferMultiplier ?? payload.threeBuckets?.bucket1LiquiditySecuredYears ?? 2.0);
-    const b2Target = initialTargetBudget * (payload.threeBuckets?.bucket2IncomeSecuredYears || 5);
-    
+    const b1Target =
+      initialTargetBudget *
+      (initialActivePhase?.cashBufferMultiplier ??
+        payload.threeBuckets?.bucket1LiquiditySecuredYears ??
+        2.0);
+    const b2Target =
+      initialTargetBudget *
+      (payload.threeBuckets?.bucket2IncomeSecuredYears || 5);
+
     bucket1Balance = Math.min(totalAssets, b1Target);
-    bucket2Balance = Math.min(Math.max(0, totalAssets - bucket1Balance), b2Target);
+    bucket2Balance = Math.min(
+      Math.max(0, totalAssets - bucket1Balance),
+      b2Target,
+    );
     bucket3Balance = Math.max(0, totalAssets - bucket1Balance - bucket2Balance);
   }
-  
+
   // Pre-tax retirement accounts availability milestones
   let jessePreTaxTriggerYear = -1;
   let corriePreTaxTriggerYear = -1;
   if (payload.milestones) {
-    const jesseM = payload.milestones.find((m: any) => m.type === 'pretax_avail_jesse');
+    const jesseM = payload.milestones.find(
+      (m: any) => m.type === "pretax_avail_jesse",
+    );
     if (jesseM) {
       jessePreTaxTriggerYear = jesseM.isTriggerByAge
         ? payload.startYear + ((jesseM.triggerAge ?? 65) - payload.currentAge)
         : (jesseM.triggerYear ?? 2030);
     }
-    const corrieM = payload.milestones.find((m: any) => m.type === 'pretax_avail_corrie');
+    const corrieM = payload.milestones.find(
+      (m: any) => m.type === "pretax_avail_corrie",
+    );
     if (corrieM) {
       corriePreTaxTriggerYear = corrieM.isTriggerByAge
         ? payload.startYear + ((corrieM.triggerAge ?? 65) - payload.currentAge)
         : (corrieM.triggerYear ?? 2030);
     }
   }
-  
+
   for (let step = 0; step <= totalYears; step++) {
     const currentYear = payload.startYear + step;
     if (currentYear > targetEndYear) {
       break;
     }
     const currentAge = payload.currentAge + step;
-    
-    const matchedStrategy = payload.appliedBridgeStrategies?.find(s => s.year === currentYear);
-    const hasAnyApplied = payload.appliedBridgeStrategies && payload.appliedBridgeStrategies.length > 0;
-    const targetRothConversionAmount = matchedStrategy 
-      ? matchedStrategy.rothConversion 
-      : (hasAnyApplied ? 0 : (payload.targetRothConversionAmount || 0));
+
+    const matchedStrategy = payload.appliedBridgeStrategies?.find(
+      (s) => s.year === currentYear,
+    );
+    const hasAnyApplied =
+      payload.appliedBridgeStrategies &&
+      payload.appliedBridgeStrategies.length > 0;
+    const targetRothConversionAmount = matchedStrategy
+      ? matchedStrategy.rothConversion
+      : hasAnyApplied
+        ? 0
+        : payload.targetRothConversionAmount || 0;
 
     // --- 0. Granular Asset Loop: Establish Total Portfolio Return ---
     let growthAppreciation = 0;
@@ -1290,39 +1790,54 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
 
     const startAssets = currentAssets.reduce((sum, a) => sum + a.value, 0);
 
-    currentAssets.forEach(a => {
+    currentAssets.forEach((a) => {
       if (a.value > 0) {
         let isUnlockedAndActive = true;
-        
-        if (a.assetType === 'PRE_TAX') {
-          const assetNameLower = (a.name || '').toLowerCase();
-          const isCorrie = assetNameLower.includes('corrie');
-          const isJesse = assetNameLower.includes('jesse') || !isCorrie;
-          if (isJesse && jessePreTaxTriggerYear !== -1 && currentYear < jessePreTaxTriggerYear) {
+
+        if (a.assetType === "PRE_TAX") {
+          const assetNameLower = (a.name || "").toLowerCase();
+          const isCorrie = assetNameLower.includes("corrie");
+          const isJesse = assetNameLower.includes("jesse") || !isCorrie;
+          if (
+            isJesse &&
+            jessePreTaxTriggerYear !== -1 &&
+            currentYear < jessePreTaxTriggerYear
+          ) {
             isUnlockedAndActive = false;
           }
-          if (isCorrie && corriePreTaxTriggerYear !== -1 && currentYear < corriePreTaxTriggerYear) {
+          if (
+            isCorrie &&
+            corriePreTaxTriggerYear !== -1 &&
+            currentYear < corriePreTaxTriggerYear
+          ) {
             isUnlockedAndActive = false;
           }
         }
 
         if (a.availableDate) {
-          if (a.availableDate.includes('-')) {
-            const availableYear = parseInt(a.availableDate.split('-')[0]);
+          if (a.availableDate.includes("-")) {
+            const availableYear = parseInt(a.availableDate.split("-")[0]);
             if (currentYear < availableYear) isUnlockedAndActive = false;
-          } else if (a.availableDate.toLowerCase().startsWith('age:')) {
-             const triggerAge = parseFloat(a.availableDate.split(':')[1]);
-             if (currentAge < triggerAge) isUnlockedAndActive = false;
+          } else if (a.availableDate.toLowerCase().startsWith("age:")) {
+            const triggerAge = parseFloat(a.availableDate.split(":")[1]);
+            if (currentAge < triggerAge) isUnlockedAndActive = false;
           } else {
-             const availableYear = parseInt(a.availableDate);
-             if (!isNaN(availableYear) && currentYear < availableYear) isUnlockedAndActive = false;
+            const availableYear = parseInt(a.availableDate);
+            if (!isNaN(availableYear) && currentYear < availableYear)
+              isUnlockedAndActive = false;
           }
         }
 
-        const growth = a.expectedGrowthRate !== undefined ? a.expectedGrowthRate : (a.growthRate || 0);
-        const yieldRate = a.expectedDividendYield !== undefined ? a.expectedDividendYield : (a.dividendYield || 0);
-        let isReinvest = a.dividendReinvestment === 'reinvest';
-        
+        const growth =
+          a.expectedGrowthRate !== undefined
+            ? a.expectedGrowthRate
+            : a.growthRate || 0;
+        const yieldRate =
+          a.expectedDividendYield !== undefined
+            ? a.expectedDividendYield
+            : a.dividendYield || 0;
+        let isReinvest = a.dividendReinvestment === "reinvest";
+
         // Force reinvestment if the asset is still locked/unavailable for withdrawal
         if (!isUnlockedAndActive) {
           isReinvest = true;
@@ -1337,28 +1852,37 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
         } else {
           paidOutYield += assetDividendYield;
         }
-        
-        a.value = Math.max(0, a.value + assetCapitalGrowth + (isReinvest ? assetDividendYield : 0));
+
+        a.value = Math.max(
+          0,
+          a.value + assetCapitalGrowth + (isReinvest ? assetDividendYield : 0),
+        );
       }
     });
 
-    const totalGrowthAndYield = growthAppreciation + reinvestedYield + paidOutYield;
-    const portfolioReturnRate = startAssets > 0 ? totalGrowthAndYield / startAssets : 0;
+    const totalGrowthAndYield =
+      growthAppreciation + reinvestedYield + paidOutYield;
+    const portfolioReturnRate =
+      startAssets > 0 ? totalGrowthAndYield / startAssets : 0;
     const isNegativeMarketYear = portfolioReturnRate < 0;
 
     // --- Funded Ratio Calculation ---
     const remainingYears = totalYears - step;
-    const futureIncomeCashflows: number[] = new Array(remainingYears + 1).fill(0);
-    const futureLiabilityCashflows: number[] = new Array(remainingYears + 1).fill(0);
-    
+    const futureIncomeCashflows: number[] = new Array(remainingYears + 1).fill(
+      0,
+    );
+    const futureLiabilityCashflows: number[] = new Array(
+      remainingYears + 1,
+    ).fill(0);
+
     for (let f = 0; f <= remainingYears; f++) {
-      const fAge = currentAge + f; 
+      const fAge = currentAge + f;
       const fYear = currentYear + f;
 
       if (payload.futureIncomeStreams) {
         for (const stream of payload.futureIncomeStreams) {
           if (fAge >= stream.activationAge) {
-            futureIncomeCashflows[f] += (stream.monthlyAmount * 12);
+            futureIncomeCashflows[f] += stream.monthlyAmount * 12;
           }
         }
       }
@@ -1369,69 +1893,85 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
           if (!stage.triggerMilestoneId) {
             if (!fActiveStage) fActiveStage = stage;
           } else {
-             const ms = payload.milestones?.find(m => m.id === stage.triggerMilestoneId);
-             if (ms) {
-               const msTriggerY = ms.isTriggerByAge 
-                 ? payload.startYear + ((ms.triggerAge ?? 65) - payload.currentAge)
-                 : (ms.triggerYear ?? 2030);
-               if (fYear >= msTriggerY) {
-                 fActiveStage = stage;
-               }
-             }
+            const ms = payload.milestones?.find(
+              (m) => m.id === stage.triggerMilestoneId,
+            );
+            if (ms) {
+              const msTriggerY = ms.isTriggerByAge
+                ? payload.startYear +
+                  ((ms.triggerAge ?? 65) - payload.currentAge)
+                : (ms.triggerYear ?? 2030);
+              if (fYear >= msTriggerY) {
+                fActiveStage = stage;
+              }
+            }
           }
         }
       }
-      const fActivePhase = payload.budgetPhases?.find(p => fYear >= p.startYear && fYear <= p.endYear) || payload.budgetPhases?.[0];
-      futureLiabilityCashflows[f] += (fActivePhase?.baselineAmount || 0);
+      const fActivePhase =
+        payload.budgetPhases?.find(
+          (p) => fYear >= p.startYear && fYear <= p.endYear,
+        ) || payload.budgetPhases?.[0];
+      futureLiabilityCashflows[f] += fActivePhase?.baselineAmount || 0;
 
       if (payload.futureLiabilities) {
         for (const liab of payload.futureLiabilities) {
-          if (fAge >= liab.activationAge && (!liab.endAge || fAge <= liab.endAge)) {
-            futureLiabilityCashflows[f] += (liab.monthlyAmount * 12);
+          if (
+            fAge >= liab.activationAge &&
+            (!liab.endAge || fAge <= liab.endAge)
+          ) {
+            futureLiabilityCashflows[f] += liab.monthlyAmount * 12;
           }
         }
       }
 
       if (payload.milestones) {
         for (const ms of payload.milestones) {
-          if (ms.type === 'capex') {
-             const triggerY = ms.isTriggerByAge 
-               ? payload.startYear + ((ms.triggerAge ?? 65) - payload.currentAge)
-               : (ms.triggerYear ?? 2030);
-             if (fYear === triggerY) {
-               futureLiabilityCashflows[f] += (ms.amount || 0);
-             }
+          if (ms.type === "capex") {
+            const triggerY = ms.isTriggerByAge
+              ? payload.startYear + ((ms.triggerAge ?? 65) - payload.currentAge)
+              : (ms.triggerYear ?? 2030);
+            if (fYear === triggerY) {
+              futureLiabilityCashflows[f] += ms.amount || 0;
+            }
           }
         }
       }
     }
 
     const discountRate = (payload.globalDiscountRate ?? 2.0) / 100;
-    const pvFutureIncome = computePresentValue(futureIncomeCashflows, discountRate);
-    const pvFutureLiabilities = computePresentValue(futureLiabilityCashflows, discountRate);
+    const pvFutureIncome = computePresentValue(
+      futureIncomeCashflows,
+      discountRate,
+    );
+    const pvFutureLiabilities = computePresentValue(
+      futureLiabilityCashflows,
+      discountRate,
+    );
 
-    const fundedRatio = pvFutureLiabilities > 0 
-      ? (startAssets + pvFutureIncome) / pvFutureLiabilities
-      : 1;
+    const fundedRatio =
+      pvFutureLiabilities > 0
+        ? (startAssets + pvFutureIncome) / pvFutureLiabilities
+        : 1;
     // --------------------------------
-    
+
     // 1. Determine active stage (Chronological evaluation)
     let activeStage: Stage | null = null;
     let pensionIncome = 0;
     let rrbIncome = 0;
     let otherIncome = 0;
-    
+
     // Evaluate milestones up to current year
     if (payload.milestones) {
       payload.milestones.forEach((m: any) => {
-        const triggerY = m.isTriggerByAge 
+        const triggerY = m.isTriggerByAge
           ? payload.startYear + ((m.triggerAge ?? 65) - payload.currentAge)
           : (m.triggerYear ?? 2030);
-          
+
         if (currentYear >= triggerY) {
-          if (m.type === 'pension') pensionIncome += m.amount;
-          if (m.type === 'rrt1' || m.type === 'rrt2') rrbIncome += m.amount;
-          if (m.type === 'other_income') otherIncome += m.amount;
+          if (m.type === "pension") pensionIncome += m.amount;
+          if (m.type === "rrt1" || m.type === "rrt2") rrbIncome += m.amount;
+          if (m.type === "other_income") otherIncome += m.amount;
         }
       });
     }
@@ -1440,7 +1980,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     if (payload.futureIncomeStreams) {
       for (const stream of payload.futureIncomeStreams) {
         if (currentAge >= stream.activationAge) {
-          currentFutureIncome += (stream.monthlyAmount * 12);
+          currentFutureIncome += stream.monthlyAmount * 12;
         }
       }
     }
@@ -1448,33 +1988,39 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     // Determine Stage
     // Iterate to find the latest valid stage based on chronological resolution
     if (payload.stages) {
-      const resolvedStages = payload.stages.map(s => ({
-        stage: s,
-        startYear: resolveStageStartYear(s, payload)
-      })).sort((a, b) => a.startYear - b.startYear);
-      
+      const resolvedStages = payload.stages
+        .map((s) => ({
+          stage: s,
+          startYear: resolveStageStartYear(s, payload),
+        }))
+        .sort((a, b) => a.startYear - b.startYear);
+
       for (const rs of resolvedStages) {
         if (currentYear >= rs.startYear) {
           activeStage = rs.stage;
         }
       }
     }
-    
-    if (!activeStage && payload.stages && payload.stages.length > 0) activeStage = payload.stages[0];
-    
+
+    if (!activeStage && payload.stages && payload.stages.length > 0)
+      activeStage = payload.stages[0];
+
     // 2. Budget adjustment
     let stageTargetBudgetNominal = 0;
     let lifestyleShrinking = false;
     let lifestyleGrowing = false;
     let lifestyleFlat = false;
-    
-    const activePhase = payload.budgetPhases?.find(p => currentYear >= p.startYear && currentYear <= p.endYear) || payload.budgetPhases?.[0];
-    
+
+    const activePhase =
+      payload.budgetPhases?.find(
+        (p) => currentYear >= p.startYear && currentYear <= p.endYear,
+      ) || payload.budgetPhases?.[0];
+
     if (activePhase) {
       let lsAdjustmentCum = 1.0;
       let phaseYears = currentYear - activePhase.startYear;
       if (phaseYears < 0) phaseYears = 0;
-      
+
       if (activePhase.applyLifestyleAdjustment) {
         const lsRate = (activePhase.lifestyleAdjustmentRate || 0) / 100;
         lsAdjustmentCum = Math.pow(1 + lsRate, phaseYears);
@@ -1489,35 +2035,45 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
         lsAdjustmentCum = 1.0;
         lifestyleFlat = true;
       }
-      stageTargetBudgetNominal = activePhase.baselineAmount * cumInflation * lsAdjustmentCum;
+      stageTargetBudgetNominal =
+        activePhase.baselineAmount * cumInflation * lsAdjustmentCum;
     } else {
       stageTargetBudgetNominal = 0;
       lifestyleFlat = true;
     }
-    
+
     let divestedAmount = 0;
     // 5. Income gaps and Drawdown logic
     let activeGiftAmount = 0;
     if (payload.nonTaxableGifts) {
-      payload.nonTaxableGifts.forEach(gift => {
+      payload.nonTaxableGifts.forEach((gift) => {
         let active = true;
-        if (gift.startAge !== undefined && currentAge < gift.startAge) active = false;
-        if (gift.startYear !== undefined && currentYear < gift.startYear) active = false;
-        if (gift.endAge !== undefined && currentAge > gift.endAge) active = false;
-        if (gift.endYear !== undefined && currentYear > gift.endYear) active = false;
-        
+        if (gift.startAge !== undefined && currentAge < gift.startAge)
+          active = false;
+        if (gift.startYear !== undefined && currentYear < gift.startYear)
+          active = false;
+        if (gift.endAge !== undefined && currentAge > gift.endAge)
+          active = false;
+        if (gift.endYear !== undefined && currentYear > gift.endYear)
+          active = false;
+
         if (active) {
-          const giftVal = gift.inflationAdjusted ? gift.annualAmount * cumInflation : gift.annualAmount;
+          const giftVal = gift.inflationAdjusted
+            ? gift.annualAmount * cumInflation
+            : gift.annualAmount;
           activeGiftAmount += giftVal;
         }
       });
     }
 
-    const includeAuxiliary = activeStage?.includeAuxiliaryTaxFreeIncome ?? false;
+    const includeAuxiliary =
+      activeStage?.includeAuxiliaryTaxFreeIncome ?? false;
     const includeGlobal = activeStage?.includeGlobalIncomeStreams ?? false;
 
     let availableAuxiliary = includeAuxiliary ? activeGiftAmount : 0;
-    let availableGlobal = includeGlobal ? (pensionIncome + rrbIncome + otherIncome + currentFutureIncome) : 0;
+    let availableGlobal = includeGlobal
+      ? pensionIncome + rrbIncome + otherIncome + currentFutureIncome
+      : 0;
 
     let excessExternalIncome = 0;
     let giftAmountUsed = 0;
@@ -1534,6 +2090,81 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     let excessGlobal = availableGlobal - globalUsed;
 
     excessExternalIncome = excessAuxiliary + excessGlobal;
+
+    // --- SECURE 2.0 Act RMD Actuarial Logic ---
+    const primaryAge = payload.primaryBirthYear
+      ? currentYear - payload.primaryBirthYear
+      : payload.currentAge + step;
+    const rmdStartAge = getRMDStartAge(payload.primaryBirthYear);
+    let rmdAmount = 0;
+    let rmdUsedForBudget = 0;
+    let rmdExcessReinvested = 0;
+
+    const isInitialRMDYear = primaryAge === rmdStartAge;
+    const skipRMD = isInitialRMDYear && payload.delayInitialRMD;
+
+    if (primaryAge >= rmdStartAge && !skipRMD) {
+      let totalPreTaxBalance = 0;
+      currentAssets.forEach((a) => {
+        if (a.assetType === "PRE_TAX" && a.value > 0) {
+          totalPreTaxBalance += a.value;
+        }
+      });
+      if (totalPreTaxBalance > 0) {
+        const spouseAge = payload.spouseBirthYear
+          ? currentYear - payload.spouseBirthYear
+          : undefined;
+        const rmdDenominator = getRMDDenominator(
+          primaryAge,
+          spouseAge,
+          payload.isSpouseSoleBeneficiary,
+        );
+        rmdAmount = totalPreTaxBalance / rmdDenominator;
+
+        let remainingRmd = rmdAmount;
+        const preTaxAssets = currentAssets.filter(
+          (a) => a.assetType === "PRE_TAX" && a.value > 0,
+        );
+        for (const a of preTaxAssets) {
+          if (remainingRmd <= 0) break;
+          const take = Math.min(a.value, remainingRmd);
+          a.value -= take;
+          remainingRmd -= take;
+        }
+
+        const annualBudgetDeficit = remainingBudgetTarget;
+
+        if (rmdAmount > annualBudgetDeficit) {
+          const excessRmd = rmdAmount - annualBudgetDeficit;
+          rmdExcessReinvested = excessRmd;
+          let rmdDestAsset = payload.rmdReinvestmentAssetId
+            ? currentAssets.find((a) => a.id === payload.rmdReinvestmentAssetId)
+            : null;
+          if (!rmdDestAsset)
+            rmdDestAsset = currentAssets.find((a) => a.isDividendDestination);
+          if (!rmdDestAsset)
+            rmdDestAsset = currentAssets.find(
+              (a) => a.assetType === "TAXABLE" && !a.isLiquidationTarget,
+            );
+          if (!rmdDestAsset) {
+            rmdDestAsset = {
+              id: payload.rmdReinvestmentAssetId || "auto-rmd-reinvestment",
+              name: "RMD Reinvestment Bucket",
+              value: 0,
+              assetType: "TAXABLE",
+              expectedGrowthRate: 0.05,
+              expectedDividendYield: 0,
+            };
+            currentAssets.push(rmdDestAsset);
+          }
+          rmdDestAsset.value += excessRmd;
+        }
+
+        const rmdUsedForBudgetVal = Math.min(rmdAmount, remainingBudgetTarget);
+        rmdUsedForBudget = rmdUsedForBudgetVal;
+        remainingBudgetTarget -= rmdUsedForBudgetVal;
+      }
+    }
 
     // Allocate global income sequentially into specific streams to track exactly what portion is used
     let usedPension = 0;
@@ -1560,46 +2191,68 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     }
 
     const totalNonPortfolioIncome = availableAuxiliary + availableGlobal;
-    const nonPortfolioCoveredPercent = stageTargetBudgetNominal > 0
-      ? Math.min(100, ((giftAmountUsed + globalUsed) / stageTargetBudgetNominal) * 100)
-      : 100;
+    const nonPortfolioCoveredPercent =
+      stageTargetBudgetNominal > 0
+        ? Math.min(
+            100,
+            ((giftAmountUsed + globalUsed) / stageTargetBudgetNominal) * 100,
+          )
+        : 100;
 
     // Add excess to dividend destination or fallback
     if (excessExternalIncome > 0) {
-      let destAsset = currentAssets.find(a => a.isDividendDestination);
+      let destAsset = currentAssets.find((a) => a.isDividendDestination);
       if (!destAsset) {
-        destAsset = currentAssets.find(a => a.assetType === 'TAXABLE' && !a.isLiquidationTarget);
+        destAsset = currentAssets.find(
+          (a) => a.assetType === "TAXABLE" && !a.isLiquidationTarget,
+        );
       }
       if (!destAsset) {
-        destAsset = currentAssets.find(a => a.assetType === 'TAXABLE');
+        destAsset = currentAssets.find((a) => a.assetType === "TAXABLE");
       }
       if (!destAsset) {
-         destAsset = { id: 'auto-taxable-bucket', name: 'Taxable Fallback Destination', value: 0, assetType: 'TAXABLE', expectedGrowthRate: 0.05, expectedDividendYield: 0 };
-         currentAssets.push(destAsset);
+        destAsset = {
+          id: "auto-taxable-bucket",
+          name: "Taxable Fallback Destination",
+          value: 0,
+          assetType: "TAXABLE",
+          expectedGrowthRate: 0.05,
+          expectedDividendYield: 0,
+        };
+        currentAssets.push(destAsset);
       }
       destAsset.value += excessExternalIncome;
     }
 
     let actualNominalWithdrawal = remainingBudgetTarget;
-    
+
     // --- Manual Roth Conversion Execution ---
     if (targetRothConversionAmount > 0) {
       let remainingToConvert = targetRothConversionAmount;
-      const preTaxAssets = currentAssets.filter(a => a.assetType === 'PRE_TAX' && a.value > 0);
-      
+      const preTaxAssets = currentAssets.filter(
+        (a) => a.assetType === "PRE_TAX" && a.value > 0,
+      );
+
       for (const a of preTaxAssets) {
         if (remainingToConvert <= 0) break;
         const take = Math.min(a.value, remainingToConvert);
         a.value -= take;
         remainingToConvert -= take;
       }
-      
+
       const actualConverted = targetRothConversionAmount - remainingToConvert;
       if (actualConverted > 0) {
-        let rothAsset = currentAssets.find(a => a.assetType === 'ROTH');
+        let rothAsset = currentAssets.find((a) => a.assetType === "ROTH");
         if (!rothAsset) {
-           rothAsset = { id: 'auto-roth-bucket', name: 'Roth Conversion Destination', value: 0, assetType: 'ROTH', expectedGrowthRate: 0.05, expectedDividendYield: 0 };
-           currentAssets.push(rothAsset);
+          rothAsset = {
+            id: "auto-roth-bucket",
+            name: "Roth Conversion Destination",
+            value: 0,
+            assetType: "ROTH",
+            expectedGrowthRate: 0.05,
+            expectedDividendYield: 0,
+          };
+          currentAssets.push(rothAsset);
         }
         rothAsset.value += actualConverted;
       }
@@ -1608,187 +2261,268 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     // --- Concentrated Stock Liquidation & Transfer Logic ---
     let liquidationTargetSaleAmount = 0;
     let liquidationTaxPaid = 0;
-    
-    let liqTargetAsset = currentAssets.find(a => a.isLiquidationTarget);
-    let divDestAsset = currentAssets.find(a => a.isDividendDestination);
-    
+
+    let liqTargetAsset = currentAssets.find((a) => a.isLiquidationTarget);
+    let divDestAsset = currentAssets.find((a) => a.isDividendDestination);
+
     // Fallback: If DP strategy recommends liquidation, but no target is set, fallback to the largest taxable asset
-    if (!liqTargetAsset && matchedStrategy && matchedStrategy.stockLiquidation && matchedStrategy.stockLiquidation > 0) {
-      liqTargetAsset = currentAssets.filter(a => a.assetType === 'TAXABLE' || a.type?.toLowerCase().includes('taxable')).sort((a,b) => b.value - a.value)[0];
+    if (
+      !liqTargetAsset &&
+      matchedStrategy &&
+      matchedStrategy.stockLiquidation &&
+      matchedStrategy.stockLiquidation > 0
+    ) {
+      liqTargetAsset = currentAssets
+        .filter(
+          (a) =>
+            a.assetType === "TAXABLE" ||
+            a.type?.toLowerCase().includes("taxable"),
+        )
+        .sort((a, b) => b.value - a.value)[0];
     }
-    
+
     if (!divDestAsset && liqTargetAsset) {
-      divDestAsset = currentAssets.find(a => (a.assetType === 'TAXABLE' || a.type?.toLowerCase().includes('taxable')) && a.id !== liqTargetAsset?.id);
+      divDestAsset = currentAssets.find(
+        (a) =>
+          (a.assetType === "TAXABLE" ||
+            a.type?.toLowerCase().includes("taxable")) &&
+          a.id !== liqTargetAsset?.id,
+      );
       if (!divDestAsset) {
-        divDestAsset = { id: 'auto-taxable-bucket', name: 'Taxable Fallback Destination', value: 0, assetType: 'TAXABLE', expectedGrowthRate: 0.05, expectedDividendYield: 0 };
+        divDestAsset = {
+          id: "auto-taxable-bucket",
+          name: "Taxable Fallback Destination",
+          value: 0,
+          assetType: "TAXABLE",
+          expectedGrowthRate: 0.05,
+          expectedDividendYield: 0,
+        };
         currentAssets.push(divDestAsset);
       }
     }
-    
+
     if (liqTargetAsset && divDestAsset && liqTargetAsset.value > 0) {
       // 1. Calculate Taxable Ordinary Income this year (excluding capital gains)
-      const ordinaryIncomeThisYear = pensionIncome + rrbIncome + otherIncome + currentFutureIncome + targetRothConversionAmount;
-      const taxableOrdinaryIncomeThisYear = Math.max(0, ordinaryIncomeThisYear - STANDARD_DEDUCTION_2026_EST);
-      
+      const ordinaryIncomeThisYear =
+        pensionIncome +
+        rrbIncome +
+        otherIncome +
+        currentFutureIncome +
+        targetRothConversionAmount +
+        rmdAmount;
+      const taxableOrdinaryIncomeThisYear = Math.max(
+        0,
+        ordinaryIncomeThisYear - STANDARD_DEDUCTION_2026_EST,
+      );
+
       // 2. Pre-existing LTCG this year
-      const preExistingLTCG = (paidOutYield + reinvestedYield) + 
-        ((payload.taxableRebalancingSaleAmount || 0) * ((payload.rebalancingCapitalGainPercentage || 0) / 100));
-        
+      const preExistingLTCG =
+        paidOutYield +
+        reinvestedYield +
+        (payload.taxableRebalancingSaleAmount || 0) *
+          ((payload.rebalancingCapitalGainPercentage || 0) / 100);
+
       // 3. Calculate remaining 0% LTCG capacity
-      const remaining0PercentLtcgSpace = Math.max(0, 98900 - (taxableOrdinaryIncomeThisYear + preExistingLTCG));
-      
+      const remaining0PercentLtcgSpace = Math.max(
+        0,
+        98900 - (taxableOrdinaryIncomeThisYear + preExistingLTCG),
+      );
+
       // 4. Calculate gain ratio of liquidation target (using standard 60% cost basis)
       const costBasisPercentage = 60;
-      const gainRatio = Math.max(0, Math.min(1, 1 - (costBasisPercentage / 100))); // 0.40
-      
+      const gainRatio = Math.max(0, Math.min(1, 1 - costBasisPercentage / 100)); // 0.40
+
       // 5. Max sale amount that stays within 0% LTCG space
-      const maxSaleFor0PercentLtcg = gainRatio > 0 ? (remaining0PercentLtcgSpace / gainRatio) : 0;
-      
+      const maxSaleFor0PercentLtcg =
+        gainRatio > 0 ? remaining0PercentLtcgSpace / gainRatio : 0;
+
       // 6. Overriding cash flow required to fund baseline budget
       // Calculate value of ALL eligible drawdown assets OTHER than the liquidation target
       const otherEligibleAssetsValue = currentAssets
-        .filter(a => {
+        .filter((a) => {
           if (a.value <= 0 || a.isLiquidationTarget) return false;
           // Apply same lockout and pre-tax availability checks if we want to be fully accurate
-          if (a.assetType === 'PRE_TAX') {
-            const assetNameLower = (a.name || '').toLowerCase();
-            const isCorrie = assetNameLower.includes('corrie');
-            const isJesse = assetNameLower.includes('jesse') || !isCorrie;
-            if (isJesse && jessePreTaxTriggerYear !== -1 && currentYear < jessePreTaxTriggerYear) return false;
-            if (isCorrie && corriePreTaxTriggerYear !== -1 && currentYear < corriePreTaxTriggerYear) return false;
+          if (a.assetType === "PRE_TAX") {
+            const assetNameLower = (a.name || "").toLowerCase();
+            const isCorrie = assetNameLower.includes("corrie");
+            const isJesse = assetNameLower.includes("jesse") || !isCorrie;
+            if (
+              isJesse &&
+              jessePreTaxTriggerYear !== -1 &&
+              currentYear < jessePreTaxTriggerYear
+            )
+              return false;
+            if (
+              isCorrie &&
+              corriePreTaxTriggerYear !== -1 &&
+              currentYear < corriePreTaxTriggerYear
+            )
+              return false;
           }
           if (a.availableDate) {
-            if (a.availableDate.includes('-')) {
-              const availableYear = parseInt(a.availableDate.split('-')[0]);
+            if (a.availableDate.includes("-")) {
+              const availableYear = parseInt(a.availableDate.split("-")[0]);
               if (currentYear < availableYear) return false;
-            } else if (a.availableDate.toLowerCase().startsWith('age:')) {
-               const triggerAge = parseFloat(a.availableDate.split(':')[1]);
-               if (currentAge < triggerAge) return false;
+            } else if (a.availableDate.toLowerCase().startsWith("age:")) {
+              const triggerAge = parseFloat(a.availableDate.split(":")[1]);
+              if (currentAge < triggerAge) return false;
             } else {
-               const availableYear = parseInt(a.availableDate);
-               if (!isNaN(availableYear) && currentYear < availableYear) return false;
+              const availableYear = parseInt(a.availableDate);
+              if (!isNaN(availableYear) && currentYear < availableYear)
+                return false;
             }
           }
           return true;
         })
         .reduce((sum, a) => sum + a.value, 0);
-        
-      const baselineBudgetShortfall = Math.max(0, remainingBudgetTarget - otherEligibleAssetsValue);
-      
+
+      const baselineBudgetShortfall = Math.max(
+        0,
+        remainingBudgetTarget - otherEligibleAssetsValue,
+      );
+
       // 7. Optimal sale amount: Maximize 0% LTCG space, but cover budget shortfall if required
-      let optimalSaleAmount = Math.max(maxSaleFor0PercentLtcg, baselineBudgetShortfall);
+      let optimalSaleAmount = Math.max(
+        maxSaleFor0PercentLtcg,
+        baselineBudgetShortfall,
+      );
       if (hasAnyApplied) {
-        if (matchedStrategy !== undefined && matchedStrategy.stockLiquidation !== undefined) {
-          const lastLiquidationYear = Math.max(...payload.appliedBridgeStrategies!.filter(s => s.stockLiquidation > 0).map(s => s.year));
+        if (
+          matchedStrategy !== undefined &&
+          matchedStrategy.stockLiquidation !== undefined
+        ) {
+          const lastLiquidationYear = Math.max(
+            ...payload
+              .appliedBridgeStrategies!.filter((s) => s.stockLiquidation > 0)
+              .map((s) => s.year),
+          );
           if (currentYear === lastLiquidationYear) {
-             // DP doesn't grow the asset, so in the final liquidation year, we must force it to 100% to match user expectations
-             optimalSaleAmount = liqTargetAsset.value;
+            // DP doesn't grow the asset, so in the final liquidation year, we must force it to 100% to match user expectations
+            optimalSaleAmount = liqTargetAsset.value;
           } else {
-             optimalSaleAmount = matchedStrategy.stockLiquidation;
+            optimalSaleAmount = matchedStrategy.stockLiquidation;
           }
         } else {
           // If we are strictly applying a ledger, unmapped years should NOT do algorithmic 0% LTCG harvesting
           optimalSaleAmount = baselineBudgetShortfall;
         }
       } else {
-        if (matchedStrategy !== undefined && matchedStrategy.stockLiquidation !== undefined) {
+        if (
+          matchedStrategy !== undefined &&
+          matchedStrategy.stockLiquidation !== undefined
+        ) {
           optimalSaleAmount = matchedStrategy.stockLiquidation;
         }
       }
       optimalSaleAmount = Math.min(liqTargetAsset.value, optimalSaleAmount);
-      
+
       if (optimalSaleAmount > 0) {
         // 8. Subtract liquidated amount from the target asset
         liqTargetAsset.value -= optimalSaleAmount;
-        
+
         // 9. Calculate capital gains tax progressively
         const capitalGainsGenerated = optimalSaleAmount * gainRatio;
-        
-        const calculateLtcgTaxForGains = (newGains: number, existingTaxableIncomeAndGains: number): number => {
+
+        const calculateLtcgTaxForGains = (
+          newGains: number,
+          existingTaxableIncomeAndGains: number,
+        ): number => {
           const start = existingTaxableIncomeAndGains;
           const end = existingTaxableIncomeAndGains + newGains;
           let tax = 0;
-          
+
           const start15 = Math.max(98900, start);
           const end15 = Math.min(613700, end);
           if (end15 > start15) {
             tax += (end15 - start15) * 0.15;
           }
-          
+
           const start20 = Math.max(613700, start);
           const end20 = Math.max(613700, end);
           if (end20 > start20) {
-            tax += (end20 - start20) * 0.20;
+            tax += (end20 - start20) * 0.2;
           }
-          
+
           return tax;
         };
-        
-        const taxOwedOnThisSale = calculateLtcgTaxForGains(capitalGainsGenerated, taxableOrdinaryIncomeThisYear + preExistingLTCG);
+
+        const taxOwedOnThisSale = calculateLtcgTaxForGains(
+          capitalGainsGenerated,
+          taxableOrdinaryIncomeThisYear + preExistingLTCG,
+        );
         const netProceeds = optimalSaleAmount - taxOwedOnThisSale;
-        
+
         // 10. Add net proceeds directly to dividend destination
         divDestAsset.value += netProceeds;
-        
+
         liquidationTargetSaleAmount = optimalSaleAmount;
         liquidationTaxPaid = taxOwedOnThisSale;
       }
     }
-    
+
     // --- 3-Bucket Strategy Waterfall & Guardrails ---
     if (use3Bucket) {
       let amountNeeded = remainingBudgetTarget;
-      
+
       // 1. Drain from Bucket 1
       const drawnFrom1 = Math.min(bucket1Balance, amountNeeded);
       bucket1Balance -= drawnFrom1;
       amountNeeded -= drawnFrom1;
-      
+
       // 2. Drain from Bucket 2
       const drawnFrom2 = Math.min(bucket2Balance, amountNeeded);
       bucket2Balance -= drawnFrom2;
       amountNeeded -= drawnFrom2;
-      
+
       // 3. Drain from Bucket 3 ONLY if not negative market year
       let drawnFrom3 = 0;
       if (!isNegativeMarketYear) {
-         drawnFrom3 = Math.min(bucket3Balance, amountNeeded);
-         bucket3Balance -= drawnFrom3;
-         amountNeeded -= drawnFrom3;
+        drawnFrom3 = Math.min(bucket3Balance, amountNeeded);
+        bucket3Balance -= drawnFrom3;
+        amountNeeded -= drawnFrom3;
       }
-      
+
       const actuallyGathered = drawnFrom1 + drawnFrom2 + drawnFrom3;
       remainingBudgetTarget = actuallyGathered;
       actualNominalWithdrawal = actuallyGathered;
     }
-    
-    const eligibleDrawdownAssets = currentAssets.filter(a => {
+
+    const eligibleDrawdownAssets = currentAssets.filter((a) => {
       if (a.value <= 0) return false;
-      
+
       // Handle Jesse & Corrie pre-tax availability milestones
-      if (a.assetType === 'PRE_TAX') {
-        const assetNameLower = (a.name || '').toLowerCase();
-        const isCorrie = assetNameLower.includes('corrie');
-        const isJesse = assetNameLower.includes('jesse') || !isCorrie; // Default to Jesse if not Corrie
-        
-        if (isJesse && jessePreTaxTriggerYear !== -1 && currentYear < jessePreTaxTriggerYear) {
+      if (a.assetType === "PRE_TAX") {
+        const assetNameLower = (a.name || "").toLowerCase();
+        const isCorrie = assetNameLower.includes("corrie");
+        const isJesse = assetNameLower.includes("jesse") || !isCorrie; // Default to Jesse if not Corrie
+
+        if (
+          isJesse &&
+          jessePreTaxTriggerYear !== -1 &&
+          currentYear < jessePreTaxTriggerYear
+        ) {
           return false;
         }
-        if (isCorrie && corriePreTaxTriggerYear !== -1 && currentYear < corriePreTaxTriggerYear) {
+        if (
+          isCorrie &&
+          corriePreTaxTriggerYear !== -1 &&
+          currentYear < corriePreTaxTriggerYear
+        ) {
           return false;
         }
       }
 
       if (a.availableDate) {
-        if (a.availableDate.includes('-')) {
-          const availableYear = parseInt(a.availableDate.split('-')[0]);
+        if (a.availableDate.includes("-")) {
+          const availableYear = parseInt(a.availableDate.split("-")[0]);
           if (currentYear < availableYear) return false;
-        } else if (a.availableDate.toLowerCase().startsWith('age:')) {
-           const triggerAge = parseFloat(a.availableDate.split(':')[1]);
-           if (currentAge < triggerAge) return false;
+        } else if (a.availableDate.toLowerCase().startsWith("age:")) {
+          const triggerAge = parseFloat(a.availableDate.split(":")[1]);
+          if (currentAge < triggerAge) return false;
         } else {
-           const availableYear = parseInt(a.availableDate);
-           if (!isNaN(availableYear) && currentYear < availableYear) return false;
+          const availableYear = parseInt(a.availableDate);
+          if (!isNaN(availableYear) && currentYear < availableYear)
+            return false;
         }
       }
       return true;
@@ -1802,7 +2536,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       taxableBrokerage: 0,
       qualifiedDividends: 0,
       rothIra: 0,
-      nonTaxableGift: giftAmountUsed
+      nonTaxableGift: giftAmountUsed,
     };
 
     if (remainingNetNeed > 0 && availableDividendsCash > 0) {
@@ -1814,48 +2548,64 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     if (remainingNetNeed > 0 && activeStage?.fundingPriorities) {
       for (const pType of activeStage.fundingPriorities) {
         if (remainingNetNeed <= 0) break;
-        
-        let mappedType: 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH' | 'ALL' = 'ALL';
-        if (pType === 'taxable_brokerage' || pType === 'TAXABLE') mappedType = 'TAXABLE';
-        else if (pType === 'tax_advantaged_401k' || pType === 'traditional_ira' || pType === 'PRE_TAX') mappedType = 'PRE_TAX';
-        else if (pType === 'roth_ira' || pType === 'ROTH') mappedType = 'ROTH';
-        else if (pType === 'cash' || pType === 'CASH') mappedType = 'CASH';
 
-        const pool = eligibleDrawdownAssets.filter(a => (mappedType === 'ALL' || a.assetType === mappedType) && a.value > 0);
+        let mappedType: "CASH" | "TAXABLE" | "PRE_TAX" | "ROTH" | "ALL" = "ALL";
+        if (pType === "taxable_brokerage" || pType === "TAXABLE")
+          mappedType = "TAXABLE";
+        else if (
+          pType === "tax_advantaged_401k" ||
+          pType === "traditional_ira" ||
+          pType === "PRE_TAX"
+        )
+          mappedType = "PRE_TAX";
+        else if (pType === "roth_ira" || pType === "ROTH") mappedType = "ROTH";
+        else if (pType === "cash" || pType === "CASH") mappedType = "CASH";
+
+        const pool = eligibleDrawdownAssets.filter(
+          (a) =>
+            (mappedType === "ALL" || a.assetType === mappedType) && a.value > 0,
+        );
         const poolValue = pool.reduce((sum, a) => sum + a.value, 0);
-        
+
         if (poolValue > 0) {
-           const takeNet = Math.min(poolValue, remainingNetNeed);
-           if (mappedType === 'PRE_TAX') netDrawn.traditional401kIra += takeNet;
-           else if (mappedType === 'TAXABLE') netDrawn.taxableBrokerage += takeNet;
-           else if (mappedType === 'ROTH') netDrawn.rothIra += takeNet;
-           else if (mappedType === 'CASH') netDrawn.nonTaxableGift += takeNet; 
-           else netDrawn.taxableBrokerage += takeNet;
-           
-           remainingNetNeed -= takeNet;
+          const takeNet = Math.min(poolValue, remainingNetNeed);
+          if (mappedType === "PRE_TAX") netDrawn.traditional401kIra += takeNet;
+          else if (mappedType === "TAXABLE")
+            netDrawn.taxableBrokerage += takeNet;
+          else if (mappedType === "ROTH") netDrawn.rothIra += takeNet;
+          else if (mappedType === "CASH") netDrawn.nonTaxableGift += takeNet;
+          else netDrawn.taxableBrokerage += takeNet;
+
+          remainingNetNeed -= takeNet;
         }
       }
-      
+
       if (remainingNetNeed > 0) {
-        const pool = eligibleDrawdownAssets.filter(a => a.value > 0);
+        const pool = eligibleDrawdownAssets.filter((a) => a.value > 0);
         const poolValue = pool.reduce((sum, a) => sum + a.value, 0);
         if (poolValue > 0) {
-           const takeNet = Math.min(poolValue, remainingNetNeed);
-           netDrawn.taxableBrokerage += takeNet; // Fallback
-           remainingNetNeed -= takeNet;
+          const takeNet = Math.min(poolValue, remainingNetNeed);
+          netDrawn.taxableBrokerage += takeNet; // Fallback
+          remainingNetNeed -= takeNet;
         }
       }
     }
 
     const taxOutput = evaluateMultiBucketTax({
-       targetNetExpense: actualNominalWithdrawal,
-       allocationMode: 'DOLLARS',
-       buckets: netDrawn,
-       blendedCostBasisPercentage: 60,
-       preExistingOrdinaryIncome: pensionIncome + rrbIncome + otherIncome + currentFutureIncome,
-       targetRothConversionAmount: targetRothConversionAmount,
-       taxableRebalancingSaleAmount: payload.taxableRebalancingSaleAmount,
-       rebalancingCapitalGainPercentage: payload.rebalancingCapitalGainPercentage
+      targetNetExpense: actualNominalWithdrawal,
+      allocationMode: "DOLLARS",
+      buckets: netDrawn,
+      blendedCostBasisPercentage: 60,
+      preExistingOrdinaryIncome:
+        pensionIncome +
+        rrbIncome +
+        otherIncome +
+        currentFutureIncome +
+        rmdAmount,
+      targetRothConversionAmount: targetRothConversionAmount,
+      taxableRebalancingSaleAmount: payload.taxableRebalancingSaleAmount,
+      rebalancingCapitalGainPercentage:
+        payload.rebalancingCapitalGainPercentage,
     });
 
     let withdrawnDividends = 0;
@@ -1866,84 +2616,132 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       PRE_TAX: taxOutput.bucketBreakdown.traditional401kIraGross,
       TAXABLE: taxOutput.bucketBreakdown.taxableBrokerageGross,
       ROTH: taxOutput.bucketBreakdown.rothIraGross,
-      CASH: Math.max(0, taxOutput.bucketBreakdown.nonTaxableGiftGross - giftAmountUsed),
-      DIVIDENDS: taxOutput.bucketBreakdown.qualifiedDividendsGross
+      CASH: Math.max(
+        0,
+        taxOutput.bucketBreakdown.nonTaxableGiftGross - giftAmountUsed,
+      ),
+      DIVIDENDS: taxOutput.bucketBreakdown.qualifiedDividendsGross,
     };
 
     if (remainingGrossNeed.DIVIDENDS > 0 && availableDividendsCash > 0) {
-       const takeGross = Math.min(availableDividendsCash, remainingGrossNeed.DIVIDENDS);
-       withdrawnDividends += takeGross;
-       availableDividendsCash -= takeGross;
-       remainingGrossNeed.DIVIDENDS -= takeGross;
+      const takeGross = Math.min(
+        availableDividendsCash,
+        remainingGrossNeed.DIVIDENDS,
+      );
+      withdrawnDividends += takeGross;
+      availableDividendsCash -= takeGross;
+      remainingGrossNeed.DIVIDENDS -= takeGross;
     }
-    
+
     if (availableDividendsCash > 0 && divDestAsset) {
       divDestAsset.value += availableDividendsCash;
     }
 
     if (activeStage?.fundingPriorities) {
       for (const pType of activeStage.fundingPriorities) {
-        let mappedType: 'CASH' | 'TAXABLE' | 'PRE_TAX' | 'ROTH' | 'ALL' = 'ALL';
-        if (pType === 'taxable_brokerage' || pType === 'TAXABLE') mappedType = 'TAXABLE';
-        else if (pType === 'tax_advantaged_401k' || pType === 'traditional_ira' || pType === 'PRE_TAX') mappedType = 'PRE_TAX';
-        else if (pType === 'roth_ira' || pType === 'ROTH') mappedType = 'ROTH';
-        else if (pType === 'cash' || pType === 'CASH') mappedType = 'CASH';
+        let mappedType: "CASH" | "TAXABLE" | "PRE_TAX" | "ROTH" | "ALL" = "ALL";
+        if (pType === "taxable_brokerage" || pType === "TAXABLE")
+          mappedType = "TAXABLE";
+        else if (
+          pType === "tax_advantaged_401k" ||
+          pType === "traditional_ira" ||
+          pType === "PRE_TAX"
+        )
+          mappedType = "PRE_TAX";
+        else if (pType === "roth_ira" || pType === "ROTH") mappedType = "ROTH";
+        else if (pType === "cash" || pType === "CASH") mappedType = "CASH";
 
-        const pool = eligibleDrawdownAssets.filter(a => (mappedType === 'ALL' || a.assetType === mappedType) && a.value > 0);
+        const pool = eligibleDrawdownAssets.filter(
+          (a) =>
+            (mappedType === "ALL" || a.assetType === mappedType) && a.value > 0,
+        );
         const poolValue = pool.reduce((sum, a) => sum + a.value, 0);
-        
+
         let amountToDrawGross = 0;
-        if (mappedType === 'PRE_TAX') amountToDrawGross = remainingGrossNeed.PRE_TAX;
-        else if (mappedType === 'TAXABLE') amountToDrawGross = remainingGrossNeed.TAXABLE;
-        else if (mappedType === 'ROTH') amountToDrawGross = remainingGrossNeed.ROTH;
-        else if (mappedType === 'CASH') amountToDrawGross = remainingGrossNeed.CASH;
-        else amountToDrawGross = remainingGrossNeed.TAXABLE + remainingGrossNeed.PRE_TAX + remainingGrossNeed.ROTH + remainingGrossNeed.CASH;
+        if (mappedType === "PRE_TAX")
+          amountToDrawGross = remainingGrossNeed.PRE_TAX;
+        else if (mappedType === "TAXABLE")
+          amountToDrawGross = remainingGrossNeed.TAXABLE;
+        else if (mappedType === "ROTH")
+          amountToDrawGross = remainingGrossNeed.ROTH;
+        else if (mappedType === "CASH")
+          amountToDrawGross = remainingGrossNeed.CASH;
+        else
+          amountToDrawGross =
+            remainingGrossNeed.TAXABLE +
+            remainingGrossNeed.PRE_TAX +
+            remainingGrossNeed.ROTH +
+            remainingGrossNeed.CASH;
 
         if (poolValue > 0 && amountToDrawGross > 0) {
-           const withdrawFromPool = Math.min(poolValue, amountToDrawGross);
-           const pullFactor = withdrawFromPool / poolValue;
-           
-           pool.forEach(a => {
-             a.value -= (a.value * pullFactor);
-           });
-           
-           if (mappedType === 'TAXABLE' || mappedType === 'CASH' || mappedType === 'ALL') withdrawnTaxable += withdrawFromPool;
-           if (mappedType === 'PRE_TAX' || mappedType === 'ROTH') withdrawnTaxAdvantaged += withdrawFromPool;
-           
-           if (mappedType === 'PRE_TAX') remainingGrossNeed.PRE_TAX -= withdrawFromPool;
-           else if (mappedType === 'TAXABLE') remainingGrossNeed.TAXABLE -= withdrawFromPool;
-           else if (mappedType === 'ROTH') remainingGrossNeed.ROTH -= withdrawFromPool;
-           else if (mappedType === 'CASH') remainingGrossNeed.CASH -= withdrawFromPool;
-           else {
-              remainingGrossNeed.TAXABLE = 0; remainingGrossNeed.PRE_TAX = 0; remainingGrossNeed.ROTH = 0; remainingGrossNeed.CASH = 0;
-           }
+          const withdrawFromPool = Math.min(poolValue, amountToDrawGross);
+          const pullFactor = withdrawFromPool / poolValue;
+
+          pool.forEach((a) => {
+            a.value -= a.value * pullFactor;
+          });
+
+          if (
+            mappedType === "TAXABLE" ||
+            mappedType === "CASH" ||
+            mappedType === "ALL"
+          )
+            withdrawnTaxable += withdrawFromPool;
+          if (mappedType === "PRE_TAX" || mappedType === "ROTH")
+            withdrawnTaxAdvantaged += withdrawFromPool;
+
+          if (mappedType === "PRE_TAX")
+            remainingGrossNeed.PRE_TAX -= withdrawFromPool;
+          else if (mappedType === "TAXABLE")
+            remainingGrossNeed.TAXABLE -= withdrawFromPool;
+          else if (mappedType === "ROTH")
+            remainingGrossNeed.ROTH -= withdrawFromPool;
+          else if (mappedType === "CASH")
+            remainingGrossNeed.CASH -= withdrawFromPool;
+          else {
+            remainingGrossNeed.TAXABLE = 0;
+            remainingGrossNeed.PRE_TAX = 0;
+            remainingGrossNeed.ROTH = 0;
+            remainingGrossNeed.CASH = 0;
+          }
         }
       }
-      
-      const totalRemainingGross = remainingGrossNeed.PRE_TAX + remainingGrossNeed.TAXABLE + remainingGrossNeed.ROTH + remainingGrossNeed.CASH;
+
+      const totalRemainingGross =
+        remainingGrossNeed.PRE_TAX +
+        remainingGrossNeed.TAXABLE +
+        remainingGrossNeed.ROTH +
+        remainingGrossNeed.CASH;
       if (totalRemainingGross > 0) {
-        const pool = eligibleDrawdownAssets.filter(a => a.value > 0);
+        const pool = eligibleDrawdownAssets.filter((a) => a.value > 0);
         const poolValue = pool.reduce((sum, a) => sum + a.value, 0);
         if (poolValue > 0) {
-           const withdrawFromLiq = Math.min(poolValue, totalRemainingGross);
-           const pullFactor = withdrawFromLiq / poolValue;
-           pool.forEach(a => {
-             a.value -= (a.value * pullFactor);
-           });
-           withdrawnTaxable += withdrawFromLiq; 
+          const withdrawFromLiq = Math.min(poolValue, totalRemainingGross);
+          const pullFactor = withdrawFromLiq / poolValue;
+          pool.forEach((a) => {
+            a.value -= a.value * pullFactor;
+          });
+          withdrawnTaxable += withdrawFromLiq;
         }
       }
     }
 
-    const balanceAfterGrowth = currentAssets.reduce((sum, a) => sum + a.value, 0);
-    const estimatedTaxDrag = taxOutput.totalTaxOwed + ((pensionIncome + rrbIncome + otherIncome + currentFutureIncome) * 0.15);
-    
+    const balanceAfterGrowth = currentAssets.reduce(
+      (sum, a) => sum + a.value,
+      0,
+    );
+    const estimatedTaxDrag =
+      taxOutput.totalTaxOwed +
+      (pensionIncome + rrbIncome + otherIncome + currentFutureIncome) * 0.15;
+
     // Deduct tax drag
     if (balanceAfterGrowth > 0 && estimatedTaxDrag > 0) {
       let remainingTaxDrag = estimatedTaxDrag;
-      
+
       // 1. Attempt to deduct from taxable accounts first
-      const taxableAssets = currentAssets.filter(a => a.assetType === "TAXABLE");
+      const taxableAssets = currentAssets.filter(
+        (a) => a.assetType === "TAXABLE",
+      );
       for (const a of taxableAssets) {
         if (remainingTaxDrag <= 0) break;
         if (a.value > 0) {
@@ -1952,83 +2750,94 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
           remainingTaxDrag -= deduction;
         }
       }
-      
+
       // 2. If there is still tax drag remaining, deduct proportionally from all remaining assets as a fallback
       if (remainingTaxDrag > 0) {
-        const remainingBalance = currentAssets.reduce((sum, a) => sum + a.value, 0);
+        const remainingBalance = currentAssets.reduce(
+          (sum, a) => sum + a.value,
+          0,
+        );
         if (remainingBalance > 0) {
-          const factor = Math.max(0, (remainingBalance - remainingTaxDrag) / remainingBalance);
-          currentAssets.forEach(a => {
-             a.value *= factor;
+          const factor = Math.max(
+            0,
+            (remainingBalance - remainingTaxDrag) / remainingBalance,
+          );
+          currentAssets.forEach((a) => {
+            a.value *= factor;
           });
         }
       }
     }
-    
+
     const finalBalance = currentAssets.reduce((sum, a) => sum + a.value, 0);
-    
+
     // Abstract bucket growth and refill logic matching the portfolio's net changes
     if (use3Bucket) {
-       const preGrowthBucketTotal = bucket1Balance + bucket2Balance + bucket3Balance;
-       if (preGrowthBucketTotal > 0 && finalBalance > 0) {
-          const factor = finalBalance / preGrowthBucketTotal;
-          bucket1Balance *= factor;
-          bucket2Balance *= factor;
-          bucket3Balance *= factor;
-       } else {
-          bucket1Balance = 0;
-          bucket2Balance = 0;
-          bucket3Balance = 0;
-       }
-       
-       // Refill Buckets based on Target Configuration
-       const b1TargetMultiplier = activePhase?.cashBufferMultiplier ?? payload.threeBuckets?.bucket1LiquiditySecuredYears ?? 2.0;
-       const b2TargetMultiplier = payload.threeBuckets?.bucket2IncomeSecuredYears || 5;
-       const b1Target = stageTargetBudgetNominal * b1TargetMultiplier;
-       const b2Target = stageTargetBudgetNominal * b2TargetMultiplier;
-       
-       // Handle drop in Cash Buffer Target: reallocate excess to Bucket 2/3
-       if (bucket1Balance > b1Target) {
-          const excess = bucket1Balance - b1Target;
-          bucket1Balance -= excess;
-          if (bucket2Balance < b2Target) {
-             const b2Shortfall = b2Target - bucket2Balance;
-             const toBucket2 = Math.min(excess, b2Shortfall);
-             bucket2Balance += toBucket2;
-             bucket3Balance += (excess - toBucket2);
-          } else {
-             bucket3Balance += excess;
-          }
-       }
-       
-       // Refill Bucket 1 from Bucket 2
-       if (bucket1Balance < b1Target) {
+      const preGrowthBucketTotal =
+        bucket1Balance + bucket2Balance + bucket3Balance;
+      if (preGrowthBucketTotal > 0 && finalBalance > 0) {
+        const factor = finalBalance / preGrowthBucketTotal;
+        bucket1Balance *= factor;
+        bucket2Balance *= factor;
+        bucket3Balance *= factor;
+      } else {
+        bucket1Balance = 0;
+        bucket2Balance = 0;
+        bucket3Balance = 0;
+      }
+
+      // Refill Buckets based on Target Configuration
+      const b1TargetMultiplier =
+        activePhase?.cashBufferMultiplier ??
+        payload.threeBuckets?.bucket1LiquiditySecuredYears ??
+        2.0;
+      const b2TargetMultiplier =
+        payload.threeBuckets?.bucket2IncomeSecuredYears || 5;
+      const b1Target = stageTargetBudgetNominal * b1TargetMultiplier;
+      const b2Target = stageTargetBudgetNominal * b2TargetMultiplier;
+
+      // Handle drop in Cash Buffer Target: reallocate excess to Bucket 2/3
+      if (bucket1Balance > b1Target) {
+        const excess = bucket1Balance - b1Target;
+        bucket1Balance -= excess;
+        if (bucket2Balance < b2Target) {
+          const b2Shortfall = b2Target - bucket2Balance;
+          const toBucket2 = Math.min(excess, b2Shortfall);
+          bucket2Balance += toBucket2;
+          bucket3Balance += excess - toBucket2;
+        } else {
+          bucket3Balance += excess;
+        }
+      }
+
+      // Refill Bucket 1 from Bucket 2
+      if (bucket1Balance < b1Target) {
+        const shortfall = b1Target - bucket1Balance;
+        const transfer = Math.min(bucket2Balance, shortfall);
+        bucket2Balance -= transfer;
+        bucket1Balance += transfer;
+      }
+
+      // Refill Bucket 1 & 2 from Bucket 3 (strictly halted during negative market years)
+      if (!isNegativeMarketYear) {
+        if (bucket1Balance < b1Target) {
           const shortfall = b1Target - bucket1Balance;
-          const transfer = Math.min(bucket2Balance, shortfall);
-          bucket2Balance -= transfer;
+          const transfer = Math.min(bucket3Balance, shortfall);
+          bucket3Balance -= transfer;
           bucket1Balance += transfer;
-       }
-       
-       // Refill Bucket 1 & 2 from Bucket 3 (strictly halted during negative market years)
-       if (!isNegativeMarketYear) {
-          if (bucket1Balance < b1Target) {
-             const shortfall = b1Target - bucket1Balance;
-             const transfer = Math.min(bucket3Balance, shortfall);
-             bucket3Balance -= transfer;
-             bucket1Balance += transfer;
-          }
-          if (bucket2Balance < b2Target) {
-             const shortfall = b2Target - bucket2Balance;
-             const transfer = Math.min(bucket3Balance, shortfall);
-             bucket3Balance -= transfer;
-             bucket2Balance += transfer;
-          }
-       }
+        }
+        if (bucket2Balance < b2Target) {
+          const shortfall = b2Target - bucket2Balance;
+          const transfer = Math.min(bucket3Balance, shortfall);
+          bucket3Balance -= transfer;
+          bucket2Balance += transfer;
+        }
+      }
     }
-    
+
     // Extract per-asset balances
     const astMap: Record<string, number> = {};
-    currentAssets.forEach(a => astMap[a.id] = a.value);
+    currentAssets.forEach((a) => (astMap[a.id] = a.value));
 
     // Calculate categorical nominal and real totals for dumb UI rendering
     let cashNominal = 0;
@@ -2036,11 +2845,11 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     let preTaxNominal = 0;
     let rothNominal = 0;
 
-    currentAssets.forEach(a => {
-      if (a.assetType === 'CASH') cashNominal += a.value;
-      else if (a.assetType === 'TAXABLE') taxableNominal += a.value;
-      else if (a.assetType === 'PRE_TAX') preTaxNominal += a.value;
-      else if (a.assetType === 'ROTH') rothNominal += a.value;
+    currentAssets.forEach((a) => {
+      if (a.assetType === "CASH") cashNominal += a.value;
+      else if (a.assetType === "TAXABLE") taxableNominal += a.value;
+      else if (a.assetType === "PRE_TAX") preTaxNominal += a.value;
+      else if (a.assetType === "ROTH") rothNominal += a.value;
       else taxableNominal += a.value; // Fallback
     });
 
@@ -2055,7 +2864,7 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
     chronologicalLedger.push({
       year: currentYear,
       age: Math.round(currentAge * 10) / 10,
-      activeStageId: activeStage?.id || 'default',
+      activeStageId: activeStage?.id || "default",
       nominalWithdrawal: actualNominalWithdrawal,
       realWithdrawal: actualNominalWithdrawal / cumInflation,
       pensionIncome: usedPension,
@@ -2105,12 +2914,15 @@ export function simulateMultiStageDrawdownWorker(payload: MultiStageSimPayload):
       liquidationTargetSaleAmount,
       liquidationTaxPaid,
       rothConversionAmount: targetRothConversionAmount,
-      excessExternalIncome
+      excessExternalIncome,
+      rmdAmount,
+      rmdUsedForBudget,
+      rmdExcessReinvested,
     });
-    
-    cumInflation *= (1 + payload.inflationRate);
+
+    cumInflation *= 1 + payload.inflationRate;
   }
-  
+
   return chronologicalLedger;
 }
 export interface SpecificTaxLot {
@@ -2138,25 +2950,35 @@ export interface DPOptimizationParams {
   discountRate: number;
   rothConversionStartAge?: number;
   stockLiquidationStartAge?: number;
-  rothMarginalBrackets?: { startYear: number; endYear: number; bracket: number; }[];
+  rothMarginalBrackets?: {
+    startYear: number;
+    endYear: number;
+    bracket: number;
+  }[];
 }
 
 export interface DPOptimalPath {
   utility: number;
   rothConversionAmount: number;
-  lotsSold: { id: string, sharesSold: number }[];
+  lotsSold: { id: string; sharesSold: number }[];
   taxesPaid: number;
 }
 
 // State discretization for memoization (nearest $10k to constrain state space)
 function hashState(state: DPOptimizationState): string {
   const round10k = (val: number) => Math.round(val / 10000) * 10000;
-  const taxableTotal = state.taxableLots.reduce((sum, lot) => sum + (lot.shares * lot.currentPrice), 0);
+  const taxableTotal = state.taxableLots.reduce(
+    (sum, lot) => sum + lot.shares * lot.currentPrice,
+    0,
+  );
   return `${state.age}_${round10k(state.preTaxBalance)}_${round10k(state.rothBalance)}_${round10k(taxableTotal)}`;
 }
 
-export function calculateProvisionalIncome(magi: number, rrbTier1: number): { provisionalIncome: number, taxableRRB: number } {
-  const provisionalIncome = magi + (0.5 * rrbTier1);
+export function calculateProvisionalIncome(
+  magi: number,
+  rrbTier1: number,
+): { provisionalIncome: number; taxableRRB: number } {
+  const provisionalIncome = magi + 0.5 * rrbTier1;
   let taxableRRB = 0;
   // 2026 MFJ Thresholds
   const baseAmount = 32000;
@@ -2165,12 +2987,13 @@ export function calculateProvisionalIncome(magi: number, rrbTier1: number): { pr
   if (provisionalIncome > adjustedBaseAmount) {
     taxableRRB = Math.min(
       0.85 * rrbTier1,
-      0.85 * (provisionalIncome - adjustedBaseAmount) + Math.min(0.5 * rrbTier1, 6000)
+      0.85 * (provisionalIncome - adjustedBaseAmount) +
+        Math.min(0.5 * rrbTier1, 6000),
     );
   } else if (provisionalIncome > baseAmount) {
     taxableRRB = Math.min(
       0.5 * rrbTier1,
-      0.5 * (provisionalIncome - baseAmount)
+      0.5 * (provisionalIncome - baseAmount),
     );
   }
   return { provisionalIncome, taxableRRB };
@@ -2193,26 +3016,28 @@ const dpMemoCache = new Map<string, DPOptimalPath>();
 export function calculateOptimalMultiYearTaxPathDP(
   state: DPOptimizationState,
   params: DPOptimizationParams,
-  depth: number = 0
+  depth: number = 0,
 ): DPOptimalPath {
   // Base Case: Reached End Age
   if (state.age >= params.endAge || depth > 5) {
     const estimatedFutureOrdinaryTax = 0.32; // Model ~25% effective tax rate on future RMDs
     const estimatedFutureCGTax = 0.15; // Model 15% LTCG on future concentrated stock liquidation
-    
+
     const preTaxValue = state.preTaxBalance * (1 - estimatedFutureOrdinaryTax);
     const rothValue = state.rothBalance;
     const taxableValue = state.taxableLots.reduce((s, l) => {
       const gain = Math.max(0, l.currentPrice - l.costBasisPerShare);
-      const tax = l.isTargetConcentratedPosition ? gain * estimatedFutureCGTax : 0;
-      return s + (l.shares * l.currentPrice) - tax * l.shares;
+      const tax = l.isTargetConcentratedPosition
+        ? gain * estimatedFutureCGTax
+        : 0;
+      return s + l.shares * l.currentPrice - tax * l.shares;
     }, 0);
-    
-    return { 
-      utility: preTaxValue + rothValue + taxableValue, 
-      rothConversionAmount: 0, 
-      lotsSold: [], 
-      taxesPaid: 0 
+
+    return {
+      utility: preTaxValue + rothValue + taxableValue,
+      rothConversionAmount: 0,
+      lotsSold: [],
+      taxesPaid: 0,
     };
   }
 
@@ -2222,7 +3047,7 @@ export function calculateOptimalMultiYearTaxPathDP(
   }
 
   const STANDARD_DEDUCTION = 30000;
-  
+
   // 3. Tax Lot Liquidation Strategy (Knapsack-like for Guyton-Klinger target)
   // Sort lots by least embedded capital gain (highest cost basis percentage) to minimize tax drag
   const sortedLots = [...state.taxableLots].sort((a, b) => {
@@ -2235,21 +3060,29 @@ export function calculateOptimalMultiYearTaxPathDP(
     return aGain - bGain;
   });
 
-    const baseOrdinary = params.baseOrdinaryIncome;
-  let bestPath: DPOptimalPath = { utility: -Infinity, rothConversionAmount: 0, lotsSold: [], taxesPaid: 0 };
+  const baseOrdinary = params.baseOrdinaryIncome;
+  let bestPath: DPOptimalPath = {
+    utility: -Infinity,
+    rothConversionAmount: 0,
+    lotsSold: [],
+    taxesPaid: 0,
+  };
 
   // 1. Determine Target Bracket Rate
-  let targetOrdinaryRate = 0.12; 
-  const currentYear = new Date().getFullYear() + (state.age - (params.startAge || state.age));
+  let targetOrdinaryRate = 0.12;
+  const currentYear =
+    new Date().getFullYear() + (state.age - (params.startAge || state.age));
   if (params.rothMarginalBrackets && params.rothMarginalBrackets.length > 0) {
-    const activeBracket = params.rothMarginalBrackets.find(b => currentYear >= b.startYear && currentYear <= b.endYear);
+    const activeBracket = params.rothMarginalBrackets.find(
+      (b) => currentYear >= b.startYear && currentYear <= b.endYear,
+    );
     if (activeBracket) {
       targetOrdinaryRate = activeBracket.bracket;
     }
   }
-  
+
   let ordinaryCeiling = 94300; // 12% default
-  if (targetOrdinaryRate <= 0.10) ordinaryCeiling = 23200;
+  if (targetOrdinaryRate <= 0.1) ordinaryCeiling = 23200;
   else if (targetOrdinaryRate <= 0.12) ordinaryCeiling = 94300;
   else if (targetOrdinaryRate <= 0.22) ordinaryCeiling = 201050;
   else if (targetOrdinaryRate <= 0.24) ordinaryCeiling = 383900;
@@ -2257,75 +3090,110 @@ export function calculateOptimalMultiYearTaxPathDP(
 
   // 2. Determine Stock Liquidation Targets (Prioritized)
   let stockTargets = [params.guytonKlingerTarget];
-  
-  if (!params.stockLiquidationStartAge || state.age >= params.stockLiquidationStartAge) {
-    const hasConcentrated = sortedLots.some(l => l.isTargetConcentratedPosition);
+
+  if (
+    !params.stockLiquidationStartAge ||
+    state.age >= params.stockLiquidationStartAge
+  ) {
+    const hasConcentrated = sortedLots.some(
+      (l) => l.isTargetConcentratedPosition,
+    );
     if (hasConcentrated) {
-       // Prioritize Liquidation: Assume 0 Roth conversion when calculating max gains
-       const maxGains0Percent = Math.max(0, 98900 + STANDARD_DEDUCTION - baseOrdinary);
-       let currentGain = 0;
-       let currentLiquidity = 0;
-       for (const lot of sortedLots) {
-          if (!lot.isTargetConcentratedPosition) continue;
-          const gainRatio = Math.max(0, lot.currentPrice - lot.costBasisPerShare) / lot.currentPrice;
-          if (gainRatio === 0) {
-              currentLiquidity += lot.shares * lot.currentPrice;
-          } else {
-              const remainingGain = maxGains0Percent - currentGain;
-              if (remainingGain <= 0) break;
-              const maxSharesForGain = remainingGain / (lot.currentPrice - lot.costBasisPerShare);
-              const sharesToSell = Math.min(lot.shares, maxSharesForGain);
-              currentGain += sharesToSell * (lot.currentPrice - lot.costBasisPerShare);
-              currentLiquidity += sharesToSell * lot.currentPrice;
-          }
-       }
-       stockTargets.push(Math.max(params.guytonKlingerTarget, currentLiquidity));
+      // Prioritize Liquidation: Assume 0 Roth conversion when calculating max gains
+      const maxGains0Percent = Math.max(
+        0,
+        98900 + STANDARD_DEDUCTION - baseOrdinary,
+      );
+      let currentGain = 0;
+      let currentLiquidity = 0;
+      for (const lot of sortedLots) {
+        if (!lot.isTargetConcentratedPosition) continue;
+        const gainRatio =
+          Math.max(0, lot.currentPrice - lot.costBasisPerShare) /
+          lot.currentPrice;
+        if (gainRatio === 0) {
+          currentLiquidity += lot.shares * lot.currentPrice;
+        } else {
+          const remainingGain = maxGains0Percent - currentGain;
+          if (remainingGain <= 0) break;
+          const maxSharesForGain =
+            remainingGain / (lot.currentPrice - lot.costBasisPerShare);
+          const sharesToSell = Math.min(lot.shares, maxSharesForGain);
+          currentGain +=
+            sharesToSell * (lot.currentPrice - lot.costBasisPerShare);
+          currentLiquidity += sharesToSell * lot.currentPrice;
+        }
+      }
+      stockTargets.push(Math.max(params.guytonKlingerTarget, currentLiquidity));
     }
   } else {
     stockTargets = [0];
   }
-  
-  stockTargets = Array.from(new Set(stockTargets.map(amt => Math.floor(amt)))).sort((a, b) => a - b);
+
+  stockTargets = Array.from(
+    new Set(stockTargets.map((amt) => Math.floor(amt))),
+  ).sort((a, b) => a - b);
 
   // 3. Evaluate each Stock Target
   for (const effectiveTarget of stockTargets) {
     let capitalGainsHarvested = 0;
     let liquidityGenerated = 0;
-    const lotsSold: { id: string, sharesSold: number }[] = [];
-    const nextLots = state.taxableLots.map(l => ({ ...l }));
-    
+    const lotsSold: { id: string; sharesSold: number }[] = [];
+    const nextLots = state.taxableLots.map((l) => ({ ...l }));
+
     for (const lot of sortedLots) {
       if (liquidityGenerated >= effectiveTarget) break;
-      const lotIndex = nextLots.findIndex(l => l.id === lot.id);
+      const lotIndex = nextLots.findIndex((l) => l.id === lot.id);
       const liquidityNeeded = effectiveTarget - liquidityGenerated;
-      const sharesToSell = Math.min(lot.shares, liquidityNeeded / lot.currentPrice);
+      const sharesToSell = Math.min(
+        lot.shares,
+        liquidityNeeded / lot.currentPrice,
+      );
       if (sharesToSell > 0) {
         lotsSold.push({ id: lot.id, sharesSold: sharesToSell });
         liquidityGenerated += sharesToSell * lot.currentPrice;
-        capitalGainsHarvested += sharesToSell * Math.max(0, lot.currentPrice - lot.costBasisPerShare);
+        capitalGainsHarvested +=
+          sharesToSell * Math.max(0, lot.currentPrice - lot.costBasisPerShare);
         nextLots[lotIndex].shares -= sharesToSell;
       }
     }
 
     // 4. Determine Roth Conversion Options (Remaining Space)
     let rothOptions = [0];
-    if (!params.rothConversionStartAge || state.age >= params.rothConversionStartAge) {
-      const fillStandardDeduction = Math.max(0, STANDARD_DEDUCTION - baseOrdinary);
-      
+    if (
+      !params.rothConversionStartAge ||
+      state.age >= params.rothConversionStartAge
+    ) {
+      const fillStandardDeduction = Math.max(
+        0,
+        STANDARD_DEDUCTION - baseOrdinary,
+      );
+
       // Calculate remaining space in the 0% LTCG bracket
-      const baselineTaxableOrdinary = Math.max(0, baseOrdinary - STANDARD_DEDUCTION);
-      const combinedTaxableSoFar = baselineTaxableOrdinary + capitalGainsHarvested;
+      const baselineTaxableOrdinary = Math.max(
+        0,
+        baseOrdinary - STANDARD_DEDUCTION,
+      );
+      const combinedTaxableSoFar =
+        baselineTaxableOrdinary + capitalGainsHarvested;
       const remainingLTCGCapacity = Math.max(0, 98900 - combinedTaxableSoFar);
-      
+
       // Ordinary limit is bounded by the target ordinary ceiling AND the remaining LTCG capacity
       // so that Roth conversions don't push the prioritized stock sales into the 15% bracket
-      const fillTargetBracket = Math.max(0, ordinaryCeiling + STANDARD_DEDUCTION - baseOrdinary);
-      const safeRothToProtectLTCG = remainingLTCGCapacity + Math.max(0, STANDARD_DEDUCTION - baseOrdinary);
-      const optimalRothConversion = Math.min(fillTargetBracket, safeRothToProtectLTCG);
-      
+      const fillTargetBracket = Math.max(
+        0,
+        ordinaryCeiling + STANDARD_DEDUCTION - baseOrdinary,
+      );
+      const safeRothToProtectLTCG =
+        remainingLTCGCapacity + Math.max(0, STANDARD_DEDUCTION - baseOrdinary);
+      const optimalRothConversion = Math.min(
+        fillTargetBracket,
+        safeRothToProtectLTCG,
+      );
+
       rothOptions = [0, fillStandardDeduction, optimalRothConversion]
-        .map(amt => Math.floor(amt))
-        .filter(amt => amt <= state.preTaxBalance && amt >= 0);
+        .map((amt) => Math.floor(amt))
+        .filter((amt) => amt <= state.preTaxBalance && amt >= 0);
       rothOptions = Array.from(new Set(rothOptions)).sort((a, b) => a - b);
     }
 
@@ -2333,9 +3201,15 @@ export function calculateOptimalMultiYearTaxPathDP(
     for (const rothConversion of rothOptions) {
       // 1. Calculate Ordinary Income & RRB Taxation
       const baseMagi = baseOrdinary + rothConversion;
-      const { taxableRRB } = calculateProvisionalIncome(baseMagi, params.rrbTier1Benefits);
+      const { taxableRRB } = calculateProvisionalIncome(
+        baseMagi,
+        params.rrbTier1Benefits,
+      );
       const totalOrdinaryIncome = baseMagi + taxableRRB;
-      const taxableOrdinary = Math.max(0, totalOrdinaryIncome - STANDARD_DEDUCTION);
+      const taxableOrdinary = Math.max(
+        0,
+        totalOrdinaryIncome - STANDARD_DEDUCTION,
+      );
 
       // 2. Prevent IRMAA Cliff
       if (checkIrmaaCliff(baseMagi)) continue; // Reject path if it trips IRMAA cliff
@@ -2345,41 +3219,53 @@ export function calculateOptimalMultiYearTaxPathDP(
       // Calculate Tax Torpedo Avoidance (15% LTCG bracket threshold = $98,900 MFJ 2026)
       let taxPenalty = 0;
       if (combinedTaxableIncome > 98900) {
-         if (taxableOrdinary <= 98900) {
-           // Pushed into the 15% bracket partially or fully
-           taxPenalty += (combinedTaxableIncome - 98900) * 0.15;
-         } else {
-           // All capital gains are in the 15% bracket
-           taxPenalty += capitalGainsHarvested * 0.15;
-         }
+        if (taxableOrdinary <= 98900) {
+          // Pushed into the 15% bracket partially or fully
+          taxPenalty += (combinedTaxableIncome - 98900) * 0.15;
+        } else {
+          // All capital gains are in the 15% bracket
+          taxPenalty += capitalGainsHarvested * 0.15;
+        }
       }
 
       // Rough tax estimation
-      const taxesPaid = (taxableOrdinary * 0.12) + taxPenalty;
-      
+      const taxesPaid = taxableOrdinary * 0.12 + taxPenalty;
+
       const nextState: DPOptimizationState = {
         age: state.age + 1,
         preTaxBalance: state.preTaxBalance - rothConversion,
         rothBalance: state.rothBalance + rothConversion,
-        taxableLots: nextLots.filter(l => l.shares > 0.001)
+        taxableLots: nextLots.filter((l) => l.shares > 0.001),
       };
 
       // Recurse
-      const nextResult = calculateOptimalMultiYearTaxPathDP(nextState, params, depth + 1);
-      
+      const nextResult = calculateOptimalMultiYearTaxPathDP(
+        nextState,
+        params,
+        depth + 1,
+      );
+
       // Discounted Utility
-      // We add an early action bonus to mathematically strongly prefer doing Roth conversions 
+      // We add an early action bonus to mathematically strongly prefer doing Roth conversions
       // and concentrated stock liquidations as early as possible in the bridge timeline.
-      const earlyActionBonus = params.discountRate <= 0 ? (rothConversion * 0.002 + liquidityGenerated * 0.005) * Math.max(0, params.endAge - state.age) : 0;
+      const earlyActionBonus =
+        params.discountRate <= 0
+          ? (rothConversion * 0.002 + liquidityGenerated * 0.005) *
+            Math.max(0, params.endAge - state.age)
+          : 0;
       const safeDiscount = Math.max(0, params.discountRate || 0);
-      const currentUtility = (liquidityGenerated - taxesPaid) + earlyActionBonus + (nextResult.utility / (1 + safeDiscount));
+      const currentUtility =
+        liquidityGenerated -
+        taxesPaid +
+        earlyActionBonus +
+        nextResult.utility / (1 + safeDiscount);
 
       if (currentUtility > bestPath.utility) {
         bestPath = {
           utility: currentUtility,
           rothConversionAmount: rothConversion,
           lotsSold,
-          taxesPaid
+          taxesPaid,
         };
       }
     }
@@ -2393,47 +3279,66 @@ export function clearDPMemoCache() {
   dpMemoCache.clear();
 }
 
-
 export function generateBridgeOptimizationTimeline(initialState, params) {
   const timeline = [];
   let currentState = { ...initialState };
   // Clone lots
-  currentState.taxableLots = currentState.taxableLots.map(l => ({ ...l }));
+  currentState.taxableLots = currentState.taxableLots.map((l) => ({ ...l }));
 
-  for (let age = params.startAge || currentState.age; age <= params.endAge; age++) {
+  for (
+    let age = params.startAge || currentState.age;
+    age <= params.endAge;
+    age++
+  ) {
     // Current year optimal path
-    const result = calculateOptimalMultiYearTaxPathDP(currentState, { ...params, endAge: params.endAge }, 0);
-    
+    const result = calculateOptimalMultiYearTaxPathDP(
+      currentState,
+      { ...params, endAge: params.endAge },
+      0,
+    );
+
     // Compute the actual liquidation and gains for this year
     let stockLiquidation = 0;
     let capitalGainsHarvested = 0;
     for (const sold of result.lotsSold) {
-      const lot = currentState.taxableLots.find(l => l.id === sold.id);
+      const lot = currentState.taxableLots.find((l) => l.id === sold.id);
       if (lot) {
         // Only count concentrated positions for the strategy ledger stock liquidation recommendation
         if (lot.isTargetConcentratedPosition) {
-            stockLiquidation += sold.sharesSold * lot.currentPrice;
+          stockLiquidation += sold.sharesSold * lot.currentPrice;
         }
-        capitalGainsHarvested += sold.sharesSold * Math.max(0, lot.currentPrice - lot.costBasisPerShare);
-        
+        capitalGainsHarvested +=
+          sold.sharesSold *
+          Math.max(0, lot.currentPrice - lot.costBasisPerShare);
+
         // Update state for next iteration
         lot.shares -= sold.sharesSold;
       }
     }
-    
+
     // Remove empty lots
-    currentState.taxableLots = currentState.taxableLots.filter(l => l.shares > 0);
-    
+    currentState.taxableLots = currentState.taxableLots.filter(
+      (l) => l.shares > 0,
+    );
+
     // Update pretax/roth balances
     const rothConv = result.rothConversionAmount;
-    currentState.preTaxBalance = Math.max(0, currentState.preTaxBalance - rothConv);
+    currentState.preTaxBalance = Math.max(
+      0,
+      currentState.preTaxBalance - rothConv,
+    );
     currentState.rothBalance += rothConv;
     currentState.age = age + 1;
 
     // Estimate effective marginal rate
-    const combinedTaxableIncome = Math.max(0, params.baseOrdinaryIncome + rothConv - STANDARD_DEDUCTION_2026_EST) + capitalGainsHarvested;
+    const combinedTaxableIncome =
+      Math.max(
+        0,
+        params.baseOrdinaryIncome + rothConv - STANDARD_DEDUCTION_2026_EST,
+      ) + capitalGainsHarvested;
     const taxesPaid = result.taxesPaid;
-    const effectiveMarginalRate = combinedTaxableIncome > 0 ? taxesPaid / combinedTaxableIncome : 0;
+    const effectiveMarginalRate =
+      combinedTaxableIncome > 0 ? taxesPaid / combinedTaxableIncome : 0;
 
     // Estimate isolated taxes for UI display
     // Base standard tax
@@ -2446,14 +3351,19 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
     const rothMagi = params.baseOrdinaryIncome + rothConv;
     const rothOrdinary = Math.max(0, rothMagi - STANDARD_DEDUCTION);
     let rothTax = 0;
-    
+
     // Calculate precise bracket overlay for Roth
     if (rothOrdinary > 383900) {
-      rothTax = (rothOrdinary - 383900) * 0.32 + (383900 - 201050) * 0.24 + (201050 - 94300) * 0.22 + (94300) * 0.12;
+      rothTax =
+        (rothOrdinary - 383900) * 0.32 +
+        (383900 - 201050) * 0.24 +
+        (201050 - 94300) * 0.22 +
+        94300 * 0.12;
     } else if (rothOrdinary > 201050) {
-      rothTax = (rothOrdinary - 201050) * 0.24 + (201050 - 94300) * 0.22 + (94300) * 0.12;
+      rothTax =
+        (rothOrdinary - 201050) * 0.24 + (201050 - 94300) * 0.22 + 94300 * 0.12;
     } else if (rothOrdinary > 94300) {
-      rothTax = (rothOrdinary - 94300) * 0.22 + (94300) * 0.12;
+      rothTax = (rothOrdinary - 94300) * 0.22 + 94300 * 0.12;
     } else {
       rothTax = rothOrdinary * 0.12;
     }
@@ -2462,15 +3372,17 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
     let cgTaxPenalty = 0;
     const combinedTaxableIncomeForUI = rothOrdinary + capitalGainsHarvested;
     if (combinedTaxableIncomeForUI > 98900) {
-       if (rothOrdinary <= 98900) {
-         cgTaxPenalty = (combinedTaxableIncomeForUI - 98900) * 0.15;
-       } else {
-         cgTaxPenalty = capitalGainsHarvested * 0.15;
-       }
+      if (rothOrdinary <= 98900) {
+        cgTaxPenalty = (combinedTaxableIncomeForUI - 98900) * 0.15;
+      } else {
+        cgTaxPenalty = capitalGainsHarvested * 0.15;
+      }
     }
 
     timeline.push({
-      year: new Date().getFullYear() + (age - (params.startAge || initialState.age)),
+      year:
+        new Date().getFullYear() +
+        (age - (params.startAge || initialState.age)),
       ordinaryIncome: params.baseOrdinaryIncome + rothConv,
       capitalGains: capitalGainsHarvested,
       stockLiquidation: stockLiquidation,
@@ -2479,20 +3391,26 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
       estimatedTotalTax: baseTax + rothOnlyTaxImpact + cgTaxPenalty,
       taxFromBase: baseTax,
       taxFromRoth: rothOnlyTaxImpact,
-      taxFromStock: cgTaxPenalty
+      taxFromStock: cgTaxPenalty,
     });
   }
-  
+
   const startAge = Math.max(
     params.startAge || initialState.age,
     Math.min(
-      params.stockLiquidationStartAge !== undefined ? params.stockLiquidationStartAge : (params.startAge || initialState.age),
-      params.rothConversionStartAge !== undefined ? params.rothConversionStartAge : (params.startAge || initialState.age)
-    )
+      params.stockLiquidationStartAge !== undefined
+        ? params.stockLiquidationStartAge
+        : params.startAge || initialState.age,
+      params.rothConversionStartAge !== undefined
+        ? params.rothConversionStartAge
+        : params.startAge || initialState.age,
+    ),
   );
 
-  return timeline.filter(row => {
-    const age = (params.startAge || initialState.age) + (row.year - new Date().getFullYear());
+  return timeline.filter((row) => {
+    const age =
+      (params.startAge || initialState.age) +
+      (row.year - new Date().getFullYear());
     return age >= startAge;
   });
 }

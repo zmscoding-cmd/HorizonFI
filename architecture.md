@@ -2121,3 +2121,20 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 * **Recharts Manual Intervention Clarity**: Updated User Help Documentation to precisely describe how to interact with the Recharts UI to model manual strategic tax events (Roth conversions and Stock liquidations).
 
 
+
+## XXXVIII. SECURE 2.0 Act RMD Compliance (Checkpoint 35)
+* **Local Storage Schema Refinement**: Updated `planSchema` (Version 16) to securely capture `primaryBirthYear`, `spouseBirthYear`, and `isSpouseSoleBeneficiary` within the `crypto-js` encrypted payload at the root level, preserving the zero-trust architecture.
+* **SubScenario Configuration**: Extended `SubScenario` schemas to track `rmdReinvestmentAssetId` and `delayInitialRMD` booleans to facilitate automated distribution re-routing.
+* **Actuarial Logic & Tax Stacking**: Updated the Web Worker simulation to calculate required minimum distributions using SECURE 2.0 Act cohort rules (ages 73 or 75) and IRS Uniform Lifetime Table (Table III) and Joint/Last Survivor Table (Table II). RMD amounts are deducted from pre-tax balances, sequentially satisfy the annual budget deficit, and route excess liquidity to the user-designated taxable reinvestment asset. RMD income is explicitly stacked at the absolute bottom of the ordinary income tax layer under post-TCJA (2026) reversion brackets.
+
+## XXXIX. SECURE 2.0 Act RMD Visualization & Configuration UI (Checkpoint 36)
+* **Visualizing Mandatory Distributions**: Developed the `RMDTrackerVisualizer` component using a responsive Recharts `ComposedChart` to plot Base Budget Deficits (Area), Required Minimum Distributions (Line), and Excess RMD Reinvested (Stacked Bar).
+* **Actionable RMD Ledger**: Formulated a comprehensive data grid below the visualization, detailing Year, Age, Required Distribution, Budget Used, Excess Reinvested, and Estimated Tax Drag. Integrates seamlessly with local-first themes and `CURRENT` vs `NOMINAL` currency mode filters.
+* **Securing Architecture Compliance**: Verified complete elimination of hardcoded secrets or sensitive references, preserving the zero-trust local-first PWA standards. All computations occur within the isolated background Web Worker thread.
+
+## XL. Hardened RMD Schema Edge Validations & Unit Test Suite (Checkpoint 37)
+* **Secure Rules Edge Protection**: Hardened `/firestore.rules` by introducing a robust `isValidPlanData` validation function covering the new `primaryBirthYear` (validates as integer 1900-2100 or as standard base64 ciphertext string under 256 bytes) and `rmdReinvestmentAssetId` (validated as standard string under 128 bytes) schema properties.
+* **Malicious Injection Guard**: Built strict defensive boundaries against array/string injection and denial-of-wallet resource exhaustion attacks by size-clamping document name keys (<= 120 chars) and restricting nested `members` (<= 10 items) and `scenarios` (<= 20 items) list properties at the Cloud Perimeter.
+* **Rigorous Mathematical Assertions**: Engineered and validated a comprehensive Vitest unit test suite (`rmd.worker.test.ts`) that asserts precise SECURE 2.0 Act age triggers (73 vs 75) across historical birth cohorts and mathematically validates that excess RMD balances are securely added to designated taxable asset ledgers after accounting for provisional tax drag.
+* **Eradicated Secret Scan**: Verified the absolute elimination of hardcoded secrets or sensitive developer parameters across all modified components, satisfying the Zero-Trust Secrets Management framework.
+

@@ -419,6 +419,11 @@ export default function ScenarioBuilder({
             budgetDoc?.rebalancingCapitalGainPercentage || 0,
           threeBuckets: scenario.threeBuckets || plan.threeBuckets,
           appliedBridgeStrategies: scenario.appliedBridgeStrategies || [],
+          primaryBirthYear: plan.primaryBirthYear,
+          spouseBirthYear: plan.spouseBirthYear,
+          isSpouseSoleBeneficiary: plan.isSpouseSoleBeneficiary,
+          rmdReinvestmentAssetId: scenario.rmdReinvestmentAssetId,
+          delayInitialRMD: !!scenario.delayInitialRMD,
         });
       }
     });

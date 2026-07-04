@@ -143,12 +143,17 @@ export type SubScenario = {
   bridgeRothConversionStartYear?: number;
   bridgeRothMarginalBrackets?: { startYear: number; endYear: number; bracket: number; }[];
   appliedBridgeStrategies?: { year: number; stockLiquidation: number; rothConversion: number; }[];
+  rmdReinvestmentAssetId?: string;
+  delayInitialRMD?: boolean;
 };
 
 export type PlanType = {
   id: string;
   name: string;
   members: string[]; // User IDs
+  primaryBirthYear?: number;
+  spouseBirthYear?: number;
+  isSpouseSoleBeneficiary?: boolean;
   scenarios: SubScenario[];
   threeBuckets?: ThreeBucketConfig; // Added for 3-Bucket Strategy support
   createdAt: number;
@@ -216,13 +221,16 @@ const taxLotSchema = {
 };
 
 const planSchema = {
-  version: 15,
+  version: 16,
   primaryKey: 'id',
   type: 'object',
   properties: {
     id: { type: 'string', maxLength: 100 },
     name: { type: 'string' },
     members: { type: 'array', items: { type: 'string' } },
+    primaryBirthYear: { type: 'number' },
+    spouseBirthYear: { type: 'number' },
+    isSpouseSoleBeneficiary: { type: 'boolean' },
     scenarios: {
       type: 'array',
       items: {
@@ -391,7 +399,9 @@ const planSchema = {
                 bracket: { type: 'number' }
               }
             }
-          }
+          },
+          rmdReinvestmentAssetId: { type: 'string' },
+          delayInitialRMD: { type: 'boolean' }
         }
       }
     },
@@ -409,7 +419,7 @@ const planSchema = {
     createdAt: { type: 'integer' },
     updatedAt: { type: 'integer' }
   },
-  encrypted: ['scenarios', 'threeBuckets'],
+  encrypted: ['scenarios', 'threeBuckets', 'primaryBirthYear', 'spouseBirthYear', 'isSpouseSoleBeneficiary'],
   required: ['id', 'name', 'members', 'createdAt', 'updatedAt']
 };
 
@@ -980,6 +990,10 @@ export async function getDatabase() {
                 }
                 return sc;
               });
+              return oldDoc;
+            },
+            16: function (oldDoc: any) {
+              // Initialize new SECURE 2.0 Act fields
               return oldDoc;
             }
           }

@@ -9,6 +9,7 @@ import { FundedRatioTracker } from './FundedRatioTracker';
 import { CurrencyToggle } from './CurrencyToggle';
 import { BridgeOptimizationChart, BridgeOptimizationData } from './BridgeOptimizationChart';
 import { BridgeStrategyTable } from './BridgeStrategyTable';
+import { RMDTrackerVisualizer } from './RMDTrackerVisualizer';
 
 interface MultistageModelingViewProps {
   plan: PlanType;
@@ -152,6 +153,13 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
             />
           </div>
         </div>
+
+        {/* 4. Required Minimum Distributions (RMDs) & Reinvestment */}
+        <RMDTrackerVisualizer
+          data={currentResults}
+          displayStartYear={displayStartYear}
+          displayEndYear={displayEndYear}
+        />
 
         {/* 4. Bridge Period Optimization (Rendered directly under Income Shift) */}
         {activeScenario?.bridgeOptimizationEnabled !== false && (

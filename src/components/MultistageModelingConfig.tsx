@@ -410,6 +410,135 @@ export function MultistageModelingConfig({ activeScenario, plan, db, handleRunSi
         </div>
       </div>
 
+      {/* SECURE 2.0 Act & RMD Reinvestment Configuration */}
+      <div className="mt-8 border-t border-zinc-200 dark:border-zinc-800 pt-6">
+        <h4 className="font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider text-xs mb-4">
+          SECURE 2.0 Act & RMD Reinvestment
+        </h4>
+        
+        <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 space-y-5">
+          {/* Birth Years and Beneficiary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 block">
+                Primary Birth Year
+              </label>
+              <input
+                type="number"
+                min="1900"
+                max="2050"
+                value={plan.primaryBirthYear || ''}
+                onChange={async (e) => {
+                  const val = e.target.value ? Number(e.target.value) : undefined;
+                  const doc = await db.plans.findOne(plan.id).exec();
+                  await doc.patch({ primaryBirthYear: val, updatedAt: Date.now() });
+                  handleRunSimulation();
+                }}
+                className="w-full text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 min-h-[44px] text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g. 1959"
+              />
+              {plan.primaryBirthYear && (
+                <div className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                  Statutory RMD Age: {plan.primaryBirthYear >= 1960 ? 75 : (plan.primaryBirthYear >= 1951 ? 73 : 72)} ({plan.primaryBirthYear === 1959 ? 'SECURE 2.0 1959 Error Corrected' : 'SECURE 2.0 Cohort'})
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 block">
+                Spouse Birth Year
+              </label>
+              <input
+                type="number"
+                min="1900"
+                max="2050"
+                value={plan.spouseBirthYear || ''}
+                onChange={async (e) => {
+                  const val = e.target.value ? Number(e.target.value) : undefined;
+                  const doc = await db.plans.findOne(plan.id).exec();
+                  await doc.patch({ spouseBirthYear: val, updatedAt: Date.now() });
+                  handleRunSimulation();
+                }}
+                className="w-full text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 min-h-[44px] text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g. 1965"
+              />
+            </div>
+          </div>
+
+          <ToggleSwitch
+            checked={plan.isSpouseSoleBeneficiary ?? false}
+            onChange={async (val: boolean) => {
+              const doc = await db.plans.findOne(plan.id).exec();
+              await doc.patch({ isSpouseSoleBeneficiary: val, updatedAt: Date.now() });
+              handleRunSimulation();
+            }}
+            label="Spouse is Sole Beneficiary"
+            description="Allows IRS Table II Joint Lifetime lookups if the spouse is more than 10 years younger."
+          />
+
+          {plan.isSpouseSoleBeneficiary && plan.primaryBirthYear && plan.spouseBirthYear && (
+            <div className="p-3 rounded-lg text-xs border border-zinc-200 dark:border-zinc-850 bg-white dark:bg-zinc-900/80">
+              {plan.spouseBirthYear > plan.primaryBirthYear + 10 ? (
+                <div className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                  ✓ Table II (Joint Life and Last Survivor Table) is ACTIVE (greater than 10 yr difference)
+                </div>
+              ) : (
+                <div className="text-zinc-500 dark:text-zinc-400">
+                  ⓘ Table III (Uniform Lifetime) applies. Spouse is not &gt;10 years younger (Difference: {plan.spouseBirthYear - plan.primaryBirthYear} years)
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="border-t border-zinc-100 dark:border-zinc-800/50 pt-4 space-y-4">
+            <ToggleSwitch
+              checked={activeScenario.delayInitialRMD ?? false}
+              onChange={async (val: boolean) => {
+                const doc = await db.plans.findOne(plan.id).exec();
+                const updatedScenarios = plan.scenarios.map((s: any) =>
+                  s.id === activeScenario.id ? { ...s, delayInitialRMD: val } : s
+                );
+                await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                handleRunSimulation();
+              }}
+              label="Delay First Year's RMD"
+              description="Postpone the initial RMD until April 1st of the following calendar year, stacking it in year two."
+            />
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 block">
+                RMD Reinvestment Asset
+              </label>
+              <select
+                value={activeScenario.rmdReinvestmentAssetId || ''}
+                onChange={async (e) => {
+                  const val = e.target.value || undefined;
+                  const doc = await db.plans.findOne(plan.id).exec();
+                  const updatedScenarios = plan.scenarios.map((s: any) =>
+                    s.id === activeScenario.id ? { ...s, rmdReinvestmentAssetId: val } : s
+                  );
+                  await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                  handleRunSimulation();
+                }}
+                className="w-full text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 min-h-[44px] text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Auto-Reinvest (First Taxable Brokerage or New Bucket) --</option>
+                {(activeScenario.assets || [])
+                  .filter((a: any) => a.assetType === 'TAXABLE')
+                  .map((a: any) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({a.isDividendDestination ? 'Dividend Destination' : 'Taxable Account'})
+                    </option>
+                  ))}
+              </select>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Any excess RMD distributions exceeding the annual budget deficit will automatically reinvest in this selected taxable account.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

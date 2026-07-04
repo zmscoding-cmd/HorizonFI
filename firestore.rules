@@ -56,6 +56,23 @@ service cloud.firestore {
       return true;
     }
 
+    function isValidPlanData(data) {
+      let primaryBirthYearOk = !('primaryBirthYear' in data) || 
+                               (data.primaryBirthYear is int && data.primaryBirthYear >= 1900 && data.primaryBirthYear <= 2100) || 
+                               (data.primaryBirthYear is string && data.primaryBirthYear.size() <= 256);
+      
+      let rmdReinvestmentAssetIdOk = !('rmdReinvestmentAssetId' in data) || 
+                                     (data.rmdReinvestmentAssetId is string && data.rmdReinvestmentAssetId.size() <= 128);
+                                     
+      let nameOk = !('name' in data) || (data.name is string && data.name.size() <= 120);
+      
+      let membersOk = !('members' in data) || (data.members is list && data.members.size() <= 10);
+      
+      let scenariosOk = !('scenarios' in data) || (data.scenarios is list && data.scenarios.size() <= 20);
+
+      return primaryBirthYearOk && rmdReinvestmentAssetIdOk && nameOk && membersOk && scenariosOk;
+    }
+
     // Allow any collection ending with -rxdb-replication-state at the root
     match /{collectionName}/{docId} {
       allow read, write: if isSignedIn() && collectionName.matches('.*-rxdb-replication-state');
@@ -70,14 +87,15 @@ service cloud.firestore {
           (collectionName == 'assets' && isValidAsset(request.resource.data)) ||
           (collectionName == 'tax_lots' && isValidTaxLot(request.resource.data)) ||
           (collectionName == 'bridge_optimizations' && isValidBridgeOptimization(request.resource.data)) ||
-          (collectionName != 'assets' && collectionName != 'tax_lots' && collectionName != 'bridge_optimizations')
+          (collectionName == 'plans' && isValidPlanData(request.resource.data)) ||
+          (collectionName != 'assets' && collectionName != 'tax_lots' && collectionName != 'bridge_optimizations' && collectionName != 'plans')
         );
     }
 
     match /households/{householdId} {
       allow read: if isSignedIn() && (request.auth.uid in resource.data.members);
-      allow create: if isSignedIn() && (request.auth.uid in request.resource.data.members);
-      allow update: if isSignedIn() && (request.auth.uid in resource.data.members) && (request.auth.uid in request.resource.data.members);
+      allow create: if isSignedIn() && (request.auth.uid in request.resource.data.members) && isValidPlanData(request.resource.data);
+      allow update: if isSignedIn() && (request.auth.uid in resource.data.members) && (request.auth.uid in request.resource.data.members) && isValidPlanData(request.resource.data);
       allow delete: if isSignedIn() && (request.auth.uid in resource.data.members);
     }
 
