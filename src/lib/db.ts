@@ -555,7 +555,7 @@ export type CategoryType = {
 };
 
 const budgetSchema = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -564,6 +564,7 @@ const budgetSchema = {
     name: { type: 'string' },
     totalPlaintextMonthly: { type: 'number' },
     totalPlaintextAnnual: { type: 'number' },
+    calculatedGrossWithdrawalAnnual: { type: 'number' },
     targetRothConversionAmount: { type: 'number' },
     taxableRebalancingSaleAmount: { type: 'number' },
     rebalancingCapitalGainPercentage: { type: 'number' },
@@ -1025,6 +1026,10 @@ export async function getDatabase() {
               oldDoc.taxableRebalancingSaleAmount = 0;
               oldDoc.rebalancingCapitalGainPercentage = 0;
               return oldDoc;
+            },
+            2: function (oldDoc: any) {
+              oldDoc.calculatedGrossWithdrawalAnnual = oldDoc.totalPlaintextAnnual || 0;
+              return oldDoc;
             }
           }
         };
@@ -1152,22 +1157,26 @@ export function startReplication(
       return;
     }
 
-    console.log('User authenticated, starting Firestore replication for UID:', user.uid);
+    const syncUid = (user.email === 'jesse.laten.shumaker@gmail.com' || user.email === 'cshumaker81@gmail.com')
+      ? 'shared_household'
+      : user.uid;
+
+    console.log('User authenticated, starting Firestore replication for sync UID:', syncUid);
     // Cancel old ones just in case to avoid parallel duplicate streams
     cancelAllAndUnsubscribe();
 
     try {
       const firestoreCollection = collection(db, 'households');
-      const datapointsCollection = collection(db, `users/${user.uid}/historical_datapoints`);
-      const linksCollection = collection(db, `users/${user.uid}/links`);
-      const budgetsCollection = collection(db, `users/${user.uid}/budgets`);
-      const plannedExpensesCollection = collection(db, `users/${user.uid}/planned_expenses`);
-      const assetsCollection = collection(db, `users/${user.uid}/assets`);
-      const categoriesCollection = collection(db, `users/${user.uid}/categories`);
+      const datapointsCollection = collection(db, `users/${syncUid}/historical_datapoints`);
+      const linksCollection = collection(db, `users/${syncUid}/links`);
+      const budgetsCollection = collection(db, `users/${syncUid}/budgets`);
+      const plannedExpensesCollection = collection(db, `users/${syncUid}/planned_expenses`);
+      const assetsCollection = collection(db, `users/${syncUid}/assets`);
+      const categoriesCollection = collection(db, `users/${syncUid}/categories`);
 
       // Set up RxDB Firestore Replication for household plans
       const plansReplication = replicateFirestore({
-        replicationIdentifier: `firestore-sync-plans-${user.uid}`,
+        replicationIdentifier: `firestore-sync-plans-${syncUid}`,
         collection: rxdb.plans,
         firestore: {
           projectId: db.app.options.projectId!,
@@ -1175,7 +1184,7 @@ export function startReplication(
           collection: firestoreCollection
         },
         pull: {
-          filter: [where('members', 'array-contains', user.uid)],
+          filter: [where('members', 'array-contains', syncUid)],
           modifier: (docData) => docData
         },
         push: {
@@ -1187,7 +1196,7 @@ export function startReplication(
 
       // Set up RxDB Firestore Replication for historical datapoints (Net Worth History)
       const datapointsReplication = replicateFirestore({
-        replicationIdentifier: `firestore-sync-datapoints-${user.uid}`,
+        replicationIdentifier: `firestore-sync-datapoints-${syncUid}`,
         collection: (rxdb as any).historical_datapoints,
         firestore: {
           projectId: db.app.options.projectId!,
@@ -1205,7 +1214,7 @@ export function startReplication(
       });
 
       const linksReplication = replicateFirestore({
-        replicationIdentifier: `firestore-sync-links-${user.uid}`,
+        replicationIdentifier: `firestore-sync-links-${syncUid}`,
         collection: (rxdb as any).links,
         firestore: {
           projectId: db.app.options.projectId!,
@@ -1223,7 +1232,7 @@ export function startReplication(
       });
 
       const budgetsReplication = replicateFirestore({
-        replicationIdentifier: `firestore-sync-budgets-${user.uid}`,
+        replicationIdentifier: `firestore-sync-budgets-${syncUid}`,
         collection: (rxdb as any).budgets,
         firestore: {
           projectId: db.app.options.projectId!,
@@ -1241,7 +1250,7 @@ export function startReplication(
       });
 
       const plannedExpensesReplication = replicateFirestore({
-        replicationIdentifier: `firestore-sync-planned_expenses-${user.uid}`,
+        replicationIdentifier: `firestore-sync-planned_expenses-${syncUid}`,
         collection: (rxdb as any).planned_expenses,
         firestore: {
           projectId: db.app.options.projectId!,
@@ -1259,7 +1268,7 @@ export function startReplication(
       });
 
       const assetsReplication = replicateFirestore({
-        replicationIdentifier: `firestore-sync-assets-${user.uid}`,
+        replicationIdentifier: `firestore-sync-assets-${syncUid}`,
         collection: (rxdb as any).assets,
         firestore: {
           projectId: db.app.options.projectId!,
@@ -1277,7 +1286,7 @@ export function startReplication(
       });
 
       const categoriesReplication = replicateFirestore({
-        replicationIdentifier: `firestore-sync-categories-${user.uid}`,
+        replicationIdentifier: `firestore-sync-categories-${syncUid}`,
         collection: (rxdb as any).categories,
         firestore: {
           projectId: db.app.options.projectId!,

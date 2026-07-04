@@ -307,7 +307,7 @@ export default function ScenarioBuilder({
         budgetPhases: scenario.budget?.budgetPhases
           ? scenario.budget.budgetPhases.map((p: any, i: number) =>
               i === 0 && !!budgetDoc?.totalPlaintextAnnual
-                ? { ...p, baselineAmount: budgetDoc.totalPlaintextAnnual }
+                ? { ...p, baselineAmount: budgetDoc.calculatedGrossWithdrawalAnnual || budgetDoc.totalPlaintextAnnual }
                 : p,
             )
           : [
@@ -315,7 +315,7 @@ export default function ScenarioBuilder({
                 phaseId: "default",
                 startYear: new Date().getFullYear(),
                 endYear: 2100,
-                baselineAmount: budgetDoc?.totalPlaintextAnnual || 5000 * 12,
+                baselineAmount: budgetDoc?.calculatedGrossWithdrawalAnnual || budgetDoc?.totalPlaintextAnnual || 5000 * 12,
                 applyLifestyleAdjustment: true,
                 lifestyleAdjustmentRate: 0.02,
                 cashBufferMultiplier: 2.0,
@@ -1264,7 +1264,7 @@ export default function ScenarioBuilder({
                                 value={
                                   index === 0 &&
                                   !!budgetDoc?.totalPlaintextAnnual
-                                    ? budgetDoc.totalPlaintextAnnual
+                                    ? (budgetDoc.calculatedGrossWithdrawalAnnual || budgetDoc.totalPlaintextAnnual)
                                     : phase.baselineAmount
                                 }
                                 readOnly={

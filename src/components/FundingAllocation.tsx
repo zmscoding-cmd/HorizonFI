@@ -231,6 +231,18 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
     ].filter(d => d.value > 0);
   }, [taxOutput]);
 
+  useEffect(() => {
+    let isMounted = true;
+    if (taxOutput?.grossWithdrawalTotal && db && userId) {
+      db.budgets.findOne({ selector: { userId } }).exec().then((doc: any) => {
+        if (doc && isMounted && doc.calculatedGrossWithdrawalAnnual !== taxOutput.grossWithdrawalTotal) {
+          doc.atomicPatch({ calculatedGrossWithdrawalAnnual: taxOutput.grossWithdrawalTotal });
+        }
+      }).catch((e: any) => console.error("Error updating budget gross withdrawal", e));
+    }
+    return () => { isMounted = false; };
+  }, [taxOutput?.grossWithdrawalTotal, db, userId]);
+
   const grossOrdinaryIncome = useMemo(() => {
     if (!taxOutput) return 0;
     return Number(taxOutput.bucketBreakdown.traditional401kIraGross || 0) + Number(taxEvents.targetRothConversionAmount || 0);

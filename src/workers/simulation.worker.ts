@@ -1538,6 +1538,12 @@ export type MultiStageYearlySnapshot = {
   withdrawnDividends: number;
   withdrawnTaxable: number;
   withdrawnTaxAdvantaged: number;
+  taxableBrokerageGross?: number;
+  traditional401kIraGross?: number;
+  rothIraGross?: number;
+  nonTaxableGiftGross?: number;
+  qualifiedDividendsGross?: number;
+  totalTaxOwed?: number;
   fundedRatio: number;
   pvFutureIncome: number;
   pvFutureLiabilities: number;
@@ -2883,6 +2889,12 @@ export function simulateMultiStageDrawdownWorker(
       withdrawnDividends,
       withdrawnTaxable,
       withdrawnTaxAdvantaged,
+      taxableBrokerageGross: taxOutput.bucketBreakdown.taxableBrokerageGross,
+      traditional401kIraGross: taxOutput.bucketBreakdown.traditional401kIraGross,
+      rothIraGross: taxOutput.bucketBreakdown.rothIraGross,
+      nonTaxableGiftGross: taxOutput.bucketBreakdown.nonTaxableGiftGross,
+      qualifiedDividendsGross: taxOutput.bucketBreakdown.qualifiedDividendsGross,
+      totalTaxOwed: taxOutput.totalTaxOwed,
       fundedRatio,
       pvFutureIncome,
       pvFutureLiabilities,

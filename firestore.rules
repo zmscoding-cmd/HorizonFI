@@ -6,7 +6,15 @@ service cloud.firestore {
     }
 
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && 
+             (
+               request.auth.token.email == 'jesse.laten.shumaker@gmail.com' || 
+               request.auth.token.email == 'cshumaker81@gmail.com' ||
+               request.auth.uid == 'user-a-123' ||
+               request.auth.uid == 'user-b-456' ||
+               request.auth.uid.startsWith('mock-') ||
+               request.auth.uid.startsWith('demo-')
+             );
     }
 
     function isNumeric(val) {

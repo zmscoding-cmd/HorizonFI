@@ -245,7 +245,7 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxable" name="Taxable Principal" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="withdrawnTaxAdvantaged" name="401k/IRA" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.8} />
           <Area yAxisId="left" type="monotone" dataKey="excessExternalIncome" name="Excess Income (Reinvested)" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.8} />
-          <Area yAxisId="left" type="monotone" dataKey="rmdExcessReinvested" name="Excess RMD (Reinvested)" stackId="1" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.8} />
+          <Area yAxisId="left" type="monotone" dataKey="rmdExcessReinvested" name="Excess RMD (Reinvested)" stackId="1" stroke="#64748b" fill="#64748b" fillOpacity={0.8} />
           
           <Line 
             yAxisId="left"

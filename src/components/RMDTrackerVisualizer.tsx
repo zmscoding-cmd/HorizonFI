@@ -117,7 +117,7 @@ export function RMDTrackerVisualizer({ data, displayStartYear, displayEndYear }:
     budgetArea: isDark ? 'rgba(82, 82, 91, 0.2)' : 'rgba(212, 212, 216, 0.4)',
     budgetBorder: isDark ? '#71717a' : '#a1a1aa',
     rmdLine: isDark ? '#60a5fa' : '#2563eb',
-    excessBar: isDark ? '#10b981' : '#059669',
+    excessBar: isDark ? '#64748b' : '#475569',
     text: isDark ? '#a1a1aa' : '#71717a',
     tooltipBg: isDark ? '#18181b' : '#ffffff',
     tooltipBorder: isDark ? '#27272a' : '#e4e4e7',

@@ -40,6 +40,54 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
   const [notification, setNotification] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"config" | "visualizations">("visualizations");
 
+  const mappedBridgeData = React.useMemo(() => {
+    return currentResults.map((r: any) => {
+      const baseOrdinary = (r.pensionIncome || 0) + (r.rrbIncome || 0) + (r.otherIncomeUsed || 0) + (r.futureIncomeUsed || 0) + (r.traditional401kIraGross || 0) + (r.rmdAmount || 0);
+      const rothConv = r.rothConversionAmount || 0;
+      const ordIncome = baseOrdinary + rothConv;
+      const capGains = (r.taxableBrokerageGross || 0) + (r.qualifiedDividendsGross || 0);
+      
+      const totalTax = r.totalTaxOwed !== undefined ? r.totalTaxOwed : (r.taxDrag || 0);
+      
+      let effRate = 0;
+      if (ordIncome + capGains > 0) {
+        effRate = totalTax / (ordIncome + capGains);
+      }
+      
+      // Approximations for stacked tax chart
+      let taxFromStock = 0;
+      const taxableOrd = Math.max(0, ordIncome - 30000); // Standard deduction 2026 MFJ
+      if (taxableOrd + capGains > 98900) {
+        if (taxableOrd <= 98900) {
+           taxFromStock = (taxableOrd + capGains - 98900) * 0.15;
+        } else {
+           taxFromStock = capGains * 0.15;
+        }
+      }
+      
+      let taxFromRoth = rothConv * (effRate > 0 ? effRate : 0.22); // Approximate marginal
+      if (taxFromRoth > totalTax - taxFromStock) {
+          taxFromRoth = Math.max(0, totalTax - taxFromStock);
+      }
+      
+      let taxFromBase = totalTax - taxFromStock - taxFromRoth;
+      if (taxFromBase < 0) taxFromBase = 0;
+
+      return {
+        year: r.year,
+        ordinaryIncome: ordIncome,
+        capitalGains: capGains,
+        stockLiquidation: r.liquidationTargetSaleAmount || 0,
+        rothConversion: rothConv,
+        effectiveMarginalRate: effRate,
+        estimatedTotalTax: totalTax,
+        taxFromBase,
+        taxFromRoth,
+        taxFromStock
+      };
+    });
+  }, [currentResults]);
+
   return (
     <div id="multistage-modeling-view" className="flex flex-col gap-4 flex-1 lg:overflow-hidden pb-8 lg:pb-0">
       {/* Sub-view controller */}
@@ -172,7 +220,7 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
             ) : (
               <>
                 <BridgeOptimizationChart 
-                  data={bridgeData} 
+                  data={mappedBridgeData} 
                   displayStartYear={displayStartYear}
                   displayEndYear={displayEndYear}
                 />
