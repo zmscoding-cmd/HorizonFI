@@ -488,6 +488,18 @@ export enum ValuationType {
   Relational = 'Relational'
 }
 
+export type TaxPlanningScenarioType = {
+  id: string;
+  userId: string;
+  name: string;
+  isLocked: boolean;
+  targetBudgetAmount: number; // encrypted
+  fundingSources: { assetId: string; amount: number }[]; // encrypted
+  strategicRothConversionAmount: number; // encrypted
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type BudgetType = {
   id: string;
   userId: string;
@@ -553,6 +565,34 @@ export type CategoryType = {
   color?: string;
   createdAt: number;
   updatedAt?: number;
+};
+
+const taxPlanningScenarioSchema = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    userId: { type: 'string', maxLength: 100 },
+    name: { type: 'string' },
+    isLocked: { type: 'boolean' },
+    targetBudgetAmount: { type: 'number' },
+    fundingSources: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          assetId: { type: 'string' },
+          amount: { type: 'number' }
+        }
+      }
+    },
+    strategicRothConversionAmount: { type: 'number' },
+    createdAt: { type: 'integer' },
+    updatedAt: { type: 'integer' }
+  },
+  encrypted: ['targetBudgetAmount', 'fundingSources', 'strategicRothConversionAmount'],
+  required: ['id', 'userId', 'name', 'isLocked', 'targetBudgetAmount', 'strategicRothConversionAmount']
 };
 
 const budgetSchema = {
@@ -1083,9 +1123,37 @@ export async function getDatabase() {
       }
       if (!rxdb.collections.categories) collectionsToCreate.categories = { schema: categorySchema };
       if (!rxdb.collections.links) collectionsToCreate.links = { schema: linkSchema };
+      if (!rxdb.collections.tax_planning_scenarios) collectionsToCreate.tax_planning_scenarios = { schema: taxPlanningScenarioSchema };
 
       if (Object.keys(collectionsToCreate).length > 0) {
         await rxdb.addCollections(collectionsToCreate);
+      }
+
+      // Phase 1: Auto-Hydration for tax_planning_scenarios
+      try {
+        if (rxdb.collections.budgets && rxdb.collections.tax_planning_scenarios) {
+          const scenarios = await rxdb.tax_planning_scenarios.find().exec();
+          if (scenarios.length === 0) {
+            const activeBudgets = await rxdb.budgets.find().exec();
+            if (activeBudgets.length > 0) {
+              const currentBudget = activeBudgets[0];
+              await rxdb.tax_planning_scenarios.insert({
+                id: `scenario-baseline-${currentBudget.userId}`,
+                userId: currentBudget.userId,
+                name: 'Baseline (Current Budget)',
+                isLocked: true,
+                targetBudgetAmount: currentBudget.totalPlaintextAnnual,
+                fundingSources: [],
+                strategicRothConversionAmount: currentBudget.targetRothConversionAmount || 0,
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+              });
+              console.log('Auto-hydrated baseline tax planning scenario.');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to auto-hydrate tax planning scenario', err);
       }
 
       // Register preRemove middleware hooks to prevent orphan records locally
@@ -1201,6 +1269,7 @@ export function startReplication(
       const plannedExpensesCollection = collection(db, `users/${syncUid}/planned_expenses`);
       const assetsCollection = collection(db, `users/${syncUid}/assets`);
       const categoriesCollection = collection(db, `users/${syncUid}/categories`);
+      const taxPlanningScenariosCollection = collection(db, `users/${syncUid}/tax_planning_scenarios`);
 
       // Set up RxDB Firestore Replication for household plans
       const plansReplication = replicateFirestore({
@@ -1331,6 +1400,24 @@ export function startReplication(
         retryTime: 1000 * 5
       });
 
+      const taxPlanningScenariosReplication = replicateFirestore({
+        replicationIdentifier: `firestore-sync-tax_planning_scenarios-${syncUid}`,
+        collection: (rxdb as any).tax_planning_scenarios,
+        firestore: {
+          projectId: db.app.options.projectId!,
+          database: db,
+          collection: taxPlanningScenariosCollection
+        },
+        pull: {
+          modifier: (docData) => docData
+        },
+        push: {
+          modifier: (docData) => JSON.parse(JSON.stringify(docData))
+        },
+        live: true,
+        retryTime: 1000 * 5
+      });
+
       activeReplications = {
         plansReplication,
         datapointsReplication,
@@ -1338,7 +1425,8 @@ export function startReplication(
         budgetsReplication,
         plannedExpensesReplication,
         assetsReplication,
-        categoriesReplication
+        categoriesReplication,
+        taxPlanningScenariosReplication
       };
 
       if (onStatusUpdate) {

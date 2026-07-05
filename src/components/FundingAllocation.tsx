@@ -4,6 +4,7 @@ import { useTheme } from './ThemeProvider';
 import { AlertTriangle, Percent, DollarSign } from 'lucide-react';
 import { evaluateMultiBucketTax } from '../workers/simulation.worker';
 import TaxStackVisualizer from './TaxStackVisualizer';
+import TaxDashboardView from './TaxDashboardView';
 
 export default function FundingAllocation({ plan, activeScenario, db, userId, handleRunSimulation }: any) {
   const { theme } = useTheme();
@@ -836,108 +837,11 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
             </div>
           </div>
 
-          <TaxStackVisualizer 
-            plan={plan} 
-            activeScenario={activeScenario} 
-            db={db} 
-            grossOrdinaryIncome={grossOrdinaryIncome}
-            totalLtcgGains={ltcgBracketInfo.totalLtcgGains}
-            blendedCostBasisPercentage={basis}
+          <TaxDashboardView 
+            db={db}
+            userId={userId}
+            plan={plan}
           />
-
-          {/* Tax Bracket Headroom Section */}
-          <div className="mt-5 p-4 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-900/30 text-sm">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
-              <div>
-                <h5 className="text-[11px] font-bold uppercase tracking-widest text-zinc-700 dark:text-zinc-300">
-                  Tax Bracket Headroom & Strategic Space (2026 MFJ)
-                </h5>
-                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-                  Current Gross Ordinary Income: <strong className="font-mono text-zinc-700 dark:text-zinc-300">${Math.round(grossOrdinaryIncome).toLocaleString()}</strong> (includes Traditional distributions & Roth Conversions)
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono">
-                <span>Standard Deduction: $30,000</span>
-              </div>
-            </div>
-
-            {/* Ordinary Income Brackets Progress */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {ordinaryBracketInfo.map((bracket, idx) => (
-                <div key={idx} className="p-3 rounded-xl border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/30 dark:bg-zinc-950/5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 leading-tight">{bracket.name}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${bracket.badgeColor}`}>
-                        {bracket.rate}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono flex justify-between">
-                      <span>Threshold:</span>
-                      <span>${bracket.limit.toLocaleString()}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full ${bracket.progressBarColor} transition-all duration-500`}
-                        style={{ width: `${bracket.percentUsed}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-[9px] mt-1.5">
-                      <span className="text-zinc-400 uppercase font-bold">Strategic Room</span>
-                      <span className={`font-mono font-bold ${bracket.room > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'}`}>
-                        {bracket.room > 0 ? `$${Math.round(bracket.room).toLocaleString()}` : 'Filled'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* LTCG Stacking Room Box */}
-            <div className={`p-3.5 rounded-xl border ${ltcgBracketInfo.isExceeded ? 'bg-amber-500/5 border-amber-500/20 dark:border-amber-500/10' : 'bg-emerald-500/5 border-emerald-500/20 dark:border-emerald-500/10'} text-xs`}>
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${ltcgBracketInfo.isExceeded ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-                    <h6 className="font-bold text-zinc-800 dark:text-zinc-200 text-xs">
-                      Capital Gains 0% Bracket Stacking Room
-                    </h6>
-                  </div>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-2xl">
-                    Long-term capital gains (dividends & brokerage sales) stack on top of taxable ordinary income. If your combined taxable income exceeds <strong>$98,900 (MFJ)</strong>, any additional gains or strategic Roth conversions push your capital gains out of the 0% bracket into the <strong>15% LTCG bracket</strong>.
-                  </p>
-                </div>
-                <div className="text-right self-stretch md:self-auto min-w-[150px] p-2.5 rounded-xl bg-white/50 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50">
-                  <span className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest leading-none mb-1">
-                    0% Room Left
-                  </span>
-                  <span className={`text-base font-black font-mono leading-none ${ltcgBracketInfo.isExceeded ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                    ${Math.round(ltcgBracketInfo.room).toLocaleString()}
-                  </span>
-                  <span className="block text-[9px] text-zinc-400 dark:text-zinc-500 font-mono mt-1">
-                    Combined Taxable: ${Math.round(ltcgBracketInfo.combinedTaxableIncome).toLocaleString()} / $98,900
-                  </span>
-                </div>
-              </div>
-
-              {/* Progress bar for Combined Income */}
-              <div className="mt-3">
-                <div className="h-2 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full ${ltcgBracketInfo.isExceeded ? 'bg-amber-500' : 'bg-emerald-500'} transition-all duration-500`}
-                    style={{ width: `${ltcgBracketInfo.percentUsed}%` }}
-                  />
-                </div>
-                <div className="flex justify-between items-center text-[9px] mt-1.5 text-zinc-400 dark:text-zinc-500 font-mono">
-                  <span>Taxable Ordinary: ${Math.round(ltcgBracketInfo.taxableOrdinary).toLocaleString()}</span>
-                  <span>+ Taxable LTCG Gains: ${Math.round(ltcgBracketInfo.totalLtcgGains).toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>

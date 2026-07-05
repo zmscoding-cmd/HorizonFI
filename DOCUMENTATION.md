@@ -685,3 +685,47 @@ To ensure secure and reliable storage of plan configurations, HorizonFI extends 
 *   **Edge Validation Logic:** Firestore rules evaluate write requests via a dedicated `isValidPlanData` rule function. This function strictly validates that `primaryBirthYear` is a valid year integer (between 1900 and 2100) or standard base64 ciphertext, and that `rmdReinvestmentAssetId` is a standard string of limited size.
 *   **Denial-of-Wallet Edge Clamping:** Nested list elements (members and scenarios arrays) are size-clamped at the Firestore edge to mitigate malicious document bloat and data-poisoning vectors.
 *   **UI Location & Workflow:** The RMD configuration controls (birth year, sole-beneficiary status, and reinvestment asset selector) are dynamically rendered inside the **Active Scenario Sidebar** of the Scenario Builder. The visualizer dashboard is accessible within the **RMD Tracker** tab of the primary analytics workspace.
+
+## 15. Multi-Scenario Tax Modeling Engine & Predictive Tax Laboratory
+
+HorizonFI features a mathematically rigorous, fully isolated **Multi-Scenario Tax Modeling Engine**. This suite allows early retirees to establish, manage, and project independent tax planning scenarios directly alongside their core plan—allowing them to stress-test aggressive Roth conversion strategies, simulate high-expense years (such as yacht refits), and predict tax brackets before Required Minimum Distributions (RMDs) onset.
+
+### 15.1. The Scenario Manager Dashboard
+The **Scenario Manager** is an offline-capable, responsive, touch-optimized management suite integrated into the tax dashboard. It provides the following interactive operations:
+*   **Create New Scenarios:** Create custom tax scenarios to model alternative annual living budgets, funding configurations, or strategic tax events.
+*   **Clone & Duplicate:** Instantly copy an existing scenario (including its budget, asset drawdowns, and Roth conversion targets) to quickly toggle and adjust a single variable (e.g., testing $10,000 vs. $40,000 in Roth conversions).
+*   **Locked Default Baseline:** To protect the integrity of your plan, the core "Baseline (Current Budget)" scenario is automatically created and locked from deletion or direct editing, ensuring you always have a validated control benchmark to compare against.
+*   **Visual Scenario Comparison:** Cycle through your scenarios via the unified dropdown selector. The Recharts visualizer, bracket headroom gauges, and effective tax drag indicators dynamically refresh instantly, retrieving data from local RxDB collections and passing them to background threads.
+
+### 15.2. Baseline Budget Integration
+The **Baseline (Current Budget)** scenario acts as the mathematical control of your tax laboratory:
+*   **Automatic Hydration:** Upon initial database setup, if no scenario records exist, the system automatically parses your active plan's core budget parameters and instantiates the Baseline scenario.
+*   **Relational Security:** The Baseline budget's `targetBudgetAmount` is continuously mapped to your core budget's annual spending.
+*   **No Overhead Syncing:** Any changes to your core budget automatically re-run the Baseline scenario calculations, reflecting real-time updates inside the comparative dashboards without corrupting your active custom scenario records.
+
+### 15.3. Case Studies: The Predictive Tax Laboratory
+The tax modeling dashboard is a sandbox for simulating future financial and lifestyle pivots.
+
+#### Case Study A: The Boat Refit / High-Expense Year (Liquidating Brokerage Assets)
+*   **The Problem:** In 2029, you plan a major blue-water haul-out, hull paint, and engine repower costing $80,000. Under normal baseline projections, your living expense is $45,000.
+*   **The Simulation:**
+    1.  Create a custom scenario named *"2029 Refit Stress-Test"*.
+    2.  Set the Target Budget Amount to **$125,000** for that simulated period.
+    3.  Configure your **Funding Sources** by allocating $80,000 from your Taxable Brokerage Account (Capital Gains) and $45,000 from cash.
+    4.  **The Result:** The Recharts **Dual-Dimension Tax Stack** dynamically projects the progressive capital gains stacking. It visually flags whether the sudden influx of brokerage liquidation (and the resulting cost-basis realization) pushes your taxable income above the **0% LTCG Threshold ($98,900 for MFJ)**, triggering the 15% capital gains "tax torpedo" and detailing your exact dollar tax-drag.
+
+#### Case Study B: Pre-empting the RMD "Tax Torpedo" Onset
+*   **The Problem:** At age 73 or 75, mandatory IRS Required Minimum Distributions (RMDs) will force large pre-tax IRA liquidations, potentially pushing your ordinary income into the 22% or 24% federal tax brackets and triggering taxation on up to 85% of your Social Security benefits (Provisional Income rules).
+*   **The Simulation:**
+    1.  Create a custom scenario named *"Aggressive Roth Conversion Bridge"*.
+    2.  Set a **Strategic Roth Conversion Amount** (e.g., $35,000 annually) during your low-income bridge years (ages 55 to 67).
+    3.  **The Result:** The visual headroom indicators display exactly how much space remains under the standard 10% and 12% brackets. By executing these conversions early, you systematically shrink your pre-tax IRA balances. When you navigate back to the RMD Tracker, you will see a dramatic drop in lifetime RMDs, peak annual distributions, and cumulative taxes, proving the efficacy of the early-action bridge strategy.
+
+### 15.4. Encryption & Zero-Trust Cloud Architecture
+In accordance with HorizonFI’s security standards, your financial data is fully protected at both the local storage level and the cloud edge:
+*   **Field-Level Encryption (Local-First):** To safeguard your data in un-trusted browser environments, sensitive planning properties inside the `tax_planning_scenarios` RxDB collection—specifically `targetBudgetAmount`, `fundingSources`, and `strategicRothConversionAmount`—are fully encrypted at rest using **AES-256 (crypto-js)**.
+*   **Firestore Edge Protection:** Security rules at the Firestore cloud edge evaluate all incoming write operations via strict Attribute-Based Access Control:
+    *   **UID Identity Matching:** Write requests must strictly originate from an authenticated session where the user's UID (`request.auth.uid`) matches both the document path and the payload `userId`.
+    *   **Denial-of-Wallet Limit Protection:** Array properties like `fundingSources` are restricted to **fewer than 50 entries** (`fundingSources.size() < 50`) directly inside Firestore rules, preventing memory-exhaustion or wallet-drain exploits.
+    *   **Schema Enforcement:** Document validation rules require the exact presence of core identifiers (`id`, `userId`, `name`, `isLocked`, `targetBudgetAmount`, `strategicRothConversionAmount`) while clamping document key sizes to 9 fields, preventing shadow-field injection.
+
