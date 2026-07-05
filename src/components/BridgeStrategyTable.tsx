@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 
 export interface BridgeOptimizationData {
@@ -27,6 +27,29 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
   onUnapplyYearlyStrategy,
   appliedStrategies = []
 }) => {
+  const [overrides, setOverrides] = useState<Record<number, { stockLiquidation?: string, rothConversion?: string }>>({});
+
+  const handleOverrideChange = (year: number, field: 'stockLiquidation' | 'rothConversion', value: string) => {
+    setOverrides(prev => ({
+      ...prev,
+      [year]: {
+        ...prev[year],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleApply = (year: number, defaultStock: number, defaultRoth: number) => {
+    const stockVal = overrides[year]?.stockLiquidation !== undefined && overrides[year]?.stockLiquidation !== ''
+      ? Number(overrides[year].stockLiquidation)
+      : defaultStock;
+    const rothVal = overrides[year]?.rothConversion !== undefined && overrides[year]?.rothConversion !== ''
+      ? Number(overrides[year].rothConversion)
+      : defaultRoth;
+      
+    onApplyYearlyStrategy?.(year, stockVal, rothVal);
+  };
+
   return (
     <div id="bridge-strategy-table-card" className="p-4 sm:p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm w-full overflow-hidden transition-colors">
       <div className="mb-4">
@@ -54,20 +77,44 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
               {data.map((row) => {
-                const isApplied = appliedStrategies.some(
-                  (a) => a.year === row.year && 
-                         Math.abs((a.stockLiquidation || 0) - row.stockLiquidation) < 0.01 && 
-                         Math.abs((a.rothConversion || 0) - row.rothConversion) < 0.01
-                );
+                const applied = appliedStrategies.find((a) => a.year === row.year);
+                
+                const currentStockLiquidation = overrides[row.year]?.stockLiquidation !== undefined 
+                    ? (overrides[row.year].stockLiquidation === '' ? 0 : Number(overrides[row.year].stockLiquidation))
+                    : (applied?.stockLiquidation ?? row.stockLiquidation);
+                
+                const currentRothConversion = overrides[row.year]?.rothConversion !== undefined
+                    ? (overrides[row.year].rothConversion === '' ? 0 : Number(overrides[row.year].rothConversion))
+                    : (applied?.rothConversion ?? row.rothConversion);
+
+                const isApplied = applied && 
+                                  Math.abs(applied.stockLiquidation - currentStockLiquidation) < 0.01 && 
+                                  Math.abs(applied.rothConversion - currentRothConversion) < 0.01;
 
                 return (
                   <tr key={row.year} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
                     <td className="py-1 px-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{row.year}</td>
                     <td className="py-1 px-3 text-sm text-emerald-600 dark:text-emerald-400 font-mono font-medium">
-                      ${row.stockLiquidation.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      <div className="flex items-center gap-1">
+                        <span className="text-emerald-700 dark:text-emerald-500">$</span>
+                        <input
+                          type="number"
+                          value={overrides[row.year]?.stockLiquidation ?? Math.round(applied?.stockLiquidation ?? row.stockLiquidation)}
+                          onChange={(e) => handleOverrideChange(row.year, 'stockLiquidation', e.target.value)}
+                          className="w-24 bg-transparent border-b border-dashed border-emerald-300 dark:border-emerald-700 focus:border-emerald-500 outline-none text-emerald-700 dark:text-emerald-400 font-mono"
+                        />
+                      </div>
                     </td>
                     <td className="py-1 px-3 text-sm text-blue-600 dark:text-blue-400 font-mono font-medium">
-                      ${row.rothConversion.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      <div className="flex items-center gap-1">
+                        <span className="text-blue-700 dark:text-blue-500">$</span>
+                        <input
+                          type="number"
+                          value={overrides[row.year]?.rothConversion ?? Math.round(applied?.rothConversion ?? row.rothConversion)}
+                          onChange={(e) => handleOverrideChange(row.year, 'rothConversion', e.target.value)}
+                          className="w-24 bg-transparent border-b border-dashed border-blue-300 dark:border-blue-700 focus:border-blue-500 outline-none text-blue-700 dark:text-blue-400 font-mono"
+                        />
+                      </div>
                     </td>
                     <td className="py-1 px-3 text-sm text-red-500 dark:text-red-400 font-mono font-medium">
                       {row.taxFromRoth !== undefined ? '$' + row.taxFromRoth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
@@ -96,11 +143,11 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
                       ) : (
                         <button 
                           type="button"
-                          onClick={() => onApplyYearlyStrategy?.(row.year, row.stockLiquidation, row.rothConversion)}
+                          onClick={() => handleApply(row.year, applied?.stockLiquidation ?? row.stockLiquidation, applied?.rothConversion ?? row.rothConversion)}
                           className="min-w-[70px] min-h-[28px] px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-[11px] font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
                           <CheckCircle2 size={12} />
-                          Apply
+                          {applied ? 'Update' : 'Apply'}
                         </button>
                       )}
                     </td>

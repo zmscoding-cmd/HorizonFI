@@ -213,9 +213,15 @@ export function RMDTrackerVisualizer({ data, displayStartYear, displayEndYear }:
           <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-1">
             Required Minimum Distributions vs. Budget Deficit
           </h3>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">
             Visualizing the integration of statutory RMDs with the annual budget deficit, showcasing automatic excess reinvestment events.
           </p>
+          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-lg text-xs text-zinc-700 dark:text-zinc-300 flex gap-3">
+            <AlertCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-indigo-900 dark:text-indigo-100">Understanding Base Budget Deficit:</strong> This represents your Total Target Budget minus any Fixed Incomes (e.g., Social Security, pensions). It is the exact shortfall your portfolio needs to cover. If a statutory RMD forces you to withdraw more than this deficit, the simulator automatically reinvests the excess.
+            </div>
+          </div>
         </div>
 
         <div className="h-[380px] w-full">

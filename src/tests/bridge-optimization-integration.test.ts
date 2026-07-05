@@ -2,6 +2,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { BridgeStrategyTable, BridgeOptimizationData } from '../components/BridgeStrategyTable';
 import React from 'react';
 
+vi.mock('react', async () => {
+  const actual: any = await vi.importActual('react');
+  return {
+    ...actual,
+    useState: (init: any) => [typeof init === 'function' ? init() : init, vi.fn()]
+  };
+});
+
 describe('Bridge Period Optimization Module - UI Integration', () => {
   it('Adapter Interface: serializes financial profile and passes to Web Worker asynchronously', () => {
     // Mock the Web Worker API
@@ -164,8 +172,10 @@ describe('Bridge Period Optimization Module - UI Integration', () => {
 
     // Click Unapply
     unapplyButton.props.onClick();
+
     expect(onUnapplyMock).toHaveBeenCalledTimes(1);
     expect(onUnapplyMock).toHaveBeenCalledWith(2026);
   });
 });
+
 
