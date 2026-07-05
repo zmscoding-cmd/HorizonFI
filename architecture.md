@@ -2230,3 +2230,23 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 * **Refactored TaxDashboardView & Worker Loop Integration**: Structured `TaxDashboardView.tsx` to subscribe to the local RxDB `tax_planning_scenarios` collection, feed the active scenario data to the isolated Web Worker calculation hook, and bind the complex computed gross-up responses directly to dynamic interactive visualizations.
 * **Adaptive Recharts Stack and Headroom Gauges**: Implemented fully responsive `<ResponsiveContainer>` wrappers for the Tax Stack Bar Chart and bracket headroom indicators, styled with explicit Tailwind CSS dark/night-watch mode classes to safeguard user vision under pitch-black environments.
 * **Eradicated Secret Scan**: Conducted a thorough code audit of all newly added or modified lines, confirming zero hardcoded secrets, tokens, or credential leaks.
+
+## LVII. Encapsulating Funding & Tax Events inside Scenarios (Checkpoint 54)
+* **Refactored RxDB Schema `tax_planning_scenarios` (v1)**: Updated the schema to isolate advanced planning variables per-scenario rather than relying on global budget state.
+  * `fundingSources`: Modified the array to encapsulate explicit object parameters `{ accountId, amount, taxType }` (vs. earlier `assetId`).
+  * `strategicEvents`: Encapsulated tax modeling parameters into a centralized `strategicEvents` object, tracking `rothConversionAmount` and `targetedCapitalGainsSale`.
+* **Zero-Trust Encryption Upgraded**: Adjusted the `crypto-js` encrypted-at-rest array fields to explicitly cover the newly structured `fundingSources` and `strategicEvents`. 
+* **Worker & Payload Synchronization**: Re-wired `simulation.worker.ts` and `TaxDashboardView.tsx` to construct, pass, and evaluate `TAX_OPTIMIZATION_REQUEST` messages respecting the nested `strategicEvents` schema.
+* **Security Check**: Verified that no secrets or API keys were hardcoded.
+
+## LVIII. Scenario-Driven UI Hierarchy (Checkpoint 55)
+* **Top-Down State Flow**: Refactored the 'Funding Allocation and Taxes' view to elevate the Scenario Manager to the absolute top of the layout. The UI now strictly drives inputs based on the selected hypothetical tax scenario rather than the global budget document.
+* **Component Encapsulation**: Stripped the modal and selection logic out of `TaxDashboardView` and migrated it into a reimagined `TaxPlanningView` (via `FundingAllocation.tsx`). `TaxDashboardView` now operates strictly as a pure visualization component reacting to the `activeScenarioId` prop.
+* **Security & Immutable Baseline**: The default 'Baseline' scenario is protected by explicit React state constraints (`disabled` attributes) and visual opacity shifts to prevent accidental overwrites of the core financial state.
+* **Touch-Target Compliance**: Ensured all form controls, selects, and interactable elements across the new scenario editor strictly adhere to the 44x44px minimum touch-target mandate.
+* **Zero-Trust Validation**: Verified that no secrets or keys were exposed in the refactor.
+
+## LIX. Worker Engine Sandboxing (Checkpoint 56)
+* **Strict Payload Parsing**: Refactored the `TaxOptimizationRequest` inside `simulation.worker.ts` to mandate the passing of a comprehensive `scenario` object encompassing `fundingSources` and `strategicEvents`, completely severing reliance on legacy global flags or mixed asset ID references.
+* **Encapsulated Iterative Tax Engine**: Modified the `TaxEngineInput` interface to pass the encapsulated `scenarioStrategicEvents` object directly into `evaluateMultiBucketTax`.
+* **Zero-Trust Validation**: Verified the worker logic mathematically scales the Roth Conversion brackets and Capital Gains rules using only the inputs supplied within the explicit, single-source-of-truth scenario payload.

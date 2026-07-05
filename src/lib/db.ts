@@ -568,7 +568,7 @@ export type CategoryType = {
 };
 
 const taxPlanningScenarioSchema = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -582,17 +582,24 @@ const taxPlanningScenarioSchema = {
       items: {
         type: 'object',
         properties: {
-          assetId: { type: 'string' },
-          amount: { type: 'number' }
+          accountId: { type: 'string' },
+          amount: { type: 'number' },
+          taxType: { type: 'string' }
         }
       }
     },
-    strategicRothConversionAmount: { type: 'number' },
+    strategicEvents: {
+      type: 'object',
+      properties: {
+        rothConversionAmount: { type: 'number' },
+        targetedCapitalGainsSale: { type: 'number' }
+      }
+    },
     createdAt: { type: 'integer' },
     updatedAt: { type: 'integer' }
   },
-  encrypted: ['targetBudgetAmount', 'fundingSources', 'strategicRothConversionAmount'],
-  required: ['id', 'userId', 'name', 'isLocked', 'targetBudgetAmount', 'strategicRothConversionAmount']
+  encrypted: ['targetBudgetAmount', 'fundingSources', 'strategicEvents'],
+  required: ['id', 'userId', 'name', 'isLocked', 'targetBudgetAmount', 'strategicEvents']
 };
 
 const budgetSchema = {
@@ -1123,7 +1130,29 @@ export async function getDatabase() {
       }
       if (!rxdb.collections.categories) collectionsToCreate.categories = { schema: categorySchema };
       if (!rxdb.collections.links) collectionsToCreate.links = { schema: linkSchema };
-      if (!rxdb.collections.tax_planning_scenarios) collectionsToCreate.tax_planning_scenarios = { schema: taxPlanningScenarioSchema };
+      if (!rxdb.collections.tax_planning_scenarios) {
+        collectionsToCreate.tax_planning_scenarios = { 
+          schema: taxPlanningScenarioSchema,
+          migrationStrategies: {
+            1: function (oldDoc: any) {
+              // Convert old fundingSources assetId to accountId and set strategicEvents
+              const oldSources = oldDoc.fundingSources || [];
+              const newSources = oldSources.map((source: any) => ({
+                accountId: source.assetId || '',
+                amount: source.amount || 0,
+                taxType: 'Unknown'
+              }));
+              oldDoc.fundingSources = newSources;
+              oldDoc.strategicEvents = {
+                rothConversionAmount: oldDoc.strategicRothConversionAmount || 0,
+                targetedCapitalGainsSale: 0
+              };
+              delete oldDoc.strategicRothConversionAmount;
+              return oldDoc;
+            }
+          }
+        };
+      }
 
       if (Object.keys(collectionsToCreate).length > 0) {
         await rxdb.addCollections(collectionsToCreate);
@@ -1144,7 +1173,10 @@ export async function getDatabase() {
                 isLocked: true,
                 targetBudgetAmount: currentBudget.totalPlaintextAnnual,
                 fundingSources: [],
-                strategicRothConversionAmount: currentBudget.targetRothConversionAmount || 0,
+                strategicEvents: {
+                  rothConversionAmount: currentBudget.targetRothConversionAmount || 0,
+                  targetedCapitalGainsSale: 0
+                },
                 createdAt: Date.now(),
                 updatedAt: Date.now()
               });

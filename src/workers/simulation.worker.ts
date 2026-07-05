@@ -4,8 +4,11 @@ export type TaxOptimizationRequest = {
   scenarioId: string;
   scenario: {
     targetBudgetAmount: number;
-    fundingSources: { assetId: string; amount: number; assetType?: string }[];
-    strategicRothConversionAmount: number;
+    fundingSources: { accountId: string; amount: number; taxType?: string }[];
+    strategicEvents?: {
+      rothConversionAmount: number;
+      targetedCapitalGainsSale: number;
+    };
   };
   assets: any[]; 
   preExistingOrdinaryIncome: number;
@@ -874,6 +877,11 @@ export interface TaxEngineInput {
   buckets: AllocationBuckets;
   blendedCostBasisPercentage: number;
   preExistingOrdinaryIncome: number; // For structural streams like pensions
+  scenarioStrategicEvents?: {
+    rothConversionAmount: number;
+    targetedCapitalGainsSale: number;
+  };
+  // Deprecated below
   targetRothConversionAmount?: number;
   taxableRebalancingSaleAmount?: number;
   rebalancingCapitalGainPercentage?: number;
@@ -1045,8 +1053,8 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
     0,
     Math.min(1, (input.rebalancingCapitalGainPercentage || 0) / 100),
   );
-  const targetRothConversionAmount = input.targetRothConversionAmount || 0;
-  const taxableRebalancingSaleAmount = input.taxableRebalancingSaleAmount || 0;
+  const targetRothConversionAmount = input.scenarioStrategicEvents?.rothConversionAmount || input.targetRothConversionAmount || 0;
+  const taxableRebalancingSaleAmount = input.scenarioStrategicEvents?.targetedCapitalGainsSale || input.taxableRebalancingSaleAmount || 0;
 
   // Convergence parameters for the multi-variable loop
   let traditionalGross = netTargets.traditional401kIra;
@@ -1487,9 +1495,9 @@ workerGlobal.onmessage = (e: MessageEvent<any>) => {
       };
 
       for (const fs of payload.scenario.fundingSources) {
-        let aType = fs.assetType;
+        let aType = fs.taxType;
         if (!aType && payload.assets) {
-          const asset = payload.assets.find(a => a.id === fs.assetId);
+          const asset = payload.assets.find(a => a.id === fs.accountId);
           aType = asset?.assetType;
         }
 
@@ -1512,7 +1520,10 @@ workerGlobal.onmessage = (e: MessageEvent<any>) => {
         buckets,
         blendedCostBasisPercentage: payload.blendedCostBasisPercentage || 80,
         preExistingOrdinaryIncome: payload.preExistingOrdinaryIncome || 0,
-        targetRothConversionAmount: payload.scenario.strategicRothConversionAmount || 0,
+        scenarioStrategicEvents: {
+          rothConversionAmount: payload.scenario.strategicEvents?.rothConversionAmount || 0,
+          targetedCapitalGainsSale: payload.scenario.strategicEvents?.targetedCapitalGainsSale || 0,
+        }
       };
 
       const result = evaluateMultiBucketTax(input);

@@ -32,7 +32,14 @@ interface TaxDashboardViewProps {
   plan: any;
 }
 
-export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewProps) {
+interface TaxDashboardViewProps {
+  db: any;
+  userId: string;
+  plan: any;
+  activeScenarioId?: string;
+}
+
+export default function TaxDashboardView({ db, userId, plan, activeScenarioId: propScenarioId }: TaxDashboardViewProps) {
   const { theme } = useTheme();
   const isNightWatch = theme === 'night-watch';
   const isDark = theme === 'dark' || theme === 'night-watch';
@@ -47,7 +54,8 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
   // State
   const [scenarios, setScenarios] = useState<any[]>([]);
   const [assets, setAssets] = useState<any[]>([]);
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string>('');
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string>(propScenarioId || '');
+  useEffect(() => { if (propScenarioId) setSelectedScenarioId(propScenarioId); }, [propScenarioId]);
   const [activeScenarioResponse, setActiveScenarioResponse] = useState<any | null>(null);
   const [isComputing, setIsComputing] = useState<boolean>(false);
   const [isManagerOpen, setIsManagerOpen] = useState<boolean>(false);
@@ -57,10 +65,11 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
   const [newScenarioName, setNewScenarioName] = useState<string>('');
   const [newScenarioBudget, setNewScenarioBudget] = useState<number>(80000);
   const [newScenarioRoth, setNewScenarioRoth] = useState<number>(0);
-  const [newScenarioFunding, setNewScenarioFunding] = useState<{ assetId: string; amount: number }[]>([]);
+  const [newScenarioCapGains, setNewScenarioCapGains] = useState<number>(0);
+  const [newScenarioFunding, setNewScenarioFunding] = useState<{ accountId: string; amount: number; taxType: string }[]>([]);
   
   // Funding item input helper state
-  const [selectedAssetId, setSelectedAssetId] = useState<string>('');
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [fundingAmount, setFundingAmount] = useState<string>('');
 
   // 1. Subscribe to scenarios
@@ -127,7 +136,7 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
         scenario: {
           targetBudgetAmount: Number(activeScenario.targetBudgetAmount) || 0,
           fundingSources: activeScenario.fundingSources || [],
-          strategicRothConversionAmount: Number(activeScenario.strategicRothConversionAmount) || 0
+          strategicEvents: activeScenario.strategicEvents || { rothConversionAmount: 0, targetedCapitalGainsSale: 0 }
         },
         assets: userAssets || [],
         preExistingOrdinaryIncome: 0,
@@ -157,7 +166,10 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
         isLocked: false,
         targetBudgetAmount: Math.max(0, newScenarioBudget),
         fundingSources: newScenarioFunding,
-        strategicRothConversionAmount: Math.max(0, newScenarioRoth),
+        strategicEvents: {
+          rothConversionAmount: Math.max(0, newScenarioRoth),
+          targetedCapitalGainsSale: Math.max(0, newScenarioCapGains)
+        },
         createdAt: Date.now(),
         updatedAt: Date.now()
       });
@@ -167,6 +179,7 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
       setNewScenarioName('');
       setNewScenarioBudget(80000);
       setNewScenarioRoth(0);
+      setNewScenarioCapGains(0);
       setNewScenarioFunding([]);
       setSelectedScenarioId(newId);
     } catch (err) {
@@ -209,26 +222,28 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
   };
 
   const addFundingSource = () => {
-    if (!selectedAssetId || !fundingAmount || Number(fundingAmount) <= 0) return;
-    if (newScenarioFunding.some(f => f.assetId === selectedAssetId)) return;
+    if (!selectedAccountId || !fundingAmount || Number(fundingAmount) <= 0) return;
+    if (newScenarioFunding.some(f => f.accountId === selectedAccountId)) return;
 
+    const selectedAsset = assets.find(a => a.id === selectedAccountId);
+    
     setNewScenarioFunding([
       ...newScenarioFunding,
-      { assetId: selectedAssetId, amount: Number(fundingAmount) }
+      { accountId: selectedAccountId, amount: Number(fundingAmount), taxType: selectedAsset?.assetType || 'Unknown' }
     ]);
-    setSelectedAssetId('');
+    setSelectedAccountId('');
     setFundingAmount('');
   };
 
-  const removeFundingSource = (assetId: string) => {
-    setNewScenarioFunding(newScenarioFunding.filter(f => f.assetId !== assetId));
+  const removeFundingSource = (accountId: string) => {
+    setNewScenarioFunding(newScenarioFunding.filter(f => f.accountId !== accountId));
   };
 
   // Compute Visualization values
   const grossOrdinaryIncome = useMemo(() => {
     if (!activeScenarioResponse) return 0;
     const traditional401kGross = Number(activeScenarioResponse.bucketBreakdown?.traditional401kIraGross || 0);
-    const rothConversionAmount = Number(activeScenario?.strategicRothConversionAmount || 0);
+    const rothConversionAmount = Number(activeScenario?.strategicEvents?.rothConversionAmount || 0);
     return traditional401kGross + rothConversionAmount;
   }, [activeScenarioResponse, activeScenario]);
 
@@ -326,6 +341,7 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
   return (
     <div id="tax-dashboard-view" className="space-y-6">
       {/* 1. Header controls (Selector & Manager trigger) */}
+      {!propScenarioId && (
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
         <div className="space-y-1">
           <label className="text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
@@ -355,6 +371,7 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
         </button>
       </div>
 
+      )}
       {/* 2. Scenario Detail Cards & Calculations */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Card 1: Target Expense */}
@@ -411,7 +428,7 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
             <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">/ year</span>
           </div>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed font-semibold">
-            Roth Conversion: <strong className="font-mono text-zinc-800 dark:text-zinc-200">${(activeScenario?.strategicRothConversionAmount || 0).toLocaleString()}</strong>
+            Roth Conversion: <strong className="font-mono text-zinc-800 dark:text-zinc-200">${(activeScenario?.strategicEvents?.rothConversionAmount || 0).toLocaleString()}</strong>
           </p>
         </div>
       </div>
@@ -646,7 +663,7 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
                           )}
                         </div>
                         <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
-                          Budget: ${sc.targetBudgetAmount?.toLocaleString()} | Roth: ${sc.strategicRothConversionAmount?.toLocaleString()}
+                          Budget: ${sc.targetBudgetAmount?.toLocaleString()} | Roth: ${sc.strategicEvents?.rothConversionAmount?.toLocaleString()}
                         </p>
                       </div>
 
@@ -724,6 +741,22 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
                       />
                     </div>
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase">
+                      Targeted Cap Gains Sale
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-3.5 text-zinc-400">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={newScenarioCapGains}
+                        onChange={e => setNewScenarioCapGains(Number(e.target.value))}
+                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 pl-7 text-sm text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-blue-500 transition min-h-[44px]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Funding Sources configuration */}
@@ -741,21 +774,21 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
                   {newScenarioFunding.length > 0 && (
                     <div className="flex flex-wrap gap-2 py-1">
                       {newScenarioFunding.map(f => {
-                        const asset = assets.find(a => a.id === f.assetId);
+                        const asset = assets.find(a => a.id === f.accountId);
                         return (
                           <div 
-                            key={f.assetId} 
+                            key={f.accountId} 
                             className="bg-blue-50/50 dark:bg-zinc-800 border border-blue-200/40 dark:border-zinc-700 text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-2"
                           >
                             <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                              {asset?.name || 'Asset'}:
+                              {asset?.name || 'Asset'} ({f.taxType}):
                             </span>
                             <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
                               ${f.amount.toLocaleString()}
                             </span>
                             <button
                               type="button"
-                              onClick={() => removeFundingSource(f.assetId)}
+                              onClick={() => removeFundingSource(f.accountId)}
                               className="text-zinc-400 hover:text-red-500 transition cursor-pointer min-h-[30px] min-w-[30px] flex items-center justify-center"
                             >
                               <X size={14} />
@@ -773,13 +806,13 @@ export default function TaxDashboardView({ db, userId, plan }: TaxDashboardViewP
                         Asset Source
                       </label>
                       <select
-                        value={selectedAssetId}
-                        onChange={e => setSelectedAssetId(e.target.value)}
+                        value={selectedAccountId}
+                        onChange={e => setSelectedAccountId(e.target.value)}
                         className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2 py-1.5 text-xs text-zinc-800 dark:text-zinc-100 min-h-[40px] cursor-pointer"
                       >
                         <option value="">Select Asset...</option>
                         {assets.map(a => (
-                          <option key={a.id} value={a.id} disabled={newScenarioFunding.some(f => f.assetId === a.id)}>
+                          <option key={a.id} value={a.id} disabled={newScenarioFunding.some(f => f.accountId === a.id)}>
                             {a.name} ({a.assetType || 'Asset'})
                           </option>
                         ))}

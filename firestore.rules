@@ -18,14 +18,17 @@ service cloud.firestore {
     }
 
     function isValidScenario(data) {
-      return data.keys().hasAll(['id', 'userId', 'name', 'isLocked', 'targetBudgetAmount', 'strategicRothConversionAmount']) &&
+      return data.keys().hasAll(['id', 'userId', 'name', 'isLocked', 'targetBudgetAmount', 'strategicEvents']) &&
              data.keys().size() <= 9 &&
              data.id is string && data.id.size() <= 128 &&
              data.userId is string && data.userId.size() <= 128 &&
              data.name is string && data.name.size() <= 200 &&
              data.isLocked is bool &&
              (data.targetBudgetAmount is int || data.targetBudgetAmount is float) &&
-             (data.strategicRothConversionAmount is int || data.strategicRothConversionAmount is float) &&
+             data.strategicEvents is map &&
+             data.strategicEvents.keys().hasAll(['rothConversionAmount', 'targetedCapitalGainsSale']) &&
+             (data.strategicEvents.rothConversionAmount is int || data.strategicEvents.rothConversionAmount is float) &&
+             (data.strategicEvents.targetedCapitalGainsSale is int || data.strategicEvents.targetedCapitalGainsSale is float) &&
              (!('fundingSources' in data) || (data.fundingSources is list && data.fundingSources.size() < 50)) &&
              (!('createdAt' in data) || data.createdAt is int) &&
              (!('updatedAt' in data) || data.updatedAt is int);
