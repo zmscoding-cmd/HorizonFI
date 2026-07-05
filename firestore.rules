@@ -88,9 +88,9 @@ service cloud.firestore {
 
     // Allow nested collections under users
     match /users/{userId}/{collectionName}/{docId} {
-      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow read, delete: if isSignedIn() && (request.auth.uid == userId || userId == 'shared_household');
       
-      allow create, update: if isSignedIn() && request.auth.uid == userId && 
+      allow create, update: if isSignedIn() && (request.auth.uid == userId || userId == 'shared_household') && 
         (
           (collectionName == 'assets' && isValidAsset(request.resource.data)) ||
           (collectionName == 'tax_lots' && isValidTaxLot(request.resource.data)) ||

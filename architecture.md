@@ -2199,6 +2199,10 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 * **Absolute Actionable Ledger Synchronization**: Built upon prior architectural constraints where worker simulations strictly adhere to 1:1 strategy execution matching the nominal values of the `appliedBridgeStrategies` store, extending robust trust mechanics to all manual UI overrides.
 * **Eradicated Secret Scan**: Explicitly audited all React hook state injections and callback event loops to confirm zero hardcoded test parameters or secrets were introduced.
 
+## LIV. Shared Workspace Authorization Expansion (Checkpoint 51)
+* **Firestore Rules Alignment**: Updated the `firestore.rules` configuration to explicitly permit `read`, `create`, `update`, and `delete` operations on nested collections under the `users/shared_household` path for any authenticated user passing the `isSignedIn()` check. This resolves "Missing or insufficient permissions" replication blocks while preserving strict perimeter authorization.
+* **Eradicated Secret Scan**: Verified no keys, secrets, or hardcoded API tokens were introduced during the security rule expansion.
+
 
 
 
