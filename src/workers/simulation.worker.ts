@@ -1,28 +1,3 @@
-
-export type TaxOptimizationRequest = {
-  type: "TAX_OPTIMIZATION_REQUEST";
-  scenarioId: string;
-  scenario: {
-    targetBudgetAmount: number;
-    fundingSources: { accountId: string; amount: number; taxType?: string }[];
-    strategicEvents?: {
-      rothConversionAmount: number;
-      targetedCapitalGainsSale: number;
-    };
-  };
-  assets: any[]; 
-  preExistingOrdinaryIncome: number;
-  blendedCostBasisPercentage?: number;
-};
-
-export type TaxOptimizationResponse = {
-  success: boolean;
-  type: "TAX_OPTIMIZATION_RESPONSE";
-  scenarioId?: string;
-  data?: TaxEngineOutput;
-  error?: string;
-};
-
 export type SimulationRequest = {
   yearIndex: number;
   initialPortfolioValue: number;
@@ -877,11 +852,6 @@ export interface TaxEngineInput {
   buckets: AllocationBuckets;
   blendedCostBasisPercentage: number;
   preExistingOrdinaryIncome: number; // For structural streams like pensions
-  scenarioStrategicEvents?: {
-    rothConversionAmount: number;
-    targetedCapitalGainsSale: number;
-  };
-  // Deprecated below
   targetRothConversionAmount?: number;
   taxableRebalancingSaleAmount?: number;
   rebalancingCapitalGainPercentage?: number;
@@ -1053,8 +1023,8 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
     0,
     Math.min(1, (input.rebalancingCapitalGainPercentage || 0) / 100),
   );
-  const targetRothConversionAmount = input.scenarioStrategicEvents?.rothConversionAmount || input.targetRothConversionAmount || 0;
-  const taxableRebalancingSaleAmount = input.scenarioStrategicEvents?.targetedCapitalGainsSale || input.taxableRebalancingSaleAmount || 0;
+  const targetRothConversionAmount = input.targetRothConversionAmount || 0;
+  const taxableRebalancingSaleAmount = input.taxableRebalancingSaleAmount || 0;
 
   // Convergence parameters for the multi-variable loop
   let traditionalGross = netTargets.traditional401kIra;
@@ -1483,56 +1453,6 @@ workerGlobal.onmessage = (e: MessageEvent<any>) => {
         success: true,
         type: "BUDGET_SIMULATION",
         data: result,
-      });
-        } else if (e.data.type === "TAX_OPTIMIZATION_REQUEST") {
-      const payload = e.data as TaxOptimizationRequest;
-      const buckets: AllocationBuckets = {
-        qualifiedDividends: 0,
-        taxableBrokerage: 0,
-        traditional401kIra: 0,
-        rothIra: 0,
-        nonTaxableGift: 0
-      };
-
-      for (const fs of payload.scenario.fundingSources) {
-        let aType = fs.taxType;
-        if (!aType && payload.assets) {
-          const asset = payload.assets.find(a => a.id === fs.accountId);
-          aType = asset?.assetType;
-        }
-
-        if (aType === "TAXABLE") {
-          buckets.taxableBrokerage += fs.amount;
-        } else if (aType === "PRE_TAX") {
-          buckets.traditional401kIra += fs.amount;
-        } else if (aType === "ROTH") {
-          buckets.rothIra += fs.amount;
-        } else if (aType === "CASH") {
-          buckets.nonTaxableGift += fs.amount;
-        } else if (aType === "DIVIDENDS") {
-          buckets.qualifiedDividends += fs.amount;
-        }
-      }
-
-      const input: TaxEngineInput = {
-        targetNetExpense: payload.scenario.targetBudgetAmount,
-        allocationMode: "DOLLARS",
-        buckets,
-        blendedCostBasisPercentage: payload.blendedCostBasisPercentage || 80,
-        preExistingOrdinaryIncome: payload.preExistingOrdinaryIncome || 0,
-        scenarioStrategicEvents: {
-          rothConversionAmount: payload.scenario.strategicEvents?.rothConversionAmount || 0,
-          targetedCapitalGainsSale: payload.scenario.strategicEvents?.targetedCapitalGainsSale || 0,
-        }
-      };
-
-      const result = evaluateMultiBucketTax(input);
-
-      self.postMessage({
-        success: true,
-        type: "TAX_OPTIMIZATION_RESPONSE",
-        scenarioId: payload.scenarioId,
-        data: result
       });
     } else if (e.data.type === "BRIDGE_OPTIMIZATION") {
       const { state, params, scenarioId } = e.data;
