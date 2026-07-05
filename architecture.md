@@ -2182,6 +2182,17 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 * **Preserved Actionable Ledger DP Boundaries**: Maintained the isolated dynamic programming target injections within `BridgeStrategyTable.tsx` while feeding the applied historical consequences strictly into the active projection chart.
 * **Eradicated Secret Scan**: Audited all updated code blocks and verified 100% absence of hardcoded keys, secrets, or administrative overrides.
 
+## LI. Target Budget Phase Baseline Unlinking Control (Checkpoint 48)
+* **Schema Decoupling Expansion**: Introduced the `isUnlinked` boolean to the `BudgetPhase` type in `src/lib/db.ts` to persistently track user intent regarding the dynamic synchronization between the active budget state and the multi-stage scenario configurations.
+* **Granular UI Override Injection**: Upgraded `ScenarioBuilder.tsx` to conditionally render an "Unlink/Link" control for the initial target budget phase. When unlinked, the application structurally ignores the real-time gross budget outputs and treats the phase strictly as a manual, fixed baseline projection.
+* **Component-Level Re-Render Keying**: Enforced React reconciliation logic by mapping the dynamically unlinked baseline parameters directly into the component `key` attribute, ensuring immediate and accurate state synchronization when toggling linkage models.
+* **Eradicated Secret Scan**: Explicitly audited all React hook injections and event loops to confirm zero hardcoded test parameters or secrets were introduced.
+
+## LII. Absolute Actionable Ledger Synchronization (Checkpoint 49)
+* **Compound Growth Target Preservation**: Stripped algorithmic overrides in `simulation.worker.ts` that previously forced 100% liquidation of Concentrated Stock Targets in the final year of a dynamic programming (DP) block. 
+* **1:1 Strategy Enforcement**: The simulation now strictly executes the exact nominal value provided by the `appliedBridgeStrategies` Actionable Ledger, regardless of underlying asset compound growth drift across the multi-decade horizon. This guarantees that visual metrics (Long-Term Portfolio Projection) remain mathematically synchronized with the exact parameters the user applied.
+* **Eradicated Secret Scan**: Audited calculation boundaries and verified 100% absence of hardcoded keys, secrets, or administrative overrides.
+
 
 
 

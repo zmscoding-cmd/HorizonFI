@@ -2399,17 +2399,7 @@ export function simulateMultiStageDrawdownWorker(
           matchedStrategy !== undefined &&
           matchedStrategy.stockLiquidation !== undefined
         ) {
-          const lastLiquidationYear = Math.max(
-            ...payload
-              .appliedBridgeStrategies!.filter((s) => s.stockLiquidation > 0)
-              .map((s) => s.year),
-          );
-          if (currentYear === lastLiquidationYear) {
-            // DP doesn't grow the asset, so in the final liquidation year, we must force it to 100% to match user expectations
-            optimalSaleAmount = liqTargetAsset.value;
-          } else {
-            optimalSaleAmount = matchedStrategy.stockLiquidation;
-          }
+          optimalSaleAmount = matchedStrategy.stockLiquidation;
         } else {
           // If we are strictly applying a ledger, unmapped years should NOT do algorithmic 0% LTCG harvesting
           optimalSaleAmount = baselineBudgetShortfall;

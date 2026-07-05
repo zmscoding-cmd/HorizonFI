@@ -81,6 +81,7 @@ export type BudgetPhase = {
   applyLifestyleAdjustment: boolean;
   lifestyleAdjustmentRate: number;
   cashBufferMultiplier?: number;
+  isUnlinked?: boolean;
 };
 
 export type AssetModel = {

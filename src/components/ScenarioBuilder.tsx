@@ -306,7 +306,7 @@ export default function ScenarioBuilder({
         inflationRate: (scenario.budget?.inflationRate || 3.0) / 100,
         budgetPhases: scenario.budget?.budgetPhases
           ? scenario.budget.budgetPhases.map((p: any, i: number) =>
-              i === 0 && !!budgetDoc?.totalPlaintextAnnual
+              i === 0 && !!budgetDoc?.totalPlaintextAnnual && !p.isUnlinked
                 ? { ...p, baselineAmount: budgetDoc.calculatedGrossWithdrawalAnnual || budgetDoc.totalPlaintextAnnual }
                 : p,
             )
@@ -1250,32 +1250,59 @@ export default function ScenarioBuilder({
                               />
                             </div>
                             <div className="lg:col-span-3">
-                              <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1 truncate" title="Baseline Budget ($)">
-                                Budget ($){" "}
-                                {index === 0 &&
-                                  !!budgetDoc?.totalPlaintextAnnual && (
-                                    <span className="text-blue-500 normal-case italic ml-1">
-                                      (Linked)
-                                    </span>
-                                  )}
-                              </label>
+                              <div className="flex items-center justify-between mb-1 truncate">
+                                <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider" title="Baseline Budget ($)">
+                                  Budget ($){" "}
+                                  {index === 0 &&
+                                    !!budgetDoc?.totalPlaintextAnnual && !phase.isUnlinked && (
+                                      <span className="text-blue-500 normal-case italic ml-1">
+                                        (Linked)
+                                      </span>
+                                    )}
+                                </label>
+                                {index === 0 && !!budgetDoc?.totalPlaintextAnnual && (
+                                  <button
+                                    onClick={async () => {
+                                      const doc = await db.plans.findOne(plan.id).exec();
+                                      const updatedScenarios = plan.scenarios.map((s: any) => {
+                                        if (s.id === activeScenario.id) {
+                                          const activePhases = s.budget?.budgetPhases ? [...s.budget.budgetPhases] : [];
+                                          if (activePhases[0]) {
+                                            activePhases[0].isUnlinked = !activePhases[0].isUnlinked;
+                                            if (activePhases[0].isUnlinked) {
+                                              activePhases[0].baselineAmount = budgetDoc.calculatedGrossWithdrawalAnnual || budgetDoc.totalPlaintextAnnual;
+                                            }
+                                          }
+                                          return { ...s, budget: { ...s.budget, budgetPhases: activePhases } };
+                                        }
+                                        return s;
+                                      });
+                                      await doc.patch({ scenarios: updatedScenarios, updatedAt: Date.now() });
+                                      handleRunSimulation();
+                                    }}
+                                    className="text-[10px] normal-case text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 font-medium cursor-pointer"
+                                  >
+                                    {phase.isUnlinked ? 'Link' : 'Unlink'}
+                                  </button>
+                                )}
+                              </div>
                               <input
+                                key={`budget-${phase.phaseId}-${phase.isUnlinked}-${index === 0 && !phase.isUnlinked ? budgetDoc?.calculatedGrossWithdrawalAnnual : ''}`}
                                 type="number"
-                                value={
+                                defaultValue={
                                   index === 0 &&
-                                  !!budgetDoc?.totalPlaintextAnnual
+                                  !!budgetDoc?.totalPlaintextAnnual && !phase.isUnlinked
                                     ? (budgetDoc.calculatedGrossWithdrawalAnnual || budgetDoc.totalPlaintextAnnual)
                                     : phase.baselineAmount
                                 }
                                 readOnly={
                                   index === 0 &&
-                                  !!budgetDoc?.totalPlaintextAnnual
+                                  !!budgetDoc?.totalPlaintextAnnual && !phase.isUnlinked
                                 }
-                                onChange={() => {}}
                                 onBlur={async (e) => {
                                   if (
                                     index === 0 &&
-                                    !!budgetDoc?.totalPlaintextAnnual
+                                    !!budgetDoc?.totalPlaintextAnnual && !phase.isUnlinked
                                   )
                                     return;
                                   const doc = await db.plans
@@ -1312,7 +1339,7 @@ export default function ScenarioBuilder({
                                   });
                                   handleRunSimulation();
                                 }}
-                                className="w-full text-xs border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 outline-none transition-all min-h-[44px]"
+                                className={`w-full text-xs border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-105 rounded-lg p-2 border transition-all min-h-[44px] outline-none ${index === 0 && !!budgetDoc?.totalPlaintextAnnual && !phase.isUnlinked ? 'opacity-70 cursor-not-allowed bg-zinc-50 dark:bg-zinc-900' : 'bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10'}`}
                               />
                             </div>
                             <div className="lg:col-span-2">
