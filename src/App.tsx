@@ -148,8 +148,8 @@ export default function App() {
     try {
       const newPlan: PlanType = {
         id: generateUUID(),
-        name: 'New Shared Plan',
-        members: [(user.email === 'jesse.laten.shumaker@gmail.com' || user.email === 'cshumaker81@gmail.com') ? 'shared_household' : user.uid],
+        name: 'New Plan',
+        members: [user.uid],
         scenarios: [
           {
             id: generateUUID(),
@@ -846,7 +846,7 @@ const PlanCard: React.FC<{ plan: PlanType, db: any, user: any, onOpen: () => voi
       const newPlan: PlanType = {
         id: generateUUID(),
         name: `${plan.name} (Copy)`,
-        members: [(user.email === 'jesse.laten.shumaker@gmail.com' || user.email === 'cshumaker81@gmail.com') ? 'shared_household' : user.uid],
+        members: [user.uid],
         scenarios: (plan.scenarios || []).map(scenario => ({
           ...scenario,
           id: generateUUID()

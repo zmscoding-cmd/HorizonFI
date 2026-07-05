@@ -1150,7 +1150,7 @@ export function startReplication(
     }
   };
 
-  const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+  const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
     if (!user) {
       console.log('User signed out, cancelling active RxDB replications.');
       cancelAllAndUnsubscribe();
@@ -1158,11 +1158,38 @@ export function startReplication(
       return;
     }
 
-    const syncUid = (user.email === 'jesse.laten.shumaker@gmail.com' || user.email === 'cshumaker81@gmail.com')
-      ? 'shared_household'
-      : user.uid;
+    const syncUid = user.uid;
 
     console.log('User authenticated, starting Firestore replication for sync UID:', syncUid);
+    
+    // One-time cleanup for the 'shared_household' bug that was preventing syncs
+    try {
+      if (rxdb && rxdb.collections.plans) {
+        const plans = await rxdb.plans.find().exec();
+        for (const plan of plans) {
+          if (plan.members && plan.members.includes('shared_household')) {
+            console.log('Fixing stuck plan members array for sync...');
+            await plan.patch({ members: [user.uid] });
+          }
+        }
+      }
+      
+      const collectionsToCheck = ['categories', 'budgets', 'assets', 'planned_expenses', 'links'];
+      for (const colName of collectionsToCheck) {
+        if (rxdb && rxdb.collections[colName]) {
+          const docs = await rxdb.collections[colName].find().exec();
+          for (const doc of docs) {
+            if (doc.userId === 'shared_household') {
+              console.log(`Fixing stuck userId in ${colName} for sync...`);
+              await doc.patch({ userId: user.uid });
+            }
+          }
+        }
+      }
+    } catch (cleanupErr) {
+      console.warn('Error during shared_household cleanup:', cleanupErr);
+    }
+    
     // Cancel old ones just in case to avoid parallel duplicate streams
     cancelAllAndUnsubscribe();
 
