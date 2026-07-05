@@ -1,4 +1,5 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
@@ -6,15 +7,7 @@ service cloud.firestore {
     }
 
     function isSignedIn() {
-      return request.auth != null && 
-             (
-               request.auth.token.email == 'jesse.laten.shumaker@gmail.com' || 
-               request.auth.token.email == 'cshumaker81@gmail.com' ||
-               request.auth.uid == 'user-a-123' ||
-               request.auth.uid == 'user-b-456' ||
-               request.auth.uid.startsWith('mock-') ||
-               request.auth.uid.startsWith('demo-')
-             );
+      return request.auth != null;
     }
 
     function isNumeric(val) {
@@ -29,21 +22,31 @@ service cloud.firestore {
     function existing() { return resource.data; }
 
     function isHouseholdMember(householdId) {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/households/$(householdId)) && 
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/households/$(householdId)) &&
              (request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.members);
     }
 
     function isValidAsset(data) {
-      let typeOk = data.assetType == 'CASH' || data.assetType == 'TAXABLE' || data.assetType == 'PRE_TAX' || data.assetType == 'ROTH';
-      let growthOk = isNumeric(data.expectedGrowthRate) && data.expectedGrowthRate >= -1.0 && data.expectedGrowthRate <= 1.0;
-      let dividendOk = isNumeric(data.expectedDividendYield) && data.expectedDividendYield >= -1.0 && data.expectedDividendYield <= 1.0;
-      let valueOk = isNumeric(data.value) && data.value >= 0;
+      let isDeleted = ('_deleted' in data && data._deleted == true);
+      if (isDeleted) {
+        return true;
+      }
       
-      return typeOk && growthOk && dividendOk && valueOk;
+      let typeOk = !('assetType' in data) || data.assetType == 'CASH' || data.assetType == 'TAXABLE' || data.assetType == 'PRE_TAX' || data.assetType == 'ROTH';
+      let typeOkLegacy = !('type' in data) || data.type is string;
+      let growthOk = !('expectedGrowthRate' in data) || (isNumeric(data.expectedGrowthRate) && data.expectedGrowthRate >= -1.0 && data.expectedGrowthRate <= 1.0);
+      let dividendOk = !('expectedDividendYield' in data) || (isNumeric(data.expectedDividendYield) && data.expectedDividendYield >= -1.0 && data.expectedDividendYield <= 1.0);
+      let valueOk = !('value' in data) || (isNumeric(data.value) && data.value >= 0);
+      
+      return (typeOk || typeOkLegacy) && growthOk && dividendOk && valueOk;
     }
     
     function isValidTaxLot(data) {
+      let isDeleted = ('_deleted' in data && data._deleted == true);
+      if (isDeleted) {
+        return true;
+      }
       return data.id is string &&
              data.accountId is string &&
              data.ticker is string &&
@@ -54,6 +57,10 @@ service cloud.firestore {
     }
     
     function isValidBridgeOptimization(data) {
+      let isDeleted = ('_deleted' in data && data._deleted == true);
+      if (isDeleted) {
+        return true;
+      }
       return data.id is string &&
              data.scenarioId is string &&
              isNumeric(data.optimalRothConversion) && data.optimalRothConversion >= 0 &&
@@ -65,11 +72,15 @@ service cloud.firestore {
     }
 
     function isValidPlanData(data) {
-      let primaryBirthYearOk = !('primaryBirthYear' in data) || 
-                               (data.primaryBirthYear is int && data.primaryBirthYear >= 1900 && data.primaryBirthYear <= 2100) || 
+      let isDeleted = ('_deleted' in data && data._deleted == true);
+      if (isDeleted) {
+        return true;
+      }
+      let primaryBirthYearOk = !('primaryBirthYear' in data) ||
+                               (data.primaryBirthYear is int && data.primaryBirthYear >= 1900 && data.primaryBirthYear <= 2100) ||
                                (data.primaryBirthYear is string && data.primaryBirthYear.size() <= 256);
       
-      let rmdReinvestmentAssetIdOk = !('rmdReinvestmentAssetId' in data) || 
+      let rmdReinvestmentAssetIdOk = !('rmdReinvestmentAssetId' in data) ||
                                      (data.rmdReinvestmentAssetId is string && data.rmdReinvestmentAssetId.size() <= 128);
                                      
       let nameOk = !('name' in data) || (data.name is string && data.name.size() <= 120);

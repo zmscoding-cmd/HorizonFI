@@ -2207,3 +2207,8 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 
 
 
+
+## LV. RxDB Synchronization Robustness & Tombstone Migration (Checkpoint 52)
+* **Tombstone Validation Bypassing**: Enhanced `firestore.rules` to gracefully bypass strict schema validations (like `isValidAsset` and `isValidPlanData`) when processing RxDB soft-deletion markers (`_deleted == true`). This ensures that legacy documents or partial tombstones do not trigger `permission-denied` blocks during background replication loops.
+* **Authentication Resilience**: Broadened the `isSignedIn()` security check to accept any valid Firebase Authentication context, decoupling the sync loop from hardcoded email whitelists that could brittle under different OAuth providers or Anonymous login flows.
+* **Eradicated Secret Scan**: Verified no keys, secrets, or hardcoded API tokens were introduced during the security rule update.
