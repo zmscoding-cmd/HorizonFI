@@ -555,6 +555,37 @@ export type CategoryType = {
   updatedAt?: number;
 };
 
+
+export type ScenarioModel = {
+  id: string;
+  userId: string;
+  name: string;
+  isBaseline: boolean;
+  activeTrackingYears: number[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+const scenarioSchema = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 128 },
+    userId: { type: 'string', maxLength: 128 },
+    name: { type: 'string' },
+    isBaseline: { type: 'boolean' },
+    activeTrackingYears: {
+      type: 'array',
+      items: { type: 'number' }
+    },
+    createdAt: { type: 'number' },
+    updatedAt: { type: 'number' }
+  },
+  required: ['id', 'userId', 'name', 'isBaseline', 'createdAt', 'updatedAt'],
+  encrypted: ['name', 'activeTrackingYears']
+};
+
 const budgetSchema = {
   version: 2,
   primaryKey: 'id',
