@@ -495,6 +495,7 @@ export default function ScenarioBuilder({
 
   const duplicateScenario = async (scenarioToDup: any) => {
     try {
+      const userId = auth.currentUser?.uid || "";
       const doc = await db.plans.findOne(plan.id).exec();
       const currentScenarios = doc.scenarios || [];
       const newId = generateUUID();

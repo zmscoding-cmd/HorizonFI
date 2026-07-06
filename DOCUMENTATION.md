@@ -711,3 +711,5 @@ To manage your scenarios:
 
 ## Checkpoint: Scenario Isolation (July 2026)
 * **Tax Engine Precision:** The multi-decade projection engine now correctly isolates calculations to your actively viewed scenario. Experimenting with Roth Conversions or large capital expenditures in "Scenario A" will accurately reflect their unique tax impacts without bleeding into "Scenario B".
+* **Legacy Data Recovery & Auto-Rescue:** If you created budget data (Planned Expenses, Funding Allocations, or Tax Events) in a previous version of HorizonFI, those legacy items will lack the required `scenarioId` field. Upon logging in, HorizonFI automatically executes an idempotent background recovery script (`rescueOrphanedBudgetItems`) that safely maps all of your orphaned budget records to your Baseline scenario so that they appear seamlessly in your interactive Scenario Builder dashboards.
+

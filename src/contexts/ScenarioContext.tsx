@@ -24,6 +24,98 @@ interface ScenarioContextProps {
 
 const ScenarioContext = createContext<ScenarioContextProps | undefined>(undefined);
 
+/**
+ * One-time data recovery function to rescue orphaned budget items (planned_expenses,
+ * funding_allocations, tax_events) that are missing a scenarioId, have null/undefined values,
+ * or are still mapped to legacy global plan IDs.
+ */
+export async function rescueOrphanedBudgetItems(db: any, userId: string) {
+  if (!db || !userId) return;
+  console.log(`[Data Rescue] Initiating orphaned data recovery for userId: ${userId}`);
+
+  try {
+    // 1. Fetch scenarios for the user to determine the Baseline ID
+    const userScenarios = await db.scenarios.find({ selector: { userId } }).exec();
+    let baselineScenario = userScenarios.find((s: any) => s.isBaseline);
+    let baselineId = "";
+
+    if (baselineScenario) {
+      baselineId = baselineScenario.id;
+    } else if (userScenarios.length > 0) {
+      baselineScenario = userScenarios[0];
+      await baselineScenario.patch({ isBaseline: true, updatedAt: Date.now() });
+      baselineId = baselineScenario.id;
+    } else {
+      // Pre-create the Baseline scenario so that orphans have an ID to map to immediately
+      baselineId = generateUUID();
+      try {
+        await db.scenarios.insert({
+          id: baselineId,
+          userId,
+          name: "Baseline",
+          isBaseline: true,
+          activeTrackingYears: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+        console.log(`[Data Rescue] Pre-created Baseline scenario for user: ${baselineId}`);
+      } catch (insertErr) {
+        console.error("[Data Rescue] Failed to pre-insert Baseline scenario:", insertErr);
+        baselineId = "Baseline"; // Fallback identifier
+      }
+    }
+
+    // 2. Query user plans to find possible legacy global plan IDs
+    const userPlans = await db.plans.find().exec();
+    const planIds = new Set<string>(userPlans.map((p: any) => p.id));
+    planIds.add("BaselinePlan");
+
+    // 3. Define collections to rescue
+    const collectionsToRescue = [
+      { key: "planned_expenses", col: db.planned_expenses },
+      { key: "funding_allocations", col: db.funding_allocations },
+      { key: "tax_events", col: db.tax_events }
+    ];
+
+    for (const { key, col } of collectionsToRescue) {
+      if (!col) continue;
+
+      // Find all user docs in this collection
+      const docs = await col.find({ selector: { userId } }).exec();
+      let rescueCount = 0;
+
+      for (const doc of docs) {
+        const sId = doc.scenarioId ?? (doc as any).scenario_id ?? (doc as any).get?.("scenarioId") ?? (doc as any).get?.("scenario_id");
+        
+        const isOrphaned =
+          sId === undefined ||
+          sId === null ||
+          sId === "" ||
+          sId === "null" ||
+          sId === "undefined" ||
+          planIds.has(sId);
+
+        if (isOrphaned) {
+          const patchData: any = { scenarioId: baselineId };
+          if ((doc as any).scenario_id !== undefined || (doc as any).get?.("scenario_id") !== undefined) {
+            patchData.scenario_id = baselineId;
+          }
+          await doc.patch(patchData);
+          rescueCount++;
+        }
+      }
+
+      if (rescueCount > 0) {
+        console.log(`[Data Rescue] Successfully rescued ${rescueCount} orphaned documents from "${key}" and mapped them to Baseline scenario "${baselineId}".`);
+      }
+    }
+
+    console.log("[Data Rescue] Orphaned data recovery process completed.");
+  } catch (err) {
+    console.error("[Data Rescue] Execution failed during data recovery:", err);
+  }
+}
+
 export const ScenarioProvider: React.FC<{ children: React.ReactNode; userId: string | null }> = ({ children, userId }) => {
   const [scenarios, setScenarios] = useState<ScenarioModel[]>([]);
   const [currentlyViewingScenarioId, setCurrentlyViewingScenarioId] = useState<string | null>(null);
@@ -36,7 +128,10 @@ export const ScenarioProvider: React.FC<{ children: React.ReactNode; userId: str
     }
 
     let sub: any;
-    getDatabase().then(db => {
+    getDatabase().then(async (db) => {
+      // Execute the orphaned data recovery task right after RxDB initializes
+      await rescueOrphanedBudgetItems(db, userId);
+
       sub = db.scenarios.find({ selector: { userId } }).$.subscribe((docs: any[]) => {
         const sorted = docs.sort((a, b) => a.createdAt - b.createdAt);
         setScenarios(sorted);

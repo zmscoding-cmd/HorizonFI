@@ -2340,3 +2340,12 @@ This checkpoint introduces the highly requested **Scenario Renaming & Active Sta
 * **Zero-Trust & Offline Validation:** Eliminated the global `budgetDoc` cross-contamination. The multi-stage `MULTI_STAGE_DRAWDOWN` payload strictly sandboxes its context to the currently active scenario, fetching relational entities locally from RxDB IndexedDB layers.
 * **Secrets Analysis:** Zero hardcoded secrets were introduced or detected during this dispatch boundary refactor.
 * **Shift Justification:** To maintain the strict integrity of independent What-If modeling in the Guyton-Klinger algorithm, we must ensure that manipulating variables (like Roth Conversions) in one scenario doesn't inadvertently alter the tax engine baseline in another scenario.
+
+## Checkpoint: Legacy Budget Data Recovery & Orphan Rescue Script (Date: July 2026)
+* **Architecture Alignment:** Introduced a robust, idempotent data migration script (`rescueOrphanedBudgetItems`) in `src/contexts/ScenarioContext.tsx`. It runs automatically as soon as the database is retrieved on startup within the top-level `ScenarioProvider`'s `useEffect` lifecycle.
+* **Orphan Data Identification & Migration:** The function queries the `planned_expenses`, `funding_allocations`, and `tax_events` collections to locate documents that are missing a `scenarioId`, are null/undefined, or are mapped to legacy global `plan_id`s. These documents are batch-updated using RxDB's `.patch()` to map to the user's "Baseline" scenario.
+* **Idempotency & Auto-Creation:** If no "Baseline" scenario is present, the script pre-creates one using `generateUUID` to prevent synchronization race conditions. This guarantees that orphaned items have a stable, secure relational target.
+* **Zero-Trust & Offline Validation:** All data rescue operations occur strictly within the encrypted browser IndexedDB sandbox, maintaining zero-trust architecture. No external cloud endpoints are invoked during the recovery process.
+* **Secrets Analysis:** Thoroughly scanned all new code and confirmed zero hardcoded secrets are present.
+* **Shift Justification:** Transitioning to a Multi-Scenario architecture left legacy user budget items orphaned because they lacked the newly-mandated `scenarioId` field. This script rescues this legacy user data upon initial application launch under the new version.
+
