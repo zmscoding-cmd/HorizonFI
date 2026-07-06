@@ -1018,6 +1018,12 @@ export async function getDatabase() {
           }
         };
       }
+      if (!rxdb.collections.scenarios) {
+        collectionsToCreate.scenarios = {
+          schema: scenarioSchema,
+          migrationStrategies: {}
+        };
+      }
       if (!rxdb.collections.budgets) {
         collectionsToCreate.budgets = { 
           schema: budgetSchema,
@@ -1174,7 +1180,7 @@ export function startReplication(
         }
       }
       
-      const collectionsToCheck = ['categories', 'budgets', 'assets', 'planned_expenses', 'links'];
+      const collectionsToCheck = ['scenarios', 'categories', 'budgets', 'assets', 'planned_expenses', 'links'];
       for (const colName of collectionsToCheck) {
         if (rxdb && rxdb.collections[colName]) {
           const docs = await rxdb.collections[colName].find().exec();
@@ -1259,6 +1265,22 @@ export function startReplication(
         retryTime: 1000 * 5
       });
 
+      
+      const scenariosCollection = collection(db, `users/${syncUid}/scenarios`);
+      const scenariosReplication = replicateFirestore({
+        replicationIdentifier: `firestore-sync-scenarios-${syncUid}`,
+        collection: (rxdb as any).scenarios,
+        firestore: {
+          projectId: db.app.options.projectId!,
+          database: db,
+          collection: scenariosCollection
+        },
+        pull: { modifier: (docData) => docData },
+        push: { modifier: (docData) => JSON.parse(JSON.stringify(docData)) },
+        live: true,
+        retryTime: 1000 * 5
+      });
+
       const budgetsReplication = replicateFirestore({
         replicationIdentifier: `firestore-sync-budgets-${syncUid}`,
         collection: (rxdb as any).budgets,
@@ -1332,6 +1354,7 @@ export function startReplication(
       });
 
       activeReplications = {
+        scenariosReplication,
         plansReplication,
         datapointsReplication,
         linksReplication,

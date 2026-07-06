@@ -1,3 +1,4 @@
+import { useScenarioManager } from '../contexts/ScenarioContext';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from './ThemeProvider';
 import { generateUUID } from '../lib/db';
@@ -48,7 +49,9 @@ export default function BudgetDashboard({
   plan?: any;
   activeScenario?: any;
   handleRunSimulation?: any;
-}) {
+}) { 
+  const { currentlyViewingScenarioId } = useScenarioManager();
+
   const { theme } = useTheme();
   const isNightWatch = theme === 'night-watch';
   const isDark = theme === 'dark' || theme === 'night-watch';
@@ -1065,7 +1068,7 @@ export default function BudgetDashboard({
                 </div>
 
                 <div id="budget-chart-container" className="w-full h-96 min-h-[300px] overflow-hidden">
-                  <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
+                  <ResponsiveContainer key={currentlyViewingScenarioId || 'default'} initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
                     <ComposedChart data={chartData} margin={{ top: 10, right: -5, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridKeyline} />
                       <XAxis
@@ -1467,7 +1470,7 @@ export default function BudgetDashboard({
                   </div>
                   {expensesByCategory.length > 0 && (
                     <div className="w-full sm:w-[320px] lg:w-[360px] h-[280px] shrink-0 mx-auto sm:mx-0">
-                       <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
+                       <ResponsiveContainer key={currentlyViewingScenarioId || 'default'} initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
                           <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                             <Pie
                               data={expensesByCategory}

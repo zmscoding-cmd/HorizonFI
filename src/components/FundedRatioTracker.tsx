@@ -1,3 +1,4 @@
+import { useScenarioManager } from '../contexts/ScenarioContext';
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
 import { filterSimulationDataForView } from '../lib/chart-utils';
@@ -69,7 +70,7 @@ export function FundedRatioTracker({ data, stages, activeScenario, handleUpdateD
       </div>
 
       <div className="w-full flex-1">
-        <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height={400}>
+        <ResponsiveContainer key={currentlyViewingScenarioId || 'default'} initialDimension={{ width: 800, height: 400 }} width="100%" height={400}>
           <LineChart data={filteredData} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#525252" opacity={0.2} />
             <XAxis 

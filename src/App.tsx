@@ -7,6 +7,8 @@ import ScenarioBuilder from './components/ScenarioBuilder';
 import { ThemeToggle } from './components/ThemeToggle';
 import HelpGuideModal from './components/HelpGuideModal';
 import LinksSection from './components/LinksSection';
+import { ScenarioProvider } from './contexts/ScenarioContext';
+import ScenarioSwitcher from './components/ScenarioSwitcher';
 
 export default function App() {
   const [user, setUser] = useState(auth.currentUser);
@@ -548,9 +550,11 @@ export default function App() {
   }
 
   return (
+    <ScenarioProvider userId={user?.uid || null}>
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans transition-colors">
       <header className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between sticky top-0 z-10 gap-3">
         <div className="flex items-center gap-3">
+          <ScenarioSwitcher />
           <button 
             onClick={() => setActivePlanId(null)}
             className="flex items-center gap-2 hover:opacity-80 transition cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-lg"
@@ -776,6 +780,7 @@ export default function App() {
         <HelpGuideModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
       )}
     </div>
+    </ScenarioProvider>
   );
 }
 
@@ -975,5 +980,6 @@ const PlanCard: React.FC<{ plan: PlanType, db: any, user: any, onOpen: () => voi
         </button>
       </div>
     </div>
+    
   );
 }

@@ -1,3 +1,4 @@
+import { useScenarioManager } from '../contexts/ScenarioContext';
 import React, { useState, useEffect, useRef } from "react";
 import { PlanType, generateUUID } from "../lib/db";
 import { LineChart, Line, XAxis,
@@ -3116,7 +3117,7 @@ export default function ScenarioBuilder({
                 Portfolio Longevity (Ending Balance across Decades)
               </h4>
               <div className="flex-1 w-full min-h-0">
-                <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
+                <ResponsiveContainer key={currentlyViewingScenarioId || 'default'} initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
                   <LineChart
                     data={combinedChartData}
                     margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
@@ -3197,7 +3198,7 @@ export default function ScenarioBuilder({
                 Tax Drag Implications
               </h4>
               <div className="flex-1 w-full min-h-0">
-                <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
+                <ResponsiveContainer key={currentlyViewingScenarioId || 'default'} initialDimension={{ width: 800, height: 400 }} width="100%" height="100%">
                   <AreaChart
                     data={combinedChartData}
                     margin={{ top: 5, right: 10, left: -10, bottom: 5 }}

@@ -1,3 +1,4 @@
+import { useScenarioManager } from '../contexts/ScenarioContext';
 import React, { useState, useMemo } from 'react';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useCurrencyMode } from '../contexts/CurrencyModeContext';
@@ -98,7 +99,7 @@ export function MultiStageChart({ data, stages, displayStartYear, displayEndYear
 
   return (
     <div className="flex-1 w-full pt-2">
-      <ResponsiveContainer initialDimension={{ width: 800, height: 400 }} width="100%" height={400}>
+      <ResponsiveContainer key={currentlyViewingScenarioId || 'default'} initialDimension={{ width: 800, height: 400 }} width="100%" height={400}>
         <ComposedChart data={chartData} margin={{ top: 20, right: 35, left: -10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridKeyline} />
           <XAxis 

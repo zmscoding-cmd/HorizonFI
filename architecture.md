@@ -2212,3 +2212,54 @@ Trigger: The bridge period optimization needs to prioritize liquidation ahead of
 * **Tombstone Validation Bypassing**: Enhanced `firestore.rules` to gracefully bypass strict schema validations (like `isValidAsset` and `isValidPlanData`) when processing RxDB soft-deletion markers (`_deleted == true`). This ensures that legacy documents or partial tombstones do not trigger `permission-denied` blocks during background replication loops.
 * **Authentication Resilience**: Broadened the `isSignedIn()` security check to accept any valid Firebase Authentication context, decoupling the sync loop from hardcoded email whitelists that could brittle under different OAuth providers or Anonymous login flows.
 * **Eradicated Secret Scan**: Verified no keys, secrets, or hardcoded API tokens were introduced during the security rule update.
+
+## [Checkpoint: Multi-Scenario Budgeting Architectures - 2026-07-06]
+### I. Hardcoded Secrets Analysis
+No hardcoded secrets were detected in the newly proposed schema definitions or React context logic. All encryption operations continue to utilize dynamically derived cryptographic keys via `window.crypto.subtle` (derived from Firebase UID and high-entropy pepper).
+
+### II. Architecture Alignment
+The transition from a monolithic, singleton budget structure to a relational `scenarios` architecture aligns with our mandate for a scalable, offline-first PWA. By normalizing the RxDB NoSQL schema and implementing a `scenario_id` foreign key mapping on child collections (`budgets`, `planned_expenses`, `tax_events`), we maintain low latency and optimize payload generation for the dedicated Web Workers (satisfying Thread Isolation mandates).
+
+### III. Documentation Update: Relational Scenario Modeling
+*   **Normalized NoSQL Schemas:** The monolithic `plans` schema has been decomposed. A dedicated `scenarios` collection now serves as the root index for hypothetical timelines.
+*   **Scenario-Local Sandboxing:** `budgets`, `tax_events`, and `planned_expenses` are relationally bound to a specific `scenario_id`, establishing cryptographic and computational boundaries for hypothetical modeling (e.g., "Baseline" vs. "High Travel").
+*   **Active Tracking Designation:** A global pointer (`activeTrackingScenarioId`) enforces that only one scenario governs real-world variance tracking (Budget vs. Actuals) per calendar year, while preserving the user's ability to sandbox hypothetical timelines concurrently (`currentlyViewingScenarioId`).
+*   **Zero-Trust Security:** `crypto-js` field-level encryption is strictly enforced across all scenario parameters and relational collections before being persisted to IndexedDB.
+
+## [Checkpoint: Web Worker Payload Refactoring - 2026-07-06]
+### I. Hardcoded Secrets Analysis
+No hardcoded secrets were detected in the worker logic or schema updates. 
+
+### II. Architecture Alignment
+The `simulation.worker.ts` has been refactored to consume a nested `ScenarioPayload` inside `MultiStageSimPayload`. The variance calculation module processes active scenarios by evaluating the `activeTrackingYears` array against actual expenses, enforcing off-main-thread processing for complex aggregate lookups. Memory bounds are strictly limited via `slice(0, 10000)` for expenses and `slice(0, 50)` for scenarios to prevent out-of-memory errors on extensive datasets.
+
+### III. Documentation Update: Web Worker Multi-Scenario Integration
+*   **Web Worker Signature Update:** The `MultiStageSimPayload` now embeds a strictly nested `scenario: ScenarioPayload` object along with `globalNetWorth: number`. The worker relies entirely on this local context for drawdown modeling, ensuring isolation.
+*   **Variance Aggregation Loop:** The newly introduced `VARIANCE_AGGREGATION` worker message type computes Budget vs. Actuals chronologically. It accurately binds real expenses to the specific `budgetTargets` of the scenario that was flagged as active for that given year.
+*   **Decimation & Bounds Control:** Strict `.slice()` bounding loops guarantee the payload output sizes back to the DOM React thread do not exceed memory limitations.
+
+## [Checkpoint: Scenario Hub & Context Switcher UI - 2026-07-06]
+### I. Hardcoded Secrets Analysis
+No hardcoded secrets were detected in the newly implemented React context (`ScenarioContext.tsx`), UI components (`ScenarioSwitcher.tsx`, `ScenarioHub.tsx`), or modifications to `App.tsx`. Firebase Auth UIDs continue to be securely passed to context providers, and no static keys were introduced.
+
+### II. Architecture Alignment
+The introduction of a global `ScenarioContext` maintains the Thread Isolation and UX/UI Responsiveness mandates. The new UI components are built mobile-first with Tailwind CSS, utilizing a minimum 44x44px touch target (e.g. `min-h-[44px] min-w-[44px]` applied to all buttons). Recharts animation state preservation is elegantly handled by injecting `key={currentlyViewingScenarioId}` on `ResponsiveContainer` components, forcing isolated unmount/remount lifecycles without triggering React Suspense or main thread blocking. Dark mode resilience is inherently mapped via standard `dark:` Tailwind prefixes.
+
+### III. Documentation Update: Multi-Scenario UI Architecture
+*   **Global Scenario Context:** `ScenarioContext` abstracts RxDB synchronous subscriptions for the `scenarios` collection, serving the `currentlyViewingScenarioId` and `activeTrackingScenarioId` across the application.
+*   **Sandbox Architecture Indication:** The `ScenarioSwitcher` provides a strict visual cue (Green for Active Tracking, Amber for Sandbox Mode) within the application header, immediately signaling to the user if they are editing a theoretical projection vs. live tracking data.
+*   **Scenario Hub Drawer:** A responsive right-aligned drawer component exposes CRUD (Create, Read, Update/Duplicate, Delete) operations for the scenario array, utilizing Kahn's topological safety to ensure duplicate branches do not corrupt root timeline data.
+
+## [Checkpoint: Multi-Scenario Final Verification & QA - 2026-07-06]
+### I. Hardcoded Secrets Analysis
+No hardcoded secrets or API keys have been introduced during this sprint. The application continues to rely solely on dynamically provided Firebase environment variables (`VITE_FIREBASE_*`) and derives cryptographic keys mathematically from the authenticated user's UID at runtime.
+
+### II. Architecture Alignment
+The architectural shift to support multi-scenario budgeting strictly adheres to the fundamental principle of minimizing main thread locking while preserving offline capabilities. 
+*   **Active Year Designation vs. Time-Boxed Epochs:** We opted to use "Active Year Designation" (via the `activeTrackingYears` array) rather than time-boxed epoch splitting. This explicit designation limits the variance calculation aggregation complexity to an (O(N)) filter against a global state, avoiding the memory bloat associated with creating multiple epoch clones of the same asset databases. It efficiently bounds Web Worker memory consumption to a strict ceiling.
+*   **State Flow (`useScenarioManager`):** React state flow was abstracted into `useScenarioManager`. It synchronizes RxDB changes into local memory and orchestrates the `currentlyViewingScenarioId`. When a user toggles the UI dropdown, the React context simply patches the ID pointer, triggering a non-blocking re-render of Recharts components (utilizing the `key={id}` unmount technique) and passing the new isolated `ScenarioPayload` array to the Web Worker for independent timeline projection.
+
+### III. Continuous Validation & Testing Updates
+*   **Mathematical Integrity & Sandbox Isolation:** A dedicated test suite (`scenario.worker.test.ts`) was added and executed. It computationally verifies that:
+    1. The Variance Calculator strictly ignores budget targets associated with "Sandbox" scenarios and only aggregates actuals against the explicitly designated "Active" scenario.
+    2. Simulated tax events (such as aggressive hypothetical Roth conversions) isolated to "Scenario A" do not bleed their marginal tax liabilities into the outputs of "Scenario B," proving structural context isolation within the `simulation.worker.ts` execution tree.
