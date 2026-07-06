@@ -104,6 +104,7 @@ export type AssetModel = {
 export type SubScenario = {
   id: string;
   name: string;
+  isActive?: boolean;
   targetEndYear: number;
   budget: {
     monthlyIncome: number;
@@ -431,6 +432,7 @@ const historicalDatapointSchema = {
   properties: {
     id: { type: 'string', maxLength: 100 }, // Format: YYYY-MM-DD_UID
     userId: { type: 'string', maxLength: 100 },
+    scenarioId: { type: 'string', maxLength: 100 },
     date: { type: 'string', maxLength: 15 },
     assets: {
       type: 'array',
@@ -640,6 +642,40 @@ const plannedExpenseSchema = {
   },
   encrypted: ['staticAmount', 'relationalTargetId', 'relationalPercent', 'notes', 'urls', 'renewalDate'],
   required: ['id', 'userId', 'name', 'frequency', 'valuationType']
+};
+
+
+const fundingAllocationSchema = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    userId: { type: 'string', maxLength: 100 },
+    scenarioId: { type: 'string', maxLength: 100 },
+    traditional401kIra: { type: 'number' },
+    taxableBrokerage: { type: 'number' },
+    qualifiedDividends: { type: 'number' },
+    rothIra: { type: 'number' },
+    nonTaxableGift: { type: 'number' },
+    allocationMode: { type: 'string' }
+  },
+  required: ['id', 'userId', 'scenarioId']
+};
+
+const taxEventSchema = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    userId: { type: 'string', maxLength: 100 },
+    scenarioId: { type: 'string', maxLength: 100 },
+    targetRothConversionAmount: { type: 'number' },
+    taxableRebalancingSaleAmount: { type: 'number' },
+    rebalancingCapitalGainPercentage: { type: 'number' }
+  },
+  required: ['id', 'userId', 'scenarioId']
 };
 
 const assetSchema = {
@@ -1072,6 +1108,12 @@ export async function getDatabase() {
           }
         };
       }
+      if (!rxdb.collections.funding_allocations) {
+        collectionsToCreate.funding_allocations = { schema: fundingAllocationSchema };
+      }
+      if (!rxdb.collections.tax_events) {
+        collectionsToCreate.tax_events = { schema: taxEventSchema };
+      }
       if (!rxdb.collections.planned_expenses) {
         collectionsToCreate.planned_expenses = {
           schema: plannedExpenseSchema,
@@ -1148,6 +1190,15 @@ export async function getDatabase() {
         }, false);
       }
 
+      
+      // MIGRATION: Assign 'Baseline' scenario to any planned_expenses missing a scenarioId
+      if (rxdb.collections.planned_expenses) {
+        const expensesWithoutScenario = await rxdb.planned_expenses.find({ selector: { scenarioId: { $exists: false } } }).exec();
+        for (const exp of expensesWithoutScenario) {
+          await exp.patch({ scenarioId: 'Baseline' });
+        }
+      }
+
       return rxdb;
     } catch (err) {
       dbPromise = null; // reset cache on failure
@@ -1211,7 +1262,7 @@ export function startReplication(
         }
       }
       
-      const collectionsToCheck = ['scenarios', 'categories', 'budgets', 'assets', 'planned_expenses', 'links'];
+      const collectionsToCheck = ['scenarios', 'categories', 'budgets', 'assets', 'planned_expenses', 'funding_allocations', 'tax_events', 'links'];
       for (const colName of collectionsToCheck) {
         if (rxdb && rxdb.collections[colName]) {
           const docs = await rxdb.collections[colName].find().exec();
@@ -1236,6 +1287,8 @@ export function startReplication(
       const linksCollection = collection(db, `users/${syncUid}/links`);
       const budgetsCollection = collection(db, `users/${syncUid}/budgets`);
       const plannedExpensesCollection = collection(db, `users/${syncUid}/planned_expenses`);
+      const fundingAllocationsCollection = collection(db, `users/${syncUid}/funding_allocations`);
+      const taxEventsCollection = collection(db, `users/${syncUid}/tax_events`);
       const assetsCollection = collection(db, `users/${syncUid}/assets`);
       const categoriesCollection = collection(db, `users/${syncUid}/categories`);
 
@@ -1348,6 +1401,18 @@ export function startReplication(
         retryTime: 1000 * 5
       });
 
+      const fundingAllocationsReplication = replicateFirestore({
+        replicationIdentifier: `firestore-sync-funding_allocations-${syncUid}`,
+        collection: (rxdb as any).funding_allocations,
+        firestore: { projectId: db.app.options.projectId!, database: db, collection: fundingAllocationsCollection },
+        pull: {}, push: {}, live: true, retryTime: 1000 * 5
+      });
+      const taxEventsReplication = replicateFirestore({
+        replicationIdentifier: `firestore-sync-tax_events-${syncUid}`,
+        collection: (rxdb as any).tax_events,
+        firestore: { projectId: db.app.options.projectId!, database: db, collection: taxEventsCollection },
+        pull: {}, push: {}, live: true, retryTime: 1000 * 5
+      });
       const assetsReplication = replicateFirestore({
         replicationIdentifier: `firestore-sync-assets-${syncUid}`,
         collection: (rxdb as any).assets,

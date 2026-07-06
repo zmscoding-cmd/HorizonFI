@@ -1,0 +1,183 @@
+const handleRunSimulation = () => {
+        plan.scenarios?.forEach((scenario) => {
+      const budget: any = scenario.budget || {};
+      const currentAge =
+        budget.currentAge !== undefined ? Number(budget.currentAge) : 48;
+      const targetEndYear =
+        scenario.targetEndYear !== undefined
+          ? Number(scenario.targetEndYear)
+          : new Date().getFullYear() + 40;
+      // Calculate weighted asset-specific return rate from assets
+      const assetsList = scenario.assets || [];
+      const totalPortfolioValue = assetsList.reduce((sum: number, a: any) => sum + Number(a.value || 0), 0);
+      const targetConstantMarketReturn = totalPortfolioValue > 0
+        ? assetsList.reduce((sum: number, a: any) => {
+            const growth = Number(a.expectedGrowthRate ?? a.growthRate ?? 0.05);
+            const div = Number(a.expectedDividendYield ?? a.dividendYield ?? 0.0);
+            return sum + (Number(a.value || 0) * (growth + div));
+          }, 0) / totalPortfolioValue
+        : 0.06;
+      const maxRealWithdrawal =
+        budget.maxRealWithdrawal !== undefined
+          ? Number(budget.maxRealWithdrawal)
+          : 150000;
+      const liquidBufferYears =
+        budget.liquidBufferYears !== undefined
+          ? Number(budget.liquidBufferYears)
+          : 3;
+
+      // Custom G-K guardrail variables
+      const upperGuardrailMultiplier =
+        budget.upperGuardrailMultiplier !== undefined
+          ? Number(budget.upperGuardrailMultiplier)
+          : 0.8;
+      const lowerGuardrailMultiplier =
+        budget.lowerGuardrailMultiplier !== undefined
+          ? Number(budget.lowerGuardrailMultiplier)
+          : 1.2;
+      const guardrailUpwardFactor =
+        budget.guardrailUpwardFactor !== undefined
+          ? Number(budget.guardrailUpwardFactor)
+          : 1.1;
+      const guardrailDownwardFactor =
+        budget.guardrailDownwardFactor !== undefined
+          ? Number(budget.guardrailDownwardFactor)
+          : 0.9;
+
+      // Create config from scenario
+      const config: any = {
+        currentAge,
+        startYear: new Date().getFullYear(),
+        endYear: targetEndYear,
+        initialPortfolioValue:
+          scenario.assets?.reduce(
+            (a: any, b: any) => a + Number(b.value || 0),
+            0,
+          ) || 1200000,
+        targetConstantMarketReturn,
+        inflationRate: (scenario.budget?.inflationRate || 3.0) / 100,
+        budgetPhases: scenario.budget?.budgetPhases
+          ? scenario.budget.budgetPhases.map((p: any, i: number) =>
+              i === 0 && !!budgetDoc?.totalPlaintextAnnual && !p.isUnlinked
+                ? { ...p, baselineAmount: budgetDoc.calculatedGrossWithdrawalAnnual || budgetDoc.totalPlaintextAnnual }
+                : p,
+            )
+          : [
+              {
+                phaseId: "default",
+                startYear: new Date().getFullYear(),
+                endYear: 2100,
+                baselineAmount: budgetDoc?.calculatedGrossWithdrawalAnnual || budgetDoc?.totalPlaintextAnnual || 5000 * 12,
+                applyLifestyleAdjustment: true,
+                lifestyleAdjustmentRate: 0.02,
+                cashBufferMultiplier: 2.0,
+              },
+            ],
+        maxRealWithdrawal,
+        privatePensionAmountAt65: 20000,
+        rrTier1AmountAt67: 35000,
+        rrTier2AmountAt67: 15000,
+        oneOffCapEx:
+          scenario.milestones?.map((m: any) => ({
+            year: Number(
+              m.triggerYear !== undefined
+                ? m.triggerYear
+                : m.targetYear || 2030,
+            ),
+            amount: Number(
+              m.amount !== undefined ? m.amount : m.targetAmount || 0,
+            ),
+            description: m.name,
+          })) || [],
+        milestones:
+          scenario.milestones?.map((m: any) => ({
+            id: m.id || generateUUID(),
+            name: m.name || "Milestone",
+            type: m.type || "capex",
+            amount: Number(
+              m.amount !== undefined ? m.amount : m.targetAmount || 0,
+            ),
+            isTriggerByAge:
+              m.isTriggerByAge !== undefined ? !!m.isTriggerByAge : false,
+            triggerAge: Number(m.triggerAge !== undefined ? m.triggerAge : 65),
+            triggerYear: Number(
+              m.triggerYear !== undefined
+                ? m.triggerYear
+                : m.targetYear || 2030,
+            ),
+          })) || [],
+        assets:
+          scenario.assets?.map((ast: any) => ({
+            id: ast.id,
+            name: ast.name,
+            value: Number(ast.value || 0),
+            type: ast.type || "investment",
+            assetType: ast.assetType || "TAXABLE",
+            isLiquidationTarget: !!ast.isLiquidationTarget,
+            isDividendDestination: !!ast.isDividendDestination,
+            availableDate: ast.availableDate,
+            growthRate:
+              Number(ast.growthRate !== undefined ? ast.growthRate : 6.0) / 100,
+            dividendYield:
+              Number(
+                ast.dividendYield !== undefined ? ast.dividendYield : 0.0,
+              ) / 100,
+            dividendReinvestment: ast.dividendReinvestment || "reinvest",
+          })) || [],
+        liquidBufferYears,
+        upperGuardrailMultiplier,
+        lowerGuardrailMultiplier,
+        guardrailUpwardFactor,
+        guardrailDownwardFactor,
+        targetRothConversionAmount: budgetDoc?.targetRothConversionAmount || 0,
+        taxableRebalancingSaleAmount:
+          budgetDoc?.taxableRebalancingSaleAmount || 0,
+        rebalancingCapitalGainPercentage:
+          budgetDoc?.rebalancingCapitalGainPercentage || 0,
+      };
+
+      // Dispatch to Web Worker for Multi-Stage specific rendering
+      if (workerRef.current) {
+        workerRef.current.postMessage({
+          type: "MULTI_STAGE_DRAWDOWN",
+          scenarioId: scenario.id,
+          startYear: config.startYear,
+          endYear: config.endYear,
+          targetEndYear: config.endYear,
+          currentAge: config.currentAge,
+          assets: config.assets,
+          stages: scenario.stages || [],
+          milestones: scenario.milestones || [],
+          uprrDivestmentAnnualAmount: 120000, // Example safe fallback
+          dividendEtfId:
+            scenario.assets?.find((a: any) =>
+              a.name?.toLowerCase().includes("schd"),
+            )?.id || "",
+          uprrId:
+            scenario.assets?.find((a: any) =>
+              a.name?.toLowerCase().includes("uprr"),
+            )?.id || "",
+          targetConstantMarketReturn,
+          inflationRate: config.inflationRate,
+          budgetPhases: config.budgetPhases,
+          maxRealWithdrawal: config.maxRealWithdrawal,
+          liquidBufferYears: config.liquidBufferYears,
+          nonTaxableGifts: scenario.nonTaxableGifts || [],
+          targetRothConversionAmount:
+            budgetDoc?.targetRothConversionAmount || 0,
+          taxableRebalancingSaleAmount:
+            budgetDoc?.taxableRebalancingSaleAmount || 0,
+          rebalancingCapitalGainPercentage:
+            budgetDoc?.rebalancingCapitalGainPercentage || 0,
+          threeBuckets: scenario.threeBuckets || plan.threeBuckets,
+          appliedBridgeStrategies: scenario.appliedBridgeStrategies || [],
+          primaryBirthYear: plan.primaryBirthYear,
+          spouseBirthYear: plan.spouseBirthYear,
+          isSpouseSoleBeneficiary: plan.isSpouseSoleBeneficiary,
+          rmdReinvestmentAssetId: scenario.rmdReinvestmentAssetId,
+          delayInitialRMD: !!scenario.delayInitialRMD,
+        });
+      }
+    });
+    
+  };

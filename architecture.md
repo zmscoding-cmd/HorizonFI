@@ -2313,3 +2313,30 @@ This checkpoint introduces a highly requested and visually stunning **Scenario S
 ### III. Continuous Validation & Final Verification
 *   **Compilation:** The applet compiles perfectly and linter verification (`tsc --noEmit`) returns zero errors.
 *   **Unit Testing:** The Guyton-Klinger algorithms, tax engines, and worker isolation tests remain 105% functional and continue to pass the Vitest harness.
+
+## [Checkpoint: Multi-Scenario Interactive Renaming & Active Tracking Designation - 2026-07-06]
+### I. Hardcoded Secrets Analysis
+No hardcoded secrets or sensitive credentials have been introduced. The application continues to rely on runtime authenticated context from Firebase Auth and offline-first key derivation.
+
+### II. Architecture Alignment & Resolution
+This checkpoint introduces the highly requested **Scenario Renaming & Active Status Designation Suite** integrated directly within both the Swiss-modern inline management ribbon and the left configuration sidebar.
+*   **The Gap:** Previously, renaming scenarios and toggling which scenario was considered the primary "active tracking" baseline was cumbersome and lacked clear visual status markers across different planning dashboards (such as Budget, Multi-Stage Modeling, and Wealth Velocity tabs).
+*   **In-Place Scenario Renaming:** We implemented a character-resilient inline renaming text input directly inside the sub-module scenario selector ribbon. Updates to the name are stored safely in local React states and synced lazily to RxDB and Cloud Firestore on `onBlur` or `Enter` triggers, avoiding typing lag and cursor resets.
+*   **Active Scenario Designation:** We added an active tracking toggle both in the top Ribbon and inside the sidebar's "Edit Active Scenario" grid. When clicked, it patches the plan's `scenarios` array so that the designated scenario is flagged with `isActive: true` while clearing it from all other scenarios.
+*   **Dynamic Active Identification:** Upon loading a plan, the builder automatically scans for and selects the scenario marked `isActive: true`. Visual status markers (emerald green dots) are rendered next to scenario names in all selector lists to quickly identify the active scenario at a glance.
+
+### III. Continuous Validation & Final Verification
+*   **Compilation:** The applet compiles perfectly and linter verification (`tsc --noEmit`) returns zero errors.
+*   **Unit Testing:** The Guyton-Klinger algorithms, tax engines, and worker isolation tests remain 100% functional and continue to pass the Vitest harness.
+
+## Checkpoint: Scenario Isolation Overhaul (Date: July 2026)
+* **Architecture Alignment:** Shifted RxDB NoSQL schema relational boundaries to enforce strict `scenarioId` isolation for `planned_expenses`, `funding_allocations`, and `tax_events`. 
+* **Zero-Trust & Offline Validation:** Validated that no cross-scenario data leaks occur. All operations remain entirely client-side via IndexedDB, adhering to the offline-first mandate.
+* **Secrets Analysis:** Zero hardcoded secrets were introduced. All configurations rely on dynamic state generation.
+* **Shift Justification:** Required to support independent What-If modeling in the Guyton-Klinger algorithms. A global `plan_id` caused data bleeding across duplicated budget scenarios, violating independent variables logic.
+
+## Checkpoint: Multi-Decade Projection Sandbox Boundaries (Date: July 2026)
+* **Architecture Alignment:** The primary worker dispatch pipeline (`handleRunSimulation`) has been refactored to asynchronously pre-fetch `planned_expenses`, `tax_events`, and `funding_allocations` specifically mapping to the active `scenario_id`.
+* **Zero-Trust & Offline Validation:** Eliminated the global `budgetDoc` cross-contamination. The multi-stage `MULTI_STAGE_DRAWDOWN` payload strictly sandboxes its context to the currently active scenario, fetching relational entities locally from RxDB IndexedDB layers.
+* **Secrets Analysis:** Zero hardcoded secrets were introduced or detected during this dispatch boundary refactor.
+* **Shift Justification:** To maintain the strict integrity of independent What-If modeling in the Guyton-Klinger algorithm, we must ensure that manipulating variables (like Roth Conversions) in one scenario doesn't inadvertently alter the tax engine baseline in another scenario.

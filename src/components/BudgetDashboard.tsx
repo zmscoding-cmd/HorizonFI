@@ -293,7 +293,7 @@ export default function BudgetDashboard({
       db.assets.find({ selector: { userId } }).$.subscribe((data: any[]) => {
         setAssets(data.map(d => d.toJSON()));
       }),
-      db.planned_expenses.find({ selector: { userId } }).$.subscribe((data: any[]) => {
+      db.planned_expenses.find({ selector: { userId, scenarioId: activeScenario?.id || 'Baseline' } }).$.subscribe((data: any[]) => {
         setExpenses(data.map(d => d.toJSON()));
       })
     ];
@@ -394,7 +394,8 @@ export default function BudgetDashboard({
       if (existing) {
         await existing.patch({
           ...sanitizedUpdates,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
+        scenarioId: activeScenario?.id || 'Baseline'
         });
       } else {
         await db.budgets.insert({

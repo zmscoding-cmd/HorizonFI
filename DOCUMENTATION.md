@@ -704,3 +704,10 @@ To manage your scenarios:
 5. **Set Active:** Click the "Target" icon on a sandbox scenario to promote it to the "Active Tracking Scenario" for the current year.
 
 *Visual Cues:* The top navigation bar explicitly displays a green "Active Tracking" badge or an amber "Sandbox Mode" badge, so you always know exactly what context you are editing.
+
+## Checkpoint: Scenario Isolation (July 2026)
+* **Multiple Scenarios Support:** Users can now duplicate scenarios independently.
+* **Tax and Expense Isolation:** Adding a Planned Expense or configuring Strategic Tax Events (like Roth Conversions) in one scenario will no longer affect other scenarios.
+
+## Checkpoint: Scenario Isolation (July 2026)
+* **Tax Engine Precision:** The multi-decade projection engine now correctly isolates calculations to your actively viewed scenario. Experimenting with Roth Conversions or large capital expenditures in "Scenario A" will accurately reflect their unique tax impacts without bleeding into "Scenario B".

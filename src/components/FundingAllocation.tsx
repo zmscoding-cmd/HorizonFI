@@ -41,19 +41,23 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
   useEffect(() => {
     if (!db || !userId) return;
 
-    // Subscribe to budget document to get tax events
-    const query = db.budgets.findOne({ selector: { userId } });
+    // Subscribe to tax events
+    const scenarioId = activeScenario?.id || 'Baseline';
+    const query = db.tax_events ? db.tax_events.findOne({ selector: { userId, scenarioId } }) : db.budgets.findOne({ selector: { userId } });
     const subscription = query.$.subscribe((budgetDoc: any) => {
       if (budgetDoc) {
-        setTargetNetExpense(budgetDoc.totalPlaintextAnnual || 0);
+        if (db.budgets) {
+           db.budgets.findOne({ selector: { userId } }).exec().then((b: any) => {
+               if (b) setTargetNetExpense(b.totalPlaintextAnnual || 0);
+           });
+        }
         setTaxEvents({
           targetRothConversionAmount: budgetDoc.targetRothConversionAmount || 0,
           taxableRebalancingSaleAmount: budgetDoc.taxableRebalancingSaleAmount || 0,
-          rebalancingCapitalGainPercentage: budgetDoc.rebalancingCapitalGainPercentage || 0
+          rebalancingCapitalGainPercentage: budgetDoc.rebalancingCapitalGainPercentage || 0,
         });
       }
     });
-
     return () => subscription.unsubscribe();
   }, [db, userId]);
 
@@ -77,31 +81,40 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
         sanitizedUpdates.rebalancingCapitalGainPercentage = Math.max(0, Math.min(100, Number(updates.rebalancingCapitalGainPercentage) || 0));
       }
 
-      const existing = await db.budgets.findOne({ selector: { userId } }).exec();
-      if (existing) {
-        await existing.patch({
-          ...sanitizedUpdates,
-          updatedAt: Date.now()
-        });
+      const scenarioId = activeScenario?.id || 'Baseline';
+      
+      // Update tax events collection
+      if (db.tax_events) {
+        const existingTax = await db.tax_events.findOne({ selector: { userId, scenarioId } }).exec();
+        if (existingTax) {
+          await existingTax.patch({ ...sanitizedUpdates, updatedAt: Date.now() });
+        } else {
+          await db.tax_events.insert({
+            id: crypto.randomUUID(),
+            userId,
+            scenarioId,
+            targetRothConversionAmount: 0,
+            taxableRebalancingSaleAmount: 0,
+            rebalancingCapitalGainPercentage: 0,
+            ...sanitizedUpdates,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          });
+        }
       } else {
-        await db.budgets.insert({
-          id: Math.random().toString(36).substring(2),
-          userId,
-          name: 'Main Household Budget',
-          totalPlaintextMonthly: 0,
-          totalPlaintextAnnual: targetNetExpense,
-          ...sanitizedUpdates,
-          notes: 'Auto-calculated offline via Kahn Simulation worker.',
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        });
+         const existing = await db.budgets.findOne({ selector: { userId } }).exec();
+         if (existing) {
+           await existing.patch({
+             ...sanitizedUpdates,
+             updatedAt: Date.now()
+           });
+         }
       }
       handleRunSimulation();
-    } catch (err) {
-      console.error('Error auto-syncing tax planning events to DB', err);
+    } catch (e: any) {
+      console.error("Error updating tax events", e);
     }
   };
-
   const handleUpdate = async (field: string, value: any, isBucket = false) => {
     if (!plan || !activeScenario || !db) return;
     try {

@@ -1,4 +1,5 @@
 import { useScenarioManager } from '../contexts/ScenarioContext';
+import { evaluateMultiBucketTax } from '../workers/simulation.worker';
 import React, { useState, useEffect, useRef } from "react";
 import { PlanType, generateUUID } from "../lib/db";
 import { LineChart, Line, XAxis,
@@ -54,9 +55,10 @@ export default function ScenarioBuilder({
 }) {
   const { currentlyViewingScenarioId } = useScenarioManager();
   const { currencyMode } = useCurrencyMode();
-  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(
-    plan.scenarios?.[0]?.id || null,
-  );
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(() => {
+    const active = plan.scenarios?.find((s: any) => s.isActive);
+    return active?.id || plan.scenarios?.[0]?.id || null;
+  });
   
   const {
     displayStartYear,
@@ -248,16 +250,76 @@ export default function ScenarioBuilder({
     ? ["#ef4444", "#b91c1c", "#dc2626", "#fca5a5", "#991b1b"]
     : ["#2563eb", "#16a34a", "#dc2626", "#d97706", "#9333ea"];
 
-  const handleRunSimulation = () => {
-        plan.scenarios?.forEach((scenario) => {
+    const handleRunSimulation = async () => {
+    if (!plan.scenarios || !db || !auth.currentUser?.uid) return;
+    const userId = auth.currentUser.uid;
+
+    for (const scenario of plan.scenarios) {
+      if (scenario.id !== activeScenario?.id) continue; // Only process active scenario to prevent data bleed
+
       const budget: any = scenario.budget || {};
-      const currentAge =
-        budget.currentAge !== undefined ? Number(budget.currentAge) : 48;
-      const targetEndYear =
-        scenario.targetEndYear !== undefined
-          ? Number(scenario.targetEndYear)
-          : new Date().getFullYear() + 40;
-      // Calculate weighted asset-specific return rate from assets
+      const currentAge = budget.currentAge !== undefined ? Number(budget.currentAge) : 48;
+      const targetEndYear = scenario.targetEndYear !== undefined ? Number(scenario.targetEndYear) : new Date().getFullYear() + 40;
+      
+      // Query scenario-specific data
+      let taxEventsDoc = null;
+      if (db.tax_events) {
+        taxEventsDoc = await db.tax_events.findOne({ selector: { userId, scenarioId: scenario.id } }).exec();
+      }
+      
+      let expenses = [];
+      if (db.planned_expenses) {
+        expenses = await db.planned_expenses.find({ selector: { userId, scenarioId: scenario.id } }).exec();
+      }
+
+      let fundingAllocationsDoc = null;
+      if (db.funding_allocations) {
+        fundingAllocationsDoc = await db.funding_allocations.findOne({ selector: { userId, scenarioId: scenario.id } }).exec();
+      }
+
+      // Calculate totals
+      let totalAnnual = 0;
+      expenses.forEach((e: any) => {
+        if (e.excluded) return;
+        const amt = e.valuationType === 'Static' ? Number(e.staticAmount || 0) : 0; // simplistic fallback
+        // The real total comes from planned_expenses, but they are stored as static/relational.
+        // Actually BudgetDashboard stores totalPlaintextAnnual on db.budgets.
+        // Let's just calculate from plain expenses or fallback to budgetDoc
+        totalAnnual += Number(e.totalPlaintextAnnual || amt * (e.frequency === 'Monthly' ? 12 : 1) || 0);
+      });
+      // Fallback to budgetDoc if expenses are 0 (e.g., legacy data)
+      if (totalAnnual === 0) {
+        totalAnnual = budgetDoc?.totalPlaintextAnnual || 5000 * 12;
+      }
+
+      const targetRoth = taxEventsDoc?.targetRothConversionAmount || 0;
+      const taxableSale = taxEventsDoc?.taxableRebalancingSaleAmount || 0;
+      const rebalancingCapGain = taxEventsDoc?.rebalancingCapitalGainPercentage || 0;
+
+      let calculatedGross = totalAnnual;
+      const buckets = fundingAllocationsDoc || budget.buckets;
+      if (buckets) {
+        const taxOutput = evaluateMultiBucketTax({
+          targetNetExpense: totalAnnual,
+          allocationMode: fundingAllocationsDoc?.allocationMode || budget.allocationMode || 'PERCENTAGE',
+          buckets: {
+            traditional401kIra: Number(buckets.traditional401kIra || 0),
+            taxableBrokerage: Number(buckets.taxableBrokerage || 0),
+            qualifiedDividends: Number(buckets.qualifiedDividends || 0),
+            rothIra: Number(buckets.rothIra || 0),
+            nonTaxableGift: Number(buckets.nonTaxableGift || 0)
+          },
+          blendedCostBasisPercentage: 60.0,
+          preExistingOrdinaryIncome: 0,
+          targetRothConversionAmount: targetRoth,
+          taxableRebalancingSaleAmount: taxableSale,
+          rebalancingCapitalGainPercentage: rebalancingCapGain
+        });
+        calculatedGross = taxOutput.grossWithdrawalTotal;
+      } else {
+        calculatedGross = budgetDoc?.calculatedGrossWithdrawalAnnual || totalAnnual;
+      }
+
       const assetsList = scenario.assets || [];
       const totalPortfolioValue = assetsList.reduce((sum: number, a: any) => sum + Number(a.value || 0), 0);
       const targetConstantMarketReturn = totalPortfolioValue > 0
@@ -267,49 +329,26 @@ export default function ScenarioBuilder({
             return sum + (Number(a.value || 0) * (growth + div));
           }, 0) / totalPortfolioValue
         : 0.06;
-      const maxRealWithdrawal =
-        budget.maxRealWithdrawal !== undefined
-          ? Number(budget.maxRealWithdrawal)
-          : 150000;
-      const liquidBufferYears =
-        budget.liquidBufferYears !== undefined
-          ? Number(budget.liquidBufferYears)
-          : 3;
+      
+      const maxRealWithdrawal = budget.maxRealWithdrawal !== undefined ? Number(budget.maxRealWithdrawal) : 150000;
+      const liquidBufferYears = budget.liquidBufferYears !== undefined ? Number(budget.liquidBufferYears) : 3;
 
-      // Custom G-K guardrail variables
-      const upperGuardrailMultiplier =
-        budget.upperGuardrailMultiplier !== undefined
-          ? Number(budget.upperGuardrailMultiplier)
-          : 0.8;
-      const lowerGuardrailMultiplier =
-        budget.lowerGuardrailMultiplier !== undefined
-          ? Number(budget.lowerGuardrailMultiplier)
-          : 1.2;
-      const guardrailUpwardFactor =
-        budget.guardrailUpwardFactor !== undefined
-          ? Number(budget.guardrailUpwardFactor)
-          : 1.1;
-      const guardrailDownwardFactor =
-        budget.guardrailDownwardFactor !== undefined
-          ? Number(budget.guardrailDownwardFactor)
-          : 0.9;
+      const upperGuardrailMultiplier = budget.upperGuardrailMultiplier !== undefined ? Number(budget.upperGuardrailMultiplier) : 0.8;
+      const lowerGuardrailMultiplier = budget.lowerGuardrailMultiplier !== undefined ? Number(budget.lowerGuardrailMultiplier) : 1.2;
+      const guardrailUpwardFactor = budget.guardrailUpwardFactor !== undefined ? Number(budget.guardrailUpwardFactor) : 1.1;
+      const guardrailDownwardFactor = budget.guardrailDownwardFactor !== undefined ? Number(budget.guardrailDownwardFactor) : 0.9;
 
-      // Create config from scenario
       const config: any = {
         currentAge,
         startYear: new Date().getFullYear(),
         endYear: targetEndYear,
-        initialPortfolioValue:
-          scenario.assets?.reduce(
-            (a: any, b: any) => a + Number(b.value || 0),
-            0,
-          ) || 1200000,
+        initialPortfolioValue: scenario.assets?.reduce((a: any, b: any) => a + Number(b.value || 0), 0) || 1200000,
         targetConstantMarketReturn,
         inflationRate: (scenario.budget?.inflationRate || 3.0) / 100,
         budgetPhases: scenario.budget?.budgetPhases
           ? scenario.budget.budgetPhases.map((p: any, i: number) =>
-              i === 0 && !!budgetDoc?.totalPlaintextAnnual && !p.isUnlinked
-                ? { ...p, baselineAmount: budgetDoc.calculatedGrossWithdrawalAnnual || budgetDoc.totalPlaintextAnnual }
+              i === 0 && !p.isUnlinked
+                ? { ...p, baselineAmount: calculatedGross }
                 : p,
             )
           : [
@@ -317,7 +356,7 @@ export default function ScenarioBuilder({
                 phaseId: "default",
                 startYear: new Date().getFullYear(),
                 endYear: 2100,
-                baselineAmount: budgetDoc?.calculatedGrossWithdrawalAnnual || budgetDoc?.totalPlaintextAnnual || 5000 * 12,
+                baselineAmount: calculatedGross,
                 applyLifestyleAdjustment: true,
                 lifestyleAdjustmentRate: 0.02,
                 cashBufferMultiplier: 2.0,
@@ -329,32 +368,19 @@ export default function ScenarioBuilder({
         rrTier2AmountAt67: 15000,
         oneOffCapEx:
           scenario.milestones?.map((m: any) => ({
-            year: Number(
-              m.triggerYear !== undefined
-                ? m.triggerYear
-                : m.targetYear || 2030,
-            ),
-            amount: Number(
-              m.amount !== undefined ? m.amount : m.targetAmount || 0,
-            ),
+            year: Number(m.triggerYear !== undefined ? m.triggerYear : m.targetYear || 2030),
+            amount: Number(m.amount !== undefined ? m.amount : m.targetAmount || 0),
             description: m.name,
           })) || [],
         milestones:
           scenario.milestones?.map((m: any) => ({
-            id: m.id || generateUUID(),
+            id: m.id || crypto.randomUUID(),
             name: m.name || "Milestone",
             type: m.type || "capex",
-            amount: Number(
-              m.amount !== undefined ? m.amount : m.targetAmount || 0,
-            ),
-            isTriggerByAge:
-              m.isTriggerByAge !== undefined ? !!m.isTriggerByAge : false,
+            amount: Number(m.amount !== undefined ? m.amount : m.targetAmount || 0),
+            isTriggerByAge: m.isTriggerByAge !== undefined ? !!m.isTriggerByAge : false,
             triggerAge: Number(m.triggerAge !== undefined ? m.triggerAge : 65),
-            triggerYear: Number(
-              m.triggerYear !== undefined
-                ? m.triggerYear
-                : m.targetYear || 2030,
-            ),
+            triggerYear: Number(m.triggerYear !== undefined ? m.triggerYear : m.targetYear || 2030),
           })) || [],
         assets:
           scenario.assets?.map((ast: any) => ({
@@ -366,12 +392,8 @@ export default function ScenarioBuilder({
             isLiquidationTarget: !!ast.isLiquidationTarget,
             isDividendDestination: !!ast.isDividendDestination,
             availableDate: ast.availableDate,
-            growthRate:
-              Number(ast.growthRate !== undefined ? ast.growthRate : 6.0) / 100,
-            dividendYield:
-              Number(
-                ast.dividendYield !== undefined ? ast.dividendYield : 0.0,
-              ) / 100,
+            growthRate: Number(ast.growthRate !== undefined ? ast.growthRate : 6.0) / 100,
+            dividendYield: Number(ast.dividendYield !== undefined ? ast.dividendYield : 0.0) / 100,
             dividendReinvestment: ast.dividendReinvestment || "reinvest",
           })) || [],
         liquidBufferYears,
@@ -379,14 +401,11 @@ export default function ScenarioBuilder({
         lowerGuardrailMultiplier,
         guardrailUpwardFactor,
         guardrailDownwardFactor,
-        targetRothConversionAmount: budgetDoc?.targetRothConversionAmount || 0,
-        taxableRebalancingSaleAmount:
-          budgetDoc?.taxableRebalancingSaleAmount || 0,
-        rebalancingCapitalGainPercentage:
-          budgetDoc?.rebalancingCapitalGainPercentage || 0,
+        targetRothConversionAmount: targetRoth,
+        taxableRebalancingSaleAmount: taxableSale,
+        rebalancingCapitalGainPercentage: rebalancingCapGain,
       };
 
-      // Dispatch to Web Worker for Multi-Stage specific rendering
       if (workerRef.current) {
         workerRef.current.postMessage({
           type: "MULTI_STAGE_DRAWDOWN",
@@ -397,29 +416,20 @@ export default function ScenarioBuilder({
           currentAge: config.currentAge,
           assets: config.assets,
           stages: scenario.stages || [],
-          milestones: scenario.milestones || [],
-          uprrDivestmentAnnualAmount: 120000, // Example safe fallback
-          dividendEtfId:
-            scenario.assets?.find((a: any) =>
-              a.name?.toLowerCase().includes("schd"),
-            )?.id || "",
-          uprrId:
-            scenario.assets?.find((a: any) =>
-              a.name?.toLowerCase().includes("uprr"),
-            )?.id || "",
+          milestones: config.milestones,
+          uprrDivestmentAnnualAmount: 120000,
+          dividendEtfId: scenario.assets?.find((a: any) => a.name?.toLowerCase().includes("schd"))?.id || "",
+          uprrId: scenario.assets?.find((a: any) => a.name?.toLowerCase().includes("uprr"))?.id || "",
           targetConstantMarketReturn,
           inflationRate: config.inflationRate,
           budgetPhases: config.budgetPhases,
           maxRealWithdrawal: config.maxRealWithdrawal,
           liquidBufferYears: config.liquidBufferYears,
           nonTaxableGifts: scenario.nonTaxableGifts || [],
-          targetRothConversionAmount:
-            budgetDoc?.targetRothConversionAmount || 0,
-          taxableRebalancingSaleAmount:
-            budgetDoc?.taxableRebalancingSaleAmount || 0,
-          rebalancingCapitalGainPercentage:
-            budgetDoc?.rebalancingCapitalGainPercentage || 0,
-          threeBuckets: scenario.threeBuckets || plan.threeBuckets,
+          targetRothConversionAmount: config.targetRothConversionAmount,
+          taxableRebalancingSaleAmount: config.taxableRebalancingSaleAmount,
+          rebalancingCapitalGainPercentage: config.rebalancingCapitalGainPercentage,
+          threeBuckets: config.threeBuckets || plan.threeBuckets,
           appliedBridgeStrategies: scenario.appliedBridgeStrategies || [],
           primaryBirthYear: plan.primaryBirthYear,
           spouseBirthYear: plan.spouseBirthYear,
@@ -428,13 +438,12 @@ export default function ScenarioBuilder({
           delayInitialRMD: !!scenario.delayInitialRMD,
         });
       }
-    });
-    
+    }
   };
 
   useEffect(() => {
     handleRunSimulation();
-  }, [plan.scenarios, budgetDoc]);
+  }, [plan.scenarios, budgetDoc, activeScenario]);
 
   const addScenario = async () => {
     const doc = await db.plans.findOne(plan.id).exec();
@@ -490,7 +499,7 @@ export default function ScenarioBuilder({
       const currentScenarios = doc.scenarios || [];
       const newId = generateUUID();
       const duplicated = {
-        ...scenarioToDup,
+        ...JSON.parse(JSON.stringify(scenarioToDup)),
         id: newId,
         name: `${scenarioToDup.name} (Copy)`,
       };
@@ -498,6 +507,35 @@ export default function ScenarioBuilder({
         scenarios: [...currentScenarios, duplicated],
         updatedAt: Date.now(),
       });
+
+      // Deep clone planned_expenses, funding_allocations, and tax_events
+      const collectionsToClone = [
+        { col: db.planned_expenses, schema: 'planned_expenses' },
+        { col: db.funding_allocations, schema: 'funding_allocations' },
+        { col: db.tax_events, schema: 'tax_events' }
+      ];
+
+      for (const { col } of collectionsToClone) {
+        if (!col) continue;
+        const itemsToClone = await col.find({
+          selector: { scenarioId: scenarioToDup.id, userId }
+        }).exec();
+
+        const newItems = itemsToClone.map((item: any) => {
+          const itemJson = item.toJSON();
+          itemJson.id = generateUUID();
+          itemJson.scenarioId = newId;
+          itemJson.updatedAt = Date.now();
+          itemJson.createdAt = Date.now();
+          if (itemJson._rev) delete itemJson._rev;
+          return itemJson;
+        });
+
+        if (newItems.length > 0) {
+          await col.bulkInsert(newItems);
+        }
+      }
+
       setActiveScenarioId(newId);
     } catch (err) {
       console.error("Error duplicating scenario:", err);
@@ -776,55 +814,125 @@ export default function ScenarioBuilder({
       </div>
 
       {subModule !== "simulation" && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-200/60 dark:border-zinc-800/80 p-3.5 rounded-2xl transition-colors shrink-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mr-1 select-none">
-              Budget Scenario:
-            </span>
-            {plan.scenarios?.map((scenario: any) => {
-              const isSelected = activeScenarioId === scenario.id;
-              return (
+        <div className="flex flex-col gap-3 bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-200/60 dark:border-zinc-800/80 p-3.5 rounded-2xl transition-colors shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mr-1 select-none">
+                Budget Scenario:
+              </span>
+              {plan.scenarios?.map((scenario: any) => {
+                const isSelected = activeScenarioId === scenario.id;
+                const isActive = scenario.isActive;
+                return (
+                  <button
+                    key={scenario.id}
+                    onClick={() => setActiveScenarioId(scenario.id)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer min-h-[32px] flex items-center justify-center gap-1.5 border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                      isSelected
+                        ? "bg-blue-600 dark:bg-red-500 border-transparent text-white dark:text-zinc-950 font-bold shadow-sm"
+                        : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                    }`}
+                  >
+                    {isActive && (
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          isSelected
+                            ? "bg-white dark:bg-zinc-950"
+                            : "bg-emerald-500 dark:bg-emerald-400"
+                        }`}
+                        title="Current Active Scenario"
+                      />
+                    )}
+                    {scenario.name}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={addScenario}
+                className="flex items-center justify-center gap-1.5 min-h-[32px] bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm border border-transparent dark:border-zinc-700"
+                title="Add a new scenario to this plan"
+              >
+                <Plus size={14} /> New Scenario
+              </button>
+              {activeScenario && (
                 <button
-                  key={scenario.id}
-                  onClick={() => setActiveScenarioId(scenario.id)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer min-h-[32px] flex items-center justify-center border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                    isSelected
-                      ? "bg-blue-600 dark:bg-red-500 border-transparent text-white dark:text-zinc-950 font-bold shadow-sm"
-                      : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
-                  }`}
+                  onClick={() => duplicateScenario(activeScenario)}
+                  className="flex items-center justify-center gap-1.5 min-h-[32px] bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-zinc-200 dark:border-zinc-700"
+                  title="Duplicate currently viewed scenario"
                 >
-                  {scenario.name}
+                  <Copy size={14} /> Duplicate
                 </button>
-              );
-            })}
+              )}
+              {activeScenario && (plan.scenarios || []).length > 1 && (
+                <button
+                  onClick={() => setScenarioToDeleteId(activeScenario.id)}
+                  className="flex items-center justify-center gap-1.5 min-h-[32px] bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/40 text-red-650 dark:text-red-450 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-red-200/40 dark:border-red-900/30"
+                  title="Delete this scenario"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={addScenario}
-              className="flex items-center justify-center gap-1.5 min-h-[32px] bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm border border-transparent dark:border-zinc-700"
-              title="Add a new scenario to this plan"
-            >
-              <Plus size={14} /> New Scenario
-            </button>
-            {activeScenario && (
-              <button
-                onClick={() => duplicateScenario(activeScenario)}
-                className="flex items-center justify-center gap-1.5 min-h-[32px] bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-zinc-200 dark:border-zinc-700"
-                title="Duplicate currently viewed scenario"
-              >
-                <Copy size={14} /> Duplicate
-              </button>
-            )}
-            {activeScenario && (plan.scenarios || []).length > 1 && (
-              <button
-                onClick={() => setScenarioToDeleteId(activeScenario.id)}
-                className="flex items-center justify-center gap-1.5 min-h-[32px] bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/40 text-red-650 dark:text-red-450 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-red-200/40 dark:border-red-900/30"
-                title="Delete this scenario"
-              >
-                <Trash2 size={14} /> Delete
-              </button>
-            )}
-          </div>
+
+          {activeScenario && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1.5 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mr-1 select-none">
+                  Rename Scenario:
+                </span>
+                <input
+                  type="text"
+                  value={localScenarioName}
+                  onChange={(e) => setLocalScenarioName(e.target.value)}
+                  onBlur={async () => {
+                    if (!localScenarioName.trim() || localScenarioName === activeScenario.name) return;
+                    const doc = await db.plans.findOne(plan.id).exec();
+                    const updatedScenarios = plan.scenarios.map((s: any) =>
+                      s.id === activeScenario.id ? { ...s, name: localScenarioName } : s
+                    );
+                    await doc.patch({
+                      scenarios: updatedScenarios,
+                      updatedAt: Date.now(),
+                    });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className="px-2 py-1 text-xs border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-md focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all min-h-[28px] w-48 font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                {activeScenario.isActive ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-1 rounded-md border border-emerald-200/30">
+                    <Check size={12} /> Current Active Scenario
+                  </span>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      const doc = await db.plans.findOne(plan.id).exec();
+                      const updatedScenarios = plan.scenarios.map((s: any) => ({
+                        ...s,
+                        isActive: s.id === activeScenario.id,
+                      }));
+                      await doc.patch({
+                        scenarios: updatedScenarios,
+                        updatedAt: Date.now(),
+                      });
+                    }}
+                    className="flex items-center justify-center gap-1 min-h-[28px] bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/20 dark:hover:bg-blue-950/45 text-blue-600 dark:text-blue-450 text-[11px] font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer border border-blue-200/40 dark:border-blue-900/30"
+                  >
+                    Set as Current Active
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -924,7 +1032,10 @@ export default function ScenarioBuilder({
                       }`}
                     >
                       <div className="flex-1 min-w-0 pr-4">
-                        <div className="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">
+                        <div className="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate flex items-center gap-1.5">
+                          {scenario.isActive && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shrink-0" title="Current Active Scenario" />
+                          )}
                           {scenario.name}
                         </div>
                         <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-1 truncate">
@@ -1074,6 +1185,40 @@ export default function ScenarioBuilder({
                       }}
                       className="w-full text-sm border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-105 rounded-xl p-3 border font-medium focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-red-500/10 focus:border-blue-500 dark:focus:border-red-500 outline-none transition-all min-h-[44px]"
                     />
+                  </div>
+                  <div className="md:col-span-3 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-950/20 border border-zinc-200/50 dark:border-zinc-800/80 p-3.5 rounded-xl">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                        {activeScenario.isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                        Current Active Tracking Scenario
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        Designate this scenario as the primary active tracking scenario for this plan.
+                      </span>
+                    </div>
+                    {activeScenario.isActive ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-1.5 rounded-lg border border-emerald-200/30">
+                        <Check size={12} /> Active
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const doc = await db.plans.findOne(plan.id).exec();
+                          const updatedScenarios = plan.scenarios.map((s: any) => ({
+                            ...s,
+                            isActive: s.id === activeScenario.id,
+                          }));
+                          await doc.patch({
+                            scenarios: updatedScenarios,
+                            updatedAt: Date.now(),
+                          });
+                        }}
+                        className="flex items-center justify-center gap-1 min-h-[32px] bg-blue-600 hover:bg-blue-750 dark:bg-red-500 dark:hover:bg-red-650 text-white dark:text-zinc-950 text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm border border-transparent"
+                      >
+                        Set as Active
+                      </button>
+                    )}
                   </div>
                   <div className="md:col-span-3 pt-3 border-t border-zinc-200/50 dark:border-zinc-800/80">
                     <div className="flex justify-between items-center mb-3">
