@@ -6,6 +6,7 @@ import { useTheme } from './ThemeProvider';
 import { filterSimulationDataForView } from '../lib/chart-utils';
 
 export function MultiStageChart({ data, stages, displayStartYear, displayEndYear }: { data: any[], stages: any[], displayStartYear?: number, displayEndYear?: number }) {
+  const { currentlyViewingScenarioId } = useScenarioManager();
   const { currencyMode } = useCurrencyMode();
   const { theme } = useTheme();
   const isNightWatch = theme === 'night-watch';

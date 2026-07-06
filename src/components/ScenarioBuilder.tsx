@@ -52,6 +52,7 @@ export default function ScenarioBuilder({
   db: any;
   onClose: () => void;
 }) {
+  const { currentlyViewingScenarioId } = useScenarioManager();
   const { currencyMode } = useCurrencyMode();
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(
     plan.scenarios?.[0]?.id || null,

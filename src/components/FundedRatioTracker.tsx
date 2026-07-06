@@ -5,6 +5,7 @@ import { filterSimulationDataForView } from '../lib/chart-utils';
 import { Info } from 'lucide-react';
 
 export function FundedRatioTracker({ data, stages, activeScenario, handleUpdateDiscountRate, displayStartYear, displayEndYear }: { data: any[], stages: any[], activeScenario: any, handleUpdateDiscountRate: (rate: number) => void, displayStartYear?: number, displayEndYear?: number }) {
+  const { currentlyViewingScenarioId } = useScenarioManager();
   const filteredData = useMemo(() => {
     return filterSimulationDataForView(data, displayStartYear, displayEndYear);
   }, [data, displayStartYear, displayEndYear]);
