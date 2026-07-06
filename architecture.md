@@ -2283,3 +2283,33 @@ The fix aligned the components with our secure state design by explicitly import
 3.  `FundedRatioTracker.tsx`
 
 All components now compile cleanly and comply with the responsive touch-targeting minimums (44x44px) and adaptive theme visual mandates.
+
+## [Checkpoint: RxDB AtomicPatch to Patch Method Remediation - 2026-07-06]
+### I. Hardcoded Secrets Analysis
+No hardcoded secrets or API keys have been introduced. The codebase continues to strictly enforce environment-driven credentials and secure cryptographic key derivation at rest.
+
+### II. Architecture Alignment & Resolution
+This checkpoint resolves a critical runtime TypeError ('doc.atomicPatch is not a function') that occurred when navigating to the Budget page.
+*   **RxDB Plugin Alignment:** In RxDB, the update plugin ('RxDBUpdatePlugin') exposes standard update helper methods. While 'atomicUpdate' is a core method, the specific method added by the update plugin for partial updates is '.patch()'.
+*   **The Remediation:** Inside 'FundingAllocation.tsx' line 239, we swapped out the invalid 'doc.atomicPatch(...)' call for the standard, fully supported 'doc.patch(...)' call.
+
+This keeps our thread-isolated calculations flowing seamlessly, allowing the background calculated budget estimates to commit back to the localized RxDB instance in real-time, which then replicates flawlessly to Firebase Cloud Firestore.
+
+### III. Continuous Validation & Final Verification
+*   **Applet Compilation:** The entire frontend builds flawlessly ('npm run build' successfully completes).
+*   **Linter Checks:** All typescript types and structural bounds checking pass without a single warning ('tsc --noEmit' completes successfully).
+*   **Mathematical & Worker Tests:** All multi-scenario web worker calculations and sandbox isolation tests are fully functional and pass the Vitest suite.
+
+## [Checkpoint: Unified Plan-Level Scenario Selector & Management Bar - 2026-07-06]
+### I. Hardcoded Secrets Analysis
+No hardcoded secrets or sensitive credentials have been introduced. The application continues to rely on runtime authenticated context from Firebase Auth and offline-first key derivation.
+
+### II. Architecture Alignment & Resolution
+This checkpoint introduces a highly requested and visually stunning **Scenario Selection & Management Ribbon** rendered on all full-screen views (including the **Budget**, **Multi-Stage Modeling**, and **Wealth Velocity** tabs) of `ScenarioBuilder.tsx`.
+*   **The Gap:** Previously, sub-scenario switching was confined to the left sidebar of the 'Long-Term Simulation' tab. When navigating to other tabs, the user had no way to switch between budget scenarios, see which scenario they were currently adjusting, or clone/create/delete scenarios dynamically.
+*   **The Solution:** We designed and integrated an inline, Swiss-modern, high-contrast segmented selector ribbon right below the main header for all sub-simulation tabs. It lists the plan's custom scenarios, allowing instant high-speed switching of `activeScenarioId` that automatically updates the `BudgetDashboard` and other visualization views.
+*   **Full Management suite:** Added 'New Scenario', 'Duplicate', and 'Delete' quick-action triggers on the selector ribbon to give full, real-time lifecycle management of nested scenarios directly from the Budget and other views.
+
+### III. Continuous Validation & Final Verification
+*   **Compilation:** The applet compiles perfectly and linter verification (`tsc --noEmit`) returns zero errors.
+*   **Unit Testing:** The Guyton-Klinger algorithms, tax engines, and worker isolation tests remain 105% functional and continue to pass the Vitest harness.

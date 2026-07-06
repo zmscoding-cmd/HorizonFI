@@ -236,7 +236,7 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
     if (taxOutput?.grossWithdrawalTotal && db && userId) {
       db.budgets.findOne({ selector: { userId } }).exec().then((doc: any) => {
         if (doc && isMounted && doc.calculatedGrossWithdrawalAnnual !== taxOutput.grossWithdrawalTotal) {
-          doc.atomicPatch({ calculatedGrossWithdrawalAnnual: taxOutput.grossWithdrawalTotal });
+          doc.patch({ calculatedGrossWithdrawalAnnual: taxOutput.grossWithdrawalTotal });
         }
       }).catch((e: any) => console.error("Error updating budget gross withdrawal", e));
     }
