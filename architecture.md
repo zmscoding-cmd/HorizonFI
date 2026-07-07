@@ -2388,3 +2388,18 @@ This checkpoint introduces the highly requested **Scenario Renaming & Active Sta
 * **Zero-Trust Validation:** Retains total offline isolation.
 * **Secrets Analysis:** Zero hardcoded secrets were added.
 * **Shift Justification:** Resolves a silent crash in the DP strategy table which caused the UI to lock up on a perpetual loading state when overrides were processed.
+
+### ARCHITECTURE.MD CHECKPOINT UPDATE
+Trigger: Added the marginal tax bracket to the Bridge Strategy Ledger.
+
+1. Architectural State Changes:
+- Modified `simulation.worker.ts` to explicitly compute and yield the active `marginalBracket` for each year, rather than just raw tax liabilities.
+- Updated `BridgeStrategyTable.tsx` to conditionally render this bracket within a new table column to aid users in verifying dynamic programming behavior against expected federal brackets.
+
+2. ARCHITECTURE.md Diff/Additions:
+No structural schema or offline mechanism was modified. This purely enhances the telemetry output of the local DP web worker.
+
+3. Validation Status:
+[x] Offline Capability Verified
+[x] Night-Watch UI/UX Verified when in dark mode
+[x] API Telemetry Logged

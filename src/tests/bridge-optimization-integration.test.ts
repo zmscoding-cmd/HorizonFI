@@ -121,7 +121,7 @@ describe('Bridge Period Optimization Module - UI Integration', () => {
     expect(cols1[0].props.children).toBe(2026); // Year
     
     // Simulate clicking "Apply" for the first row to ensure callback is invoked with correct parameters
-    const actionButton1 = cols1[6].props.children;
+    const actionButton1 = cols1[7].props.children;
     actionButton1.props.onClick();
 
     expect(onApplyMock).toHaveBeenCalledTimes(1);
@@ -163,7 +163,7 @@ describe('Bridge Period Optimization Module - UI Integration', () => {
     const cols = rowsArray[0].props.children;
 
     // Action cell container
-    const actionCell = cols[6].props.children;
+    const actionCell = cols[7].props.children;
     expect(actionCell.props.className).toContain('flex items-center');
 
     // Unapply button is the second child in the container (index 1)

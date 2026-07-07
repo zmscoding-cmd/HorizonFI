@@ -3498,20 +3498,25 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
     const rothMagi = params.baseOrdinaryIncome + rothConv;
     const rothOrdinary = Math.max(0, rothMagi - STANDARD_DEDUCTION);
     let rothTax = 0;
+    let marginalBracket = 12;
 
     // Calculate precise bracket overlay for Roth
     if (rothOrdinary > 383900) {
+      marginalBracket = 32;
       rothTax =
         (rothOrdinary - 383900) * 0.32 +
         (383900 - 201050) * 0.24 +
         (201050 - 94300) * 0.22 +
         94300 * 0.12;
     } else if (rothOrdinary > 201050) {
+      marginalBracket = 24;
       rothTax =
         (rothOrdinary - 201050) * 0.24 + (201050 - 94300) * 0.22 + 94300 * 0.12;
     } else if (rothOrdinary > 94300) {
+      marginalBracket = 22;
       rothTax = (rothOrdinary - 94300) * 0.22 + 94300 * 0.12;
     } else {
+      marginalBracket = 12;
       rothTax = rothOrdinary * 0.12;
     }
     const rothOnlyTaxImpact = rothTax - baseTax;
@@ -3535,6 +3540,7 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
       stockLiquidation: stockLiquidation,
       rothConversion: rothConv,
       effectiveMarginalRate: effectiveMarginalRate,
+      marginalBracket,
       estimatedTotalTax: baseTax + rothOnlyTaxImpact + cgTaxPenalty,
       taxFromBase: baseTax,
       taxFromRoth: rothOnlyTaxImpact,

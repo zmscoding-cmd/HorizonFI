@@ -8,6 +8,7 @@ export interface BridgeOptimizationData {
   stockLiquidation: number;
   rothConversion: number;
   effectiveMarginalRate: number;
+  marginalBracket?: number;
   estimatedTotalTax?: number;
   taxFromBase?: number;
   taxFromRoth?: number;
@@ -94,6 +95,7 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
                 <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Year</th>
                 <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Stock Liquidation</th>
                 <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rec. Roth Conversion</th>
+                <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Bracket</th>
                 <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tax (Roth)</th>
                 <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Tax (Stock)</th>
                 <th className="py-2 px-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Est. Total Tax</th>
@@ -140,6 +142,9 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
                           className="w-24 bg-transparent border-b border-dashed border-blue-300 dark:border-blue-700 focus:border-blue-500 outline-none text-blue-700 dark:text-blue-400 font-mono"
                         />
                       </div>
+                    </td>
+                    <td className="py-1 px-3 text-sm text-zinc-600 dark:text-zinc-400 font-mono font-medium">
+                      {row.marginalBracket !== undefined ? row.marginalBracket + '%' : '-'}
                     </td>
                     <td className="py-1 px-3 text-sm text-red-500 dark:text-red-400 font-mono font-medium">
                       {row.taxFromRoth !== undefined ? '$' + row.taxFromRoth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
@@ -199,7 +204,7 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
                   <td className="py-2 px-3 text-sm text-blue-600 dark:text-blue-400 font-mono font-bold">
                     ${data.reduce((sum, row) => sum + (row.rothConversion || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </td>
-                  <td colSpan={4}></td>
+                  <td colSpan={5}></td>
                 </tr>
               </tfoot>
             )}
