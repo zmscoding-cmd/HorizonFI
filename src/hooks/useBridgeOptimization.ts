@@ -30,11 +30,13 @@ export function useBridgeOptimization(planId: string | undefined, scenarioId: st
 
         workerRef.current.onmessage = (event) => {
           const res = event.data;
-          if (res.success && res.type === 'BRIDGE_OPTIMIZATION') {
-            if (res.scenarioId === scenarioId) {
+          if (res.type === 'BRIDGE_OPTIMIZATION') {
+            if (res.success && res.scenarioId === scenarioId) {
               setData(res.data);
-              setLoading(false);
+            } else if (!res.success) {
+              console.error("Bridge Optimization Worker Error:", res.error);
             }
+            setLoading(false);
           }
         };
       }

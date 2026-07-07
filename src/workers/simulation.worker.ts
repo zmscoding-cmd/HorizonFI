@@ -3415,7 +3415,20 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
       }
 
       const ordinaryIncome = params.baseOrdinaryIncome + targetRoth;
-      const totalTaxes = calculateYearlyTax(ordinaryIncome, capitalGainsHarvested);
+      const taxableOrdinary = Math.max(0, ordinaryIncome - 30000);
+      const combinedTaxableIncome = taxableOrdinary + capitalGainsHarvested;
+      
+      let taxPenalty = 0;
+      if (combinedTaxableIncome > 98900) {
+        if (taxableOrdinary <= 98900) {
+          taxPenalty += (combinedTaxableIncome - 98900) * 0.15;
+        } else {
+          taxPenalty += capitalGainsHarvested * 0.15;
+        }
+      }
+      
+      const totalTaxes = taxableOrdinary * 0.12 + taxPenalty;
+      
       result = {
         lotsSold,
         rothConversionAmount: targetRoth,

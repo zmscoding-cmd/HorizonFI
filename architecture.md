@@ -2381,3 +2381,10 @@ This checkpoint introduces the highly requested **Scenario Renaming & Active Sta
 * **Zero-Trust Validation:** The recalculate algorithm maintains total reliance on isolated client-side IndexDB payloads and local computational web workers.
 * **Secrets Analysis:** All edits scanned and verified; zero hardcoded secrets exist.
 * **Shift Justification:** Resolves a major workflow bottleneck where changes made to Budget parameters or Tax overrides failed to trigger reactive timeline updates. Users can now securely tweak and test specific liquidation years while observing the ripple effects of their optimizations over multi-decade projections.
+
+## Checkpoint: Bridge Optimization Web Worker Bug Fix (Date: July 2026)
+* **Architecture Alignment:** Fixed an unhandled ReferenceError (`calculateYearlyTax` is not defined) within the `simulation.worker.ts` DP override injection block. This error silently caused the worker to abort and return a `success: false` payload, which was previously unhandled by the UI.
+* **UI/State Alignment:** Modified `useBridgeOptimization.ts` to actively handle `success: false` message payloads from the worker, forcing `setLoading(false)` to tear down the endless loading spinner and gracefully recover state, while logging the precise error to the console.
+* **Zero-Trust Validation:** Retains total offline isolation.
+* **Secrets Analysis:** Zero hardcoded secrets were added.
+* **Shift Justification:** Resolves a silent crash in the DP strategy table which caused the UI to lock up on a perpetual loading state when overrides were processed.
