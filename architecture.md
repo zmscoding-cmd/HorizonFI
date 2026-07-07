@@ -2364,4 +2364,12 @@ This checkpoint introduces the highly requested **Scenario Renaming & Active Sta
 * **Zero-Trust Validation:** The reactive query boundaries strictly isolate and render data records scoped solely to the actively viewed scenario in the client-side IndexedDB database.
 * **Secrets Analysis:** No keys, tokens, or credentials were hardcoded.
 
+## Checkpoint: Strategic Tax Events Multi-Scenario Isolation & Schema Alignment (Date: July 2026)
+* **Architecture Alignment:** Addressed a critical bug where Strategic Tax Events (Roth Conversions and Rebalancing Sales) failed to save and bleed across scenario views.
+* **Schema Upgrade:** Upgraded `taxEventSchema` inside `src/lib/db.ts` to `version: 1` to strictly formally define the `createdAt` and `updatedAt` metadata fields. This resolves a silent RxDB schema validation rejection that previously prevented new Strategic Tax Event records from saving to IndexedDB.
+* **Reactive Scenario Isolation:** Appended `activeScenario?.id` to the reactive `useEffect` dependency array in `FundingAllocation.tsx`. The subscription now successfully unmounts and resubscribes to the correct document when toggling between active and sandbox budget scenarios.
+* **Tax Engine Precision:** Strategic Tax configurations now correctly reflect real-time calculations directly within `FundingAllocation`'s mathematical gross-up solver (`evaluateMultiBucketTax`), propagating correctly to the local Worker and the `TaxStackVisualizer`.
+* **Zero-Trust Validation:** Validated that no secret tokens were logged or exposed.
+* **Shift Justification:** Resolves a silent save failure induced by strict IndexedDB schema validations and isolates configuration boundaries to ensure robust "What-If" sandbox testing.
+
 

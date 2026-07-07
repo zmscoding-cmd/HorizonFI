@@ -56,10 +56,17 @@ export default function FundingAllocation({ plan, activeScenario, db, userId, ha
           taxableRebalancingSaleAmount: budgetDoc.taxableRebalancingSaleAmount || 0,
           rebalancingCapitalGainPercentage: budgetDoc.rebalancingCapitalGainPercentage || 0,
         });
+      } else {
+        // Reset if no doc exists for scenario
+        setTaxEvents({
+          targetRothConversionAmount: 0,
+          taxableRebalancingSaleAmount: 0,
+          rebalancingCapitalGainPercentage: 0,
+        });
       }
     });
     return () => subscription.unsubscribe();
-  }, [db, userId]);
+  }, [db, userId, activeScenario?.id]);
 
   useEffect(() => {
     setLocalRothConversion(taxEvents.targetRothConversionAmount ? taxEvents.targetRothConversionAmount.toString() : '');

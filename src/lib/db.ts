@@ -665,7 +665,7 @@ const fundingAllocationSchema = {
 };
 
 const taxEventSchema = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -674,7 +674,9 @@ const taxEventSchema = {
     scenarioId: { type: 'string', maxLength: 100 },
     targetRothConversionAmount: { type: 'number' },
     taxableRebalancingSaleAmount: { type: 'number' },
-    rebalancingCapitalGainPercentage: { type: 'number' }
+    rebalancingCapitalGainPercentage: { type: 'number' },
+    createdAt: { type: 'integer' },
+    updatedAt: { type: 'integer' }
   },
   required: ['id', 'userId', 'scenarioId']
 };
@@ -1113,7 +1115,16 @@ export async function getDatabase() {
         collectionsToCreate.funding_allocations = { schema: fundingAllocationSchema };
       }
       if (!rxdb.collections.tax_events) {
-        collectionsToCreate.tax_events = { schema: taxEventSchema };
+        collectionsToCreate.tax_events = {
+          schema: taxEventSchema,
+          migrationStrategies: {
+            1: function (oldDoc: any) {
+              oldDoc.createdAt = oldDoc.createdAt || Date.now();
+              oldDoc.updatedAt = oldDoc.updatedAt || Date.now();
+              return oldDoc;
+            }
+          }
+        };
       }
       if (!rxdb.collections.planned_expenses) {
         collectionsToCreate.planned_expenses = {
