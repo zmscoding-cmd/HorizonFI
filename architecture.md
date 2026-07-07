@@ -2349,3 +2349,11 @@ This checkpoint introduces the highly requested **Scenario Renaming & Active Sta
 * **Secrets Analysis:** Thoroughly scanned all new code and confirmed zero hardcoded secrets are present.
 * **Shift Justification:** Transitioning to a Multi-Scenario architecture left legacy user budget items orphaned because they lacked the newly-mandated `scenarioId` field. This script rescues this legacy user data upon initial application launch under the new version.
 
+## Checkpoint: Planned Expenses Schema Alignment & Insertion Fix (Date: July 2026)
+* **Architecture Alignment:** Corrected a critical structural divergence between the Multi-Scenario database query filters and the underlying `plannedExpenseSchema`.
+* **Structural Integration:** Upgraded `plannedExpenseSchema` inside `src/lib/db.ts` to version `3` to formally define `scenarioId: { type: 'string', maxLength: 100 }` as a first-class, required field, supported by an idempotent schema migration strategy (`strategy 3`).
+* **Active Scenario Preservation:** Refactored the form submit payload generator in `BudgetDashboard.tsx` (`handleAddExpense`) to explicitly inject the active scenario ID (`activeScenario?.id || 'Baseline'`), resolving the bug where submitted items cleared out without getting rendered in the active scenario's view.
+* **Zero-Trust & Offline Validation:** Validated that both local queries and Firestore replication loops safely bound all new assets and expenses to isolated scenarios without security boundary bleeding.
+* **Secrets Analysis:** Hand-scanned all modifications and verified zero secrets or credentials are hardcoded.
+* **Shift Justification:** When migrating to a multi-scenario framework, queries filtered strictly by `scenarioId` but the form submitted expenses without a `scenarioId` field. This caused the database to successfully save but instantly filter out and hide newly inserted items. Bumping the schema and linking insertions to active scenarios fixes the visibility bug.
+

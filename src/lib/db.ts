@@ -611,12 +611,13 @@ const budgetSchema = {
 };
 
 const plannedExpenseSchema = {
-  version: 2,
+  version: 3,
   primaryKey: 'id',
   type: 'object',
   properties: {
     id: { type: 'string', maxLength: 100 },
     userId: { type: 'string', maxLength: 100 },
+    scenarioId: { type: 'string', maxLength: 100 },
     categoryId: { type: 'string' },
     name: { type: 'string' },
     frequency: { type: 'string', enum: ['Monthly', 'Annual'] },
@@ -641,7 +642,7 @@ const plannedExpenseSchema = {
     updatedAt: { type: 'integer' }
   },
   encrypted: ['staticAmount', 'relationalTargetId', 'relationalPercent', 'notes', 'urls', 'renewalDate'],
-  required: ['id', 'userId', 'name', 'frequency', 'valuationType']
+  required: ['id', 'userId', 'scenarioId', 'name', 'frequency', 'valuationType']
 };
 
 
@@ -1125,6 +1126,11 @@ export async function getDatabase() {
             2: function (oldDoc: any) {
               // Gracefully migrate existing records to version 2 schema with excluded
               oldDoc.excluded = false;
+              return oldDoc;
+            },
+            3: function (oldDoc: any) {
+              // Gracefully migrate existing records to version 3 schema with scenarioId
+              oldDoc.scenarioId = oldDoc.scenarioId || 'Baseline';
               return oldDoc;
             }
           }

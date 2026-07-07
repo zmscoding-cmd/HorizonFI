@@ -568,6 +568,7 @@ export default function BudgetDashboard({
       const payload: any = {
         id: generateUUID(),
         userId,
+        scenarioId: activeScenario?.id || 'Baseline',
         name: newExpense.name.trim(),
         frequency: newExpense.frequency,
         valuationType: newExpense.valuationType,
