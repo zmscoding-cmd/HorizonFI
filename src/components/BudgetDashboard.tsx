@@ -301,7 +301,7 @@ export default function BudgetDashboard({
     return () => {
       subscriptions.forEach(sub => sub.unsubscribe());
     };
-  }, [db, userId]);
+  }, [db, userId, activeScenario?.id]);
 
   // Web Worker for background computations
   const workerRef = useRef<Worker | null>(null);
@@ -555,11 +555,21 @@ export default function BudgetDashboard({
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newExpense.name.trim()) return;
+    console.log('[BudgetDashboard] handleAddExpense triggered', {
+      name: newExpense.name,
+      activeScenarioId: activeScenario?.id,
+      newExpenseState: newExpense
+    });
+    
+    if (!newExpense.name.trim()) {
+      console.warn('[BudgetDashboard] Expense name is empty, aborting insert');
+      return;
+    }
     setValidationError(null);
 
     // Validate that relational matches selected targets
     if (newExpense.valuationType === 'Relational' && !newExpense.relationalTargetId) {
+      console.warn('[BudgetDashboard] Relational validation failed: missing relationalTargetId');
       setValidationError('Please select a target asset, category, or other expense for the relational link.');
       return;
     }
@@ -603,7 +613,9 @@ export default function BudgetDashboard({
 
       if (newExpense.renewalDate) payload.renewalDate = newExpense.renewalDate;
 
+      console.log('[BudgetDashboard] Attempting to insert planned_expenses payload:', payload);
       await db.planned_expenses.insert(payload);
+      console.log('[BudgetDashboard] Successfully inserted planned_expenses doc into RxDB:', payload.id);
 
       // Clear form
       setNewExpense({
@@ -623,6 +635,7 @@ export default function BudgetDashboard({
       setNewLinkUrl('');
       setActiveIndexNewExpenseLinkEdit(null);
     } catch (err: any) {
+      console.error('[BudgetDashboard] Error inside handleAddExpense try-catch:', err);
       setValidationError(err.message || 'Error inserting planned expense.');
     }
   };

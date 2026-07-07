@@ -2357,3 +2357,11 @@ This checkpoint introduces the highly requested **Scenario Renaming & Active Sta
 * **Secrets Analysis:** Hand-scanned all modifications and verified zero secrets or credentials are hardcoded.
 * **Shift Justification:** When migrating to a multi-scenario framework, queries filtered strictly by `scenarioId` but the form submitted expenses without a `scenarioId` field. This caused the database to successfully save but instantly filter out and hide newly inserted items. Bumping the schema and linking insertions to active scenarios fixes the visibility bug.
 
+## Checkpoint: Reactive State Subscription & Diagnostic Log Injection (Date: July 2026)
+* **Architecture Alignment:** Fixed a stale state dependency bug inside the `BudgetDashboard.tsx` component's database subscription `useEffect` hook.
+* **Reactive Binding Resolution:** Appended `activeScenario?.id` to the dependency array of the subscription hook, ensuring that changing scenarios triggers a clean unsubscriber cycle and spawns a fresh query subscribed to the correct `scenarioId`.
+* **Diagnostic Transparency:** Injected verbose console diagnostic warnings and activity logs (`[BudgetDashboard] handleAddExpense triggered`, `Attempting to insert planned_expenses payload`, etc.) into `handleAddExpense` to provide immediate, actionable feedback to testing developers upon click execution.
+* **Zero-Trust Validation:** The reactive query boundaries strictly isolate and render data records scoped solely to the actively viewed scenario in the client-side IndexedDB database.
+* **Secrets Analysis:** No keys, tokens, or credentials were hardcoded.
+
+
