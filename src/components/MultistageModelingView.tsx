@@ -22,6 +22,7 @@ interface MultistageModelingViewProps {
   displayEndYear?: number;
   bridgeData: BridgeOptimizationData[];
   bridgeLoading?: boolean;
+  recalculateBridge?: (overrides?: any) => void;
 }
 
 export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
@@ -35,6 +36,7 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
   displayEndYear,
   bridgeData,
   bridgeLoading = false,
+  recalculateBridge,
 }) => {
   const currentResults = multiStageResults[activeScenarioId || ""] || [];
   const [notification, setNotification] = useState<string | null>(null);
@@ -238,6 +240,7 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
                 <BridgeStrategyTable 
                   data={bridgeData} 
                   appliedStrategies={activeScenario?.appliedBridgeStrategies || []}
+                  onRecalculate={recalculateBridge}
                   onApplyYearlyStrategy={async (year, stockLiquidation, rothConversion) => {
                     if (!db || !plan || !activeScenario) return;
                     

@@ -3379,12 +3379,57 @@ export function generateBridgeOptimizationTimeline(initialState, params) {
     age <= params.endAge;
     age++
   ) {
-    // Current year optimal path
-    const result = calculateOptimalMultiYearTaxPathDP(
-      currentState,
-      { ...params, endAge: params.endAge },
-      0,
-    );
+    const year = new Date().getFullYear() + (age - (params.startAge || currentState.age));
+    let targetRoth = -1;
+    let targetStock = -1;
+
+    if (params.overrides && params.overrides[year]) {
+      if (params.overrides[year].rothConversion !== undefined) targetRoth = params.overrides[year].rothConversion;
+      if (params.overrides[year].stockLiquidation !== undefined) targetStock = params.overrides[year].stockLiquidation;
+    } else if (params.appliedBridgeStrategies) {
+      const applied = params.appliedBridgeStrategies.find((s: any) => s.year === year);
+      if (applied) {
+        targetRoth = applied.rothConversion;
+        targetStock = applied.stockLiquidation;
+      }
+    }
+
+    let result;
+    if (targetRoth >= 0 && targetStock >= 0) {
+      let lotsSold: {id: string, sharesSold: number}[] = [];
+      let remainingTarget = targetStock;
+      const concentratedLots = currentState.taxableLots.filter((l: any) => l.isTargetConcentratedPosition);
+      for (const lot of concentratedLots) {
+        if (remainingTarget <= 0.01) break;
+        const sharesToSell = Math.min(lot.shares, remainingTarget / lot.currentPrice);
+        lotsSold.push({ id: lot.id, sharesSold: sharesToSell });
+        remainingTarget -= sharesToSell * lot.currentPrice;
+      }
+
+      let capitalGainsHarvested = 0;
+      for (const sold of lotsSold) {
+        const lot = currentState.taxableLots.find((l: any) => l.id === sold.id);
+        if (lot) {
+          capitalGainsHarvested += sold.sharesSold * Math.max(0, lot.currentPrice - lot.costBasisPerShare);
+        }
+      }
+
+      const ordinaryIncome = params.baseOrdinaryIncome + targetRoth;
+      const totalTaxes = calculateYearlyTax(ordinaryIncome, capitalGainsHarvested);
+      result = {
+        lotsSold,
+        rothConversionAmount: targetRoth,
+        taxesPaid: totalTaxes,
+        totalTaxableIncome: ordinaryIncome + capitalGainsHarvested,
+      };
+    } else {
+      // Current year optimal path
+      result = calculateOptimalMultiYearTaxPathDP(
+        currentState,
+        { ...params, endAge: params.endAge },
+        0,
+      );
+    }
 
     // Compute the actual liquidation and gains for this year
     let stockLiquidation = 0;

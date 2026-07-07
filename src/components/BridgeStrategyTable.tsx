@@ -18,6 +18,7 @@ interface BridgeStrategyTableProps {
   data: BridgeOptimizationData[];
   onApplyYearlyStrategy?: (year: number, stockLiquidation: number, rothConversion: number) => void;
   onUnapplyYearlyStrategy?: (year: number) => void;
+  onRecalculate?: (overrides: any) => void;
   appliedStrategies?: { year: number; stockLiquidation: number; rothConversion: number; }[];
 }
 
@@ -25,6 +26,7 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
   data = [], 
   onApplyYearlyStrategy,
   onUnapplyYearlyStrategy,
+  onRecalculate,
   appliedStrategies = []
 }) => {
   const [overrides, setOverrides] = useState<Record<number, { stockLiquidation?: string, rothConversion?: string }>>({});
@@ -50,17 +52,40 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
     onApplyYearlyStrategy?.(year, stockVal, rothVal);
   };
 
+  const handleRecalculate = () => {
+    if (onRecalculate) {
+       const numericOverrides: Record<number, { stockLiquidation?: number, rothConversion?: number }> = {};
+       Object.entries(overrides).forEach(([year, values]) => {
+          numericOverrides[Number(year)] = {
+             stockLiquidation: values.stockLiquidation !== undefined && values.stockLiquidation !== '' ? Number(values.stockLiquidation) : undefined,
+             rothConversion: values.rothConversion !== undefined && values.rothConversion !== '' ? Number(values.rothConversion) : undefined
+          };
+       });
+       onRecalculate(numericOverrides);
+    }
+  };
+
   return (
     <div id="bridge-strategy-table-card" className="p-4 sm:p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm w-full overflow-hidden transition-colors">
-      <div className="mb-4">
-        <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">
-          Actionable Strategy Ledger
-        </h4>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-          Review dynamic-programming suggested targets for tax optimization per calendar year.
-        </p>
+      <div className="mb-4 flex justify-between items-start">
+        <div>
+          <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">
+            Actionable Strategy Ledger
+          </h4>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            Review dynamic-programming suggested targets for tax optimization per calendar year.
+          </p>
+        </div>
+        {onRecalculate && (
+          <button 
+            type="button"
+            onClick={handleRecalculate}
+            className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer whitespace-nowrap"
+          >
+            Recalculate Strategy
+          </button>
+        )}
       </div>
-
       <div className="overflow-x-auto -mx-4 sm:mx-0">
         <div className="inline-block min-w-full align-middle px-4 sm:px-0">
           <table className="min-w-full text-left border-collapse">

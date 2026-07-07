@@ -2373,3 +2373,11 @@ This checkpoint introduces the highly requested **Scenario Renaming & Active Sta
 * **Shift Justification:** Resolves a silent save failure induced by strict IndexedDB schema validations and isolates configuration boundaries to ensure robust "What-If" sandbox testing.
 
 
+
+## Checkpoint: Bridge Optimization Recalculate Protocol & Dependency Uncoupling (Date: July 2026)
+* **Architecture Alignment:** Introduced a manual "Recalculate Strategy" lifecycle button into the Actionable Strategy Ledger (`BridgeStrategyTable.tsx`) and uncoupled the `useBridgeOptimization` hook from its restrictive auto-subscription loop.
+* **Component Architecture:** Refactored `useBridgeOptimization.ts` to export an asynchronous `recalculate` dispatch method. This method aggressively queries the latest NoSQL IndexedDB states across `db.plans`, `db.budgets`, and `db.tax_events` prior to Worker instantiation, ensuring the Dynamic Programming solver receives the absolute latest `baseOrdinaryIncome` and Strategic Tax Event targets.
+* **Web Worker Logic:** Enhanced `simulation.worker.ts` (`generateBridgeOptimizationTimeline`) to dynamically intercept and process manual UI `overrides` or pre-committed `appliedBridgeStrategies` arrays. The worker now surgically bypasses the `calculateOptimalMultiYearTaxPathDP` loop for targeted years, automatically projecting isolated cascading tax implications for all subsequent years.
+* **Zero-Trust Validation:** The recalculate algorithm maintains total reliance on isolated client-side IndexDB payloads and local computational web workers.
+* **Secrets Analysis:** All edits scanned and verified; zero hardcoded secrets exist.
+* **Shift Justification:** Resolves a major workflow bottleneck where changes made to Budget parameters or Tax overrides failed to trigger reactive timeline updates. Users can now securely tweak and test specific liquidation years while observing the ripple effects of their optimizations over multi-decade projections.
