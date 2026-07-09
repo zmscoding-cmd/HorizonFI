@@ -980,7 +980,6 @@ export default function ScenarioBuilder({
           bridgeData={bridgeData}
           bridgeLoading={bridgeLoading}
           recalculateBridge={recalculate}
-          renderHeader={renderBudgetScenarioSelector}
         />
       )}
 
@@ -3485,7 +3484,6 @@ export default function ScenarioBuilder({
 
       {subModule === "velocity" && (
         <div className="flex-1 overflow-y-auto pb-8 pr-1 font-sans space-y-4">
-          {renderBudgetScenarioSelector()}
           {!activeScenario ? (
             <div className="p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-zinc-500 mt-6 min-h-[300px]">
               <AlertTriangle className="w-10 h-10 mb-4 text-amber-500 opacity-80" />

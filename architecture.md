@@ -2415,6 +2415,36 @@ This checkpoint updates the user interface layout of the Multi-Scenario planning
 *   **The Solution:** Decoupled the budget scenario selector from the top-level outer skeleton of `ScenarioBuilder.tsx`. Implemented an inline helper function `renderBudgetScenarioSelector()` and dynamically injected it inside the scrollable inner containers (`overflow-y-auto`) of the "Budget", "Multi-Stage Modeling" (config and visualization panels), and "Wealth Velocity" sub-modules.
 *   **Scroll Integration:** The selector now scrolls seamlessly with the active content inside those sub-modules, dramatically expanding the usable vertical canvas for charts, data grids, and forms.
 
-### III. Continuous Validation & Final Verification
-*   **Compilation Verification:** Tested and compiled the entire codebase successfully; both `npm run lint` and `npm run build` pass flawlessly.
-*   **Zero-Trust and Offline Validation:** All actions, scenario duplicates, renames, and deletions continue to occur strictly within the client-side RxDB/IndexedDB boundary, synchronously replicating to Firebase Firestore over a secure, authenticated connection.
+## Checkpoint: Multi-Stage and Velocity View Decoupling of Scenario Selector (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+A comprehensive audit of the newly updated source files `src/components/ScenarioBuilder.tsx` and `src/components/MultistageModelingView.tsx` was executed. No API keys, credentials, or secrets were introduced or hardcoded.
+
+### II. Architecture Alignment & Resolution
+*   **Alignment Review:** Reviewed changes against the secure PWA standard, local-first data architecture, and structural layout boundaries.
+*   **Aesthetic & Scope Translation:** Adhered strictly to the user request stating that the budget scenario selector is only needed on the budget page. 
+*   **Refinement:** Completely decoupled and removed the `renderHeader` interface prop and its layout render calls from the Multi-Stage Modeling View config and visualization modes. Also removed the scenario selector layout injector from the Wealth Velocity submodule. The selector now renders exclusively on the dedicated Budget submodule page where active funding and cash flow scenarios are defined, maximizing display vertical space on multi-stage projections and charts.
+
+### III. Continuous Validation & Testing
+*   **Mathematical & Layout Integrity:** Built, compiled, and linted the entire codebase successfully. Zero TypeScript or styling anomalies detected.
+*   **Database Synchronization:** IndexedDB/RxDB writes for scenarios, renaming, and active scenario status switches are fully isolated and remain perfectly synchronous.
+
+
+## Checkpoint: Multi-Stage Section Reordering for Logical Flow (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Thoroughly scanned the modifications made in `src/components/MultistageModelingView.tsx` for layout and prop reorderings. No credentials, tokens, or private secrets have been hardcoded. All components continue to access dynamic scenario-driven configurations through secure local state stores.
+
+### II. Architecture Alignment & Resolution
+This checkpoint optimizes the presentation layout sequence of the Multi-Stage Modeling page to align with the core **UX/UI and Responsiveness Mandates**.
+*   **The Gap:** Previously, the "Income Shift Visualization" (tracking divestments) and the "Actionable Strategy Ledger" (representing recommendations and strategy applications) were rendered lower in the page flow (separated by Phase Cash Strategy and RMD tracks). This forced the user to scroll extensively to correlate net worth projection changes with the corresponding income shift sequences and actual recommended strategy ledgers.
+*   **The Solution:** Repositioned the layout sections within `MultistageModelingView.tsx`.
+    *   Moved **Income Shift Visualization** (`MultiStageChart`) to reside directly under the **Long-Term Portfolio Projection** (`LongTermPortfolioChart`).
+    *   Moved **Actionable Strategy Ledger** (`BridgeStrategyTable`, along with its associated loading, calculation, and active locks notification states) to reside directly under **Income Shift Visualization**.
+    *   The other views (Three Buckets Waterfall, RMD Tracker, Bridge Period Optimization Chart, and Funded Ratio Tracker) flow naturally beneath them, maintaining a unified visual hierarchy.
+
+### III. Continuous Validation & Testing
+*   **Code Quality & Types:** Ran `tsc --noEmit` and the linter successfully; both verified absolute type safety with zero warnings or errors.
+*   **Production Compilation:** Verified that the final production bundling (`npm run build`) builds cleanly and integrates without issues.
+
+
