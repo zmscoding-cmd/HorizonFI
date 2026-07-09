@@ -1693,6 +1693,8 @@ export type MultiStageYearlySnapshot = {
   netNonPortfolioIncomeReal?: number;
   incomeGapNominal?: number;
   incomeGapReal?: number;
+  cumulativeIncomeGapNominal?: number;
+  cumulativeIncomeGapReal?: number;
   provisionalIncome?: number;
   nonPortfolioCoveredPercent?: number;
   rmdAmount?: number;
@@ -1882,6 +1884,9 @@ export function simulateMultiStageDrawdownWorker(
         : (corrieM.triggerYear ?? 2030);
     }
   }
+
+  let cumulativeIncomeGapNominal = 0;
+  let cumulativeIncomeGapReal = 0;
 
   for (let step = 0; step <= totalYears; step++) {
     const currentYear = payload.startYear + step;
@@ -2225,6 +2230,9 @@ export function simulateMultiStageDrawdownWorker(
     
     let netNonPortfolioIncomeNominal = (basePensionIncome + baseRrbIncome + otherIncome + currentFutureIncome + dividendIncome + activeGiftAmount) - isolatedTaxDrag;
     let incomeGapNominal = Math.max(0, stageTargetBudgetNominal - netNonPortfolioIncomeNominal);
+    
+    cumulativeIncomeGapNominal += incomeGapNominal;
+    cumulativeIncomeGapReal += (incomeGapNominal / cumInflation);
 
     let excessExternalIncome = 0;
     let giftAmountUsed = 0;
@@ -3018,6 +3026,8 @@ export function simulateMultiStageDrawdownWorker(
       netNonPortfolioIncomeReal: netNonPortfolioIncomeNominal / cumInflation,
       incomeGapNominal,
       incomeGapReal: incomeGapNominal / cumInflation,
+      cumulativeIncomeGapNominal,
+      cumulativeIncomeGapReal,
       provisionalIncome: isolatedPI,
       nonPortfolioCoveredPercent,
       taxDrag: estimatedTaxDrag,

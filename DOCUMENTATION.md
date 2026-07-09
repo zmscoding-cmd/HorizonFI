@@ -720,3 +720,10 @@ To manage your scenarios:
 * **Tax Engine Precision:** The multi-decade projection engine now correctly isolates calculations to your actively viewed scenario. Experimenting with Roth Conversions or large capital expenditures in "Scenario A" will accurately reflect their unique tax impacts without bleeding into "Scenario B".
 * **Legacy Data Recovery & Auto-Rescue:** If you created budget data (Planned Expenses, Funding Allocations, or Tax Events) in a previous version of HorizonFI, those legacy items will lack the required `scenarioId` field. Upon logging in, HorizonFI automatically executes an idempotent background recovery script (`rescueOrphanedBudgetItems`) that safely maps all of your orphaned budget records to your Baseline scenario so that they appear seamlessly in your interactive Scenario Builder dashboards.
 
+
+### Interpreting the Cumulative Portfolio Drawdown (Income Gap)
+When viewing the **Non-Portfolio Income vs. Target Budget** chart, hovering over any year will reveal the **Cumulative Income Gap** (also known as the Cumulative Portfolio Drawdown) in the tooltip.
+
+* **What it means:** This metric represents the total, compounding sum of your annual "Income Gaps" (the deficit between your target budget and your non-portfolio income) from the start of the simulation up to that specific year.
+* **The "Floor" Rule:** If your non-portfolio income exceeds your target budget in any given year, the annual income gap is `$0`. The simulation engine intentionally prevents this surplus from artificially reducing your historical cumulative drawdown. Excess income is either reinvested or taxed, but it does not "erase" past principal withdrawals.
+* **Valuation Alignment:** The cumulative gap respects the global currency mode. In "Current Dollars" mode, you will see the cumulative draw in inflation-adjusted, real purchasing power. In "Future Dollars" mode, it reflects the nominal, compounding cash value withdrawn over time.

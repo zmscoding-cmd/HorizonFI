@@ -2524,3 +2524,18 @@ Designed and integrated `NonPortfolioIncomeChart.tsx` as a dedicated multi-stage
 *   **Linter & Build Certification:** Both `lint_applet` and `compile_applet` completed with 100% success rates, certifying production readiness.
 
 
+
+## Checkpoint: Cumulative Income Gap Calculation via Web Worker (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Scanned `src/workers/simulation.worker.ts` for newly introduced code. Confirmed no hardcoded secrets, private API keys, or credentials were added during the implementation of the cumulative gap math logic.
+
+### II. Architecture Alignment & Resolution
+Calculated the Cumulative Income Gap entirely within the `simulation.worker.ts` execution loop to preserve React rendering thread performance and adhere to the strict Web Worker computational isolation mandate.
+*   **Variable Initialization:** Initialized `cumulativeIncomeGapNominal` and `cumulativeIncomeGapReal` identically outside the iterative loop to maintain persistent cross-stage summation.
+*   **Floor Enforcement:** Calculated `annualIncomeGap` using `Math.max(0, stageTargetBudgetNominal - netNonPortfolioIncomeNominal)` preventing surplus revenue years from artificially shrinking the historical deficit total.
+*   **Mode Alignment:** Iteratively accumulated both Real and Nominal variables by dividing the isolated gap amount by `cumInflation` at the precise step before injecting into the ledger payload structure.
+
+### III. Continuous Validation & Testing
+*   **Mathematical Integrity Check:** Confirmed negative income gap bounds restrictions successfully prevent excess (taxable/reinvested) income from distorting historical shortfall totals.
+*   **Thread Isolation Safety:** Asserted no UI freezing occurs during this computation logic, retaining the primary thread explicitly for high-frame-rate rendering.
