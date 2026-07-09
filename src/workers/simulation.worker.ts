@@ -789,6 +789,21 @@ export type AppliedBridgeStrategy = {
   rothConversion: number;
 };
 
+export type NonPortfolioIncomeStreamInput = {
+  id: string;
+  name: string;
+  type: 'Dividend' | 'NonTaxableGift' | 'StandardPension' | 'RailroadRetirement';
+  subType?: 'Qualified' | 'Ordinary' | 'Tier1' | 'Tier2';
+  monthlyAmount: number;
+  startYear?: number;
+  startAge?: number;
+  inflationAdjusted: boolean;
+  colaRate?: number;
+  survivorshipOptions?: string;
+  endAge?: number;
+  endYear?: number;
+};
+
 export type MultiStageSimPayload = {
   scenario?: ScenarioPayload;
   globalNetWorth?: number;
@@ -812,6 +827,7 @@ export type MultiStageSimPayload = {
   futureIncomeStreams?: FutureIncomeStreamInput[];
   futureLiabilities?: FutureLiabilityInput[];
   nonTaxableGifts?: NonTaxableType[];
+  nonPortfolioIncomeStreams?: NonPortfolioIncomeStreamInput[];
   threeBuckets?: ThreeBucketConfig;
   targetRothConversionAmount?: number;
   taxableRebalancingSaleAmount?: number;
@@ -880,6 +896,7 @@ export interface TaxEngineInput {
   buckets: AllocationBuckets;
   blendedCostBasisPercentage: number;
   preExistingOrdinaryIncome: number; // For structural streams like pensions
+  rrbTier1Income?: number; // Added for Provisional Income calculation
   targetRothConversionAmount?: number;
   taxableRebalancingSaleAmount?: number;
   rebalancingCapitalGainPercentage?: number;
@@ -1072,14 +1089,23 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
   const STANDARD_DEDUCTION = 30000;
 
   // 1. Manual Tax Events Pre-Calculation (Strategic Tax Events)
-  const manualOrdinaryIncome =
-    preExistingOrdinaryIncome + targetRothConversionAmount;
   const manualLtcgIncome = taxableRebalancingSaleAmount * rebalancingGainRatio;
 
   let computedTaxTotal = 0;
 
   while (iteration < MAX_ITERATIONS) {
     iteration++;
+
+    // Compute Provisional Income for RRB Tier 1 taxation
+    // MAGI for PI = Base Ordinary (Pension + other + Roth conv) + Traditional IRA withdraws + Dividend Gross + Brokerage Capital Gains
+    const magiForPI = preExistingOrdinaryIncome + targetRothConversionAmount + traditionalGross + dividendGross + (brokerageGross * brokerageGainRatio) + cashGross; // Assuming cashGross might be tax exempt interest if not gift? Actually, cashGross in our model includes nonTaxableGifts, which are NOT included in PI.
+    // Wait, PI includes tax exempt interest. We'll approximate MAGI = preExistingOrdinaryIncome + targetRothConversionAmount + traditionalGross + totalLtcgGains
+    const totalLtcgGains = manualLtcgIncome + dividendGross + brokerageGross * brokerageGainRatio;
+    const magiForPI_final = preExistingOrdinaryIncome + targetRothConversionAmount + traditionalGross + totalLtcgGains;
+    const rrbPIResult = calculateProvisionalIncome(magiForPI_final, input.rrbTier1Income || 0);
+    const taxableRRB = rrbPIResult.taxableRRB;
+
+    const manualOrdinaryIncome = preExistingOrdinaryIncome + taxableRRB + targetRothConversionAmount;
 
     // Compute active progressive taxable incomes
     const totalOrdinaryIncome = manualOrdinaryIncome + traditionalGross;
@@ -1089,9 +1115,6 @@ export function evaluateMultiBucketTax(input: TaxEngineInput): TaxEngineOutput {
     );
 
     // Stack Capital Gains (LTCG sits on top of ordinary income)
-    const totalLtcgGains =
-      manualLtcgIncome + dividendGross + brokerageGross * brokerageGainRatio;
-
     // Note: If standard deduction wasn't fully used by ordinary income, the remainder offsets LTCG
     const remainingStandardDeduction = Math.max(
       0,
@@ -1666,6 +1689,11 @@ export type MultiStageYearlySnapshot = {
   otherIncomeUsed?: number;
   futureIncomeUsed?: number;
   totalNonPortfolioIncome?: number;
+  netNonPortfolioIncomeNominal?: number;
+  netNonPortfolioIncomeReal?: number;
+  incomeGapNominal?: number;
+  incomeGapReal?: number;
+  provisionalIncome?: number;
   nonPortfolioCoveredPercent?: number;
   rmdAmount?: number;
   rmdUsedForBudget?: number;
@@ -2139,32 +2167,64 @@ export function simulateMultiStageDrawdownWorker(
     if (payload.nonTaxableGifts) {
       payload.nonTaxableGifts.forEach((gift) => {
         let active = true;
-        if (gift.startAge !== undefined && currentAge < gift.startAge)
-          active = false;
-        if (gift.startYear !== undefined && currentYear < gift.startYear)
-          active = false;
-        if (gift.endAge !== undefined && currentAge > gift.endAge)
-          active = false;
-        if (gift.endYear !== undefined && currentYear > gift.endYear)
-          active = false;
+        if (gift.startAge !== undefined && currentAge < gift.startAge) active = false;
+        if (gift.startYear !== undefined && currentYear < gift.startYear) active = false;
+        if (gift.endAge !== undefined && currentAge > gift.endAge) active = false;
+        if (gift.endYear !== undefined && currentYear > gift.endYear) active = false;
 
         if (active) {
-          const giftVal = gift.inflationAdjusted
-            ? gift.annualAmount * cumInflation
-            : gift.annualAmount;
+          const giftVal = gift.inflationAdjusted ? gift.annualAmount * cumInflation : gift.annualAmount;
           activeGiftAmount += giftVal;
         }
       });
     }
 
-    const includeAuxiliary =
-      activeStage?.includeAuxiliaryTaxFreeIncome ?? false;
+    let nonPortfolioIncomeNominal = 0;
+    let baseRrbIncome = rrbIncome; // from milestones
+    let basePensionIncome = pensionIncome;
+    let dividendIncome = 0;
+    if (payload.nonPortfolioIncomeStreams) {
+      payload.nonPortfolioIncomeStreams.forEach((stream) => {
+        let active = true;
+        if (stream.startAge !== undefined && currentAge < stream.startAge) active = false;
+        if (stream.startYear !== undefined && currentYear < stream.startYear) active = false;
+        if (stream.endAge !== undefined && currentAge > stream.endAge) active = false;
+        if (stream.endYear !== undefined && currentYear > stream.endYear) active = false;
+
+        if (active) {
+          let streamVal = stream.monthlyAmount * 12;
+          if (stream.inflationAdjusted) streamVal *= cumInflation;
+          
+          if (stream.colaRate && stream.startYear && currentYear > stream.startYear) {
+             streamVal *= Math.pow(1 + stream.colaRate / 100, currentYear - stream.startYear);
+          }
+          
+          nonPortfolioIncomeNominal += streamVal;
+          if (stream.type === 'RailroadRetirement') baseRrbIncome += streamVal;
+          if (stream.type === 'StandardPension') basePensionIncome += streamVal;
+          if (stream.type === 'Dividend') dividendIncome += streamVal;
+          if (stream.type === 'NonTaxableGift') activeGiftAmount += streamVal;
+        }
+      });
+    }
+
+    const includeAuxiliary = activeStage?.includeAuxiliaryTaxFreeIncome ?? false;
     const includeGlobal = activeStage?.includeGlobalIncomeStreams ?? false;
 
     let availableAuxiliary = includeAuxiliary ? activeGiftAmount : 0;
     let availableGlobal = includeGlobal
-      ? pensionIncome + rrbIncome + otherIncome + currentFutureIncome
+      ? basePensionIncome + baseRrbIncome + otherIncome + currentFutureIncome + dividendIncome
       : 0;
+
+    // Provisional Income isolated calculation for gap determination
+    const isolatedMagiForPI = basePensionIncome + otherIncome + currentFutureIncome + dividendIncome;
+    const { provisionalIncome: isolatedPI, taxableRRB: isolatedTaxableRRB } = calculateProvisionalIncome(isolatedMagiForPI, baseRrbIncome);
+    const isolatedTaxableOrdinary = Math.max(0, isolatedMagiForPI + isolatedTaxableRRB - 30000); // Using MFJ standard deduction roughly
+    const isolatedOrdTax = computeProgressiveTax(isolatedTaxableOrdinary, 0, TCJA_BRACKETS_2026); // assuming TCJA brackets exist or just use 0.15 approx? Wait, TCJA_BRACKETS_2026 is exported. Let's use 0.15 flat for isolated tax drag if brackets not perfectly matched without full tax engine.
+    const isolatedTaxDrag = isolatedOrdTax;
+    
+    let netNonPortfolioIncomeNominal = (basePensionIncome + baseRrbIncome + otherIncome + currentFutureIncome + dividendIncome + activeGiftAmount) - isolatedTaxDrag;
+    let incomeGapNominal = Math.max(0, stageTargetBudgetNominal - netNonPortfolioIncomeNominal);
 
     let excessExternalIncome = 0;
     let giftAmountUsed = 0;
@@ -2678,11 +2738,12 @@ export function simulateMultiStageDrawdownWorker(
       buckets: netDrawn,
       blendedCostBasisPercentage: 60,
       preExistingOrdinaryIncome:
-        pensionIncome +
-        rrbIncome +
+        basePensionIncome +
         otherIncome +
         currentFutureIncome +
+        dividendIncome +
         rmdAmount,
+      rrbTier1Income: baseRrbIncome,
       targetRothConversionAmount: targetRothConversionAmount,
       taxableRebalancingSaleAmount: payload.taxableRebalancingSaleAmount,
       rebalancingCapitalGainPercentage:
@@ -2953,6 +3014,11 @@ export function simulateMultiStageDrawdownWorker(
       otherIncomeUsed: usedOther,
       futureIncomeUsed: usedFutureIncome,
       totalNonPortfolioIncome,
+      netNonPortfolioIncomeNominal,
+      netNonPortfolioIncomeReal: netNonPortfolioIncomeNominal / cumInflation,
+      incomeGapNominal,
+      incomeGapReal: incomeGapNominal / cumInflation,
+      provisionalIncome: isolatedPI,
       nonPortfolioCoveredPercent,
       taxDrag: estimatedTaxDrag,
       endingBalance: finalBalance,

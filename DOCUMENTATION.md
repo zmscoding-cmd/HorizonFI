@@ -500,6 +500,13 @@ To provide complete transparency over how much of your lifestyle is supported by
     $$\text{Non-Portfolio Budget Coverage} = \min\left(100\%, \frac{\text{Used Auxiliary} + \text{Used Global Income}}{\text{Target Budget}} \times 100\%\right)$$
     This provides an instant, offline-ready measure of your safety margin and portfolio independence during transition years.
 
+### Non-Portfolio Income vs. Target Budget Chart
+To prevent vertical scale mismatch with the long-term portfolio worth, HorizonFI features a dedicated, highly responsive **Non-Portfolio Income vs. Target Budget** composed chart.
+*   **Layered Stacking Display:** Visualizes the active, net structural revenue sources—including pensions, RRB income, non-taxable gifts, portfolio dividends, standard other global incomes, and future income streams—as elegant stacked areas or stacked bar charts.
+*   **Target Budget Expenditure Line:** Overlays a thick, high-contrast rose threshold step-line representing your target budget limits. Any gap between the top of the stacked colors and the budget threshold line represents your structural **Income Gap** which must be funded by proactive, tax-aware portfolio drawdowns.
+*   **Dual-Dollars Valuation Compatibility:** Seamlessly integrates with the global currency mode controller. Swapping between "Current Dollars" and "Future Dollars" adjusts values on the fly to reflect either inflation-adjusted purchasing power (real terms) or compounding bank-screen values (nominal terms).
+*   **Visual KPI Highlights:** Embeds real-time statistics cards presenting your average annual income gap, average budget coverage percentage, and active valuation mode for quick, comprehensive financial health diagnosis.
+
 ---
 
 ## 9. Strategic Guide: Phase-Based Cash Buffers

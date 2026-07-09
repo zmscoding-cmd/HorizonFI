@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Trash2, Calendar, Link as LinkIcon } from 'lucide-react';
 import { generateUUID } from '../lib/db';
+import { NonPortfolioIncomeForm } from './NonPortfolioIncomeForm';
 
 function ToggleSwitch({ checked, onChange, label, description }: any) {
   return (
@@ -537,6 +538,16 @@ export function MultistageModelingConfig({ activeScenario, plan, db, handleRunSi
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Non-Portfolio Income Streams (Dividends, Pensions, RRB) */}
+      <div className="mt-8 border-t border-zinc-200 dark:border-zinc-800 pt-6">
+        <NonPortfolioIncomeForm
+          plan={plan}
+          activeScenario={activeScenario}
+          db={db}
+          handleRunSimulation={handleRunSimulation}
+        />
       </div>
 
     </div>

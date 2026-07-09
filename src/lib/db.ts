@@ -57,6 +57,21 @@ export type NonTaxableType = {
   inflationAdjusted: boolean;
 };
 
+export type NonPortfolioIncomeStream = {
+  id: string;
+  name: string;
+  type: 'Dividend' | 'NonTaxableGift' | 'StandardPension' | 'RailroadRetirement';
+  subType?: 'Qualified' | 'Ordinary' | 'Tier1' | 'Tier2';
+  monthlyAmount: number;
+  startYear?: number;
+  startAge?: number;
+  inflationAdjusted: boolean;
+  colaRate?: number;
+  survivorshipOptions?: string;
+  endAge?: number;
+  endYear?: number;
+};
+
 export interface AllocationBuckets {
   qualifiedDividends: number;
   taxableBrokerage: number;
@@ -132,6 +147,7 @@ export type SubScenario = {
   futureIncomeStreams?: FutureIncomeStream[];
   futureLiabilities?: FutureLiability[];
   nonTaxableGifts?: NonTaxableType[];
+  nonPortfolioIncomeStreams?: NonPortfolioIncomeStream[];
   threeBuckets?: ThreeBucketConfig; // Added for 3-Bucket Strategy support
   targetOrdinaryBracket?: number;
   targetLTCGBracket?: number;
@@ -223,7 +239,7 @@ const taxLotSchema = {
 };
 
 const planSchema = {
-  version: 16,
+  version: 17,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -369,6 +385,27 @@ const planSchema = {
                 inflationAdjusted: { type: 'boolean' }
               },
               required: ['id', 'name', 'annualAmount', 'inflationAdjusted']
+            }
+          },
+          nonPortfolioIncomeStreams: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                name: { type: 'string' },
+                type: { type: 'string', enum: ['Dividend', 'NonTaxableGift', 'StandardPension', 'RailroadRetirement'] },
+                subType: { type: 'string', enum: ['Qualified', 'Ordinary', 'Tier1', 'Tier2'] },
+                monthlyAmount: { type: 'number' },
+                startYear: { type: 'number' },
+                startAge: { type: 'number' },
+                inflationAdjusted: { type: 'boolean' },
+                colaRate: { type: 'number' },
+                survivorshipOptions: { type: 'string' },
+                endAge: { type: 'number' },
+                endYear: { type: 'number' }
+              },
+              required: ['id', 'name', 'type', 'monthlyAmount']
             }
           },
           threeBuckets: {
@@ -1066,6 +1103,13 @@ export async function getDatabase() {
             },
             16: function (oldDoc: any) {
               // Initialize new SECURE 2.0 Act fields
+              return oldDoc;
+            },
+            17: function (oldDoc: any) {
+              oldDoc.scenarios = (oldDoc.scenarios || []).map((sc: any) => {
+                sc.nonPortfolioIncomeStreams = sc.nonPortfolioIncomeStreams || [];
+                return sc;
+              });
               return oldDoc;
             }
           }

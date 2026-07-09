@@ -5,6 +5,7 @@ import { TimeHorizonControls } from './TimeHorizonControls';
 import { LongTermPortfolioChart } from './LongTermPortfolioChart';
 import { BucketWaterfallChart } from './BucketWaterfallChart';
 import { MultiStageChart } from './MultiStageChart';
+import { NonPortfolioIncomeChart } from './NonPortfolioIncomeChart';
 import { FundedRatioTracker } from './FundedRatioTracker';
 import { CurrencyToggle } from './CurrencyToggle';
 import { BridgeOptimizationChart, BridgeOptimizationData } from './BridgeOptimizationChart';
@@ -177,6 +178,25 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
                 <MultiStageChart
                   data={currentResults}
                   stages={activeScenario?.stages || []}
+                  displayStartYear={displayStartYear}
+                  displayEndYear={displayEndYear}
+                />
+              </div>
+            </div>
+
+            {/* Non-Portfolio Income vs. Budget Projections */}
+            <div id="non-portfolio-income-projections" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">
+              <div>
+                <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-1">
+                  Non-Portfolio Income vs. Target Budget
+                </h3>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">
+                  Contrasting structured non-portfolio revenues against expenditure thresholds to reveal the portfolio drawdown "Income Gap."
+                </p>
+              </div>
+              <div className="border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-950/50 flex-1 min-h-[400px] flex flex-col transition-colors">
+                <NonPortfolioIncomeChart
+                  data={currentResults}
                   displayStartYear={displayStartYear}
                   displayEndYear={displayEndYear}
                 />

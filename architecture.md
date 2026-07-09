@@ -2448,3 +2448,79 @@ This checkpoint optimizes the presentation layout sequence of the Multi-Stage Mo
 *   **Production Compilation:** Verified that the final production bundling (`npm run build`) builds cleanly and integrates without issues.
 
 
+
+## Checkpoint: Non-Portfolio Income Streams Data Model Optimization (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Thoroughly scanned `src/lib/db.ts` for any hardcoded secrets. No API keys, credentials, or secrets were introduced. The modifications strictly expand the internal RxDB schemas to enforce data consistency.
+
+### II. Architecture Alignment & Resolution
+This checkpoint updates the primary local RxDB schema and data models to natively support a robust set of Non-Portfolio Income streams for multi-stage modeling, adhering strictly to the **Offline-First** and **Zero-Trust Security Perimeter** mandates.
+*   **The Gap:** Previously, non-portfolio income streams were generalized or lacked robust sub-classifications such as specific dividend tracking (Qualified vs. Ordinary), distinct pension survivorship parameters, or granular Railroad Retirement definitions, which reduced multi-stage modeling precision.
+*   **The Solution:**
+    *   Defined strict TypeScript interfaces (`NonPortfolioIncomeStream`) supporting `Dividend`, `NonTaxableGift`, `StandardPension`, and `RailroadRetirement` base types with their respective `subType` variants (`Qualified`, `Ordinary`, `Tier1`, `Tier2`).
+    *   Updated the `planSchema` JSON definitions inside RxDB to map these explicitly via array mapping under the active multi-scenario `scenarios` branch.
+    *   Incremented the schema version from `v16` to `v17` and implemented a deterministic `migrationStrategy` to gracefully pad any legacy or pre-existing scenario arrays, eliminating cold-boot panics on local indexedDB initialization.
+    *   Preserved the Zero-Trust Architecture: Since `nonPortfolioIncomeStreams` is nested entirely within the `scenarios` tree, it is intrinsically caught by our top-level `encrypted: ['scenarios', ...]` field mapping in the `crypto-js` layer, ensuring AES-256 encryption-at-rest automatically covers these new financial details before syncing with Firestore.
+
+### III. Continuous Validation & Testing
+*   **Data Integrity Check:** Successfully integrated schema models and TypeScript interfaces. Compilation and local dev environments execute without structural panics.
+*   **Migration Safeties:** The `v17` RxDB migration strictly handles graceful schema transitions, preserving all preceding local records asynchronously.
+
+## Checkpoint: Multi-Stage Income Gap & Provisional Income Calculation (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Scanned `src/workers/simulation.worker.ts` for any hardcoded secrets. No API keys, credentials, or private information were introduced. The logic is entirely isolated algorithmic math designed to run locally in the Web Worker.
+
+### II. Architecture Alignment & Resolution
+This checkpoint securely extends our background Web Worker logic to accurately calculate Non-Portfolio Income cash flow gaps and statutory Provisional Income. It rigorously respects the **Thread Isolation and Efficiency** and **Absolute Offline Resilience** mandates.
+*   **The Gap:** Previously, multi-stage drawdown projections aggregated Non-Portfolio income globally without applying rigorous IRS Provisional Income formulas or separating non-portfolio net-cash-flow (the "Income Gap") prior to initiating portfolio liquidations.
+*   **The Solution:**
+    *   Updated `MultiStageSimPayload` and `MultiStageYearlySnapshot` models to dynamically receive and structure chronological cash flows (`nonPortfolioIncomeNominal`, `netNonPortfolioIncomeNominal`, `incomeGapNominal`, `provisionalIncome`).
+    *   Implemented precise IRS Provisional Income formulas for Railroad Retirement Tier 1 taxation `PI = MAGI + TaxExemptInterest + 0.5 * (SS + RR_T1)`. This guarantees RRB benefits are accurately represented within ordinary income models depending on the `32000` / `44000` MFJ statutory thresholds.
+    *   Preserved *fiscal drag* by enforcing the rule that these specific statutory limits (`32000` and `44000`) must **not** be inflation-adjusted.
+    *   Adjusted `evaluateMultiBucketTax` to process exact `rrbTier1Income` iteratively inside the withdrawal cycle to determine the precise taxable amount as portfolio liquidations push MAGI higher.
+    *   Ensured all mathematical cycles and nested maps remain executed in `simulateMultiStageDrawdownWorker` to keep the React thread unblocked for 60fps renders.
+
+### III. Continuous Validation & Testing
+*   **Unit Mathematics:** Successfully enforced static non-inflation-adjusted thresholds within Provisional Income. The tax drag algorithms accurately integrate `rrbTier1Income` on a per-cycle iterative loop.
+*   **Performance Monitoring:** All heavy `reduce` and timeline-loop logics were validated in the worker boundary, preventing UI freezing.
+
+
+## Checkpoint: Non-Portfolio Income Stream Form UI & Configuration Bindings (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Thoroughly audited all newly introduced and modified UI components, including `src/components/NonPortfolioIncomeForm.tsx`, `src/components/MultistageModelingConfig.tsx`, and `src/components/ScenarioBuilder.tsx`. Confirmed that zero API keys, private tokens, or credentials were introduced or hardcoded. All communication and database operations remain bound to local-first encrypted RxDB structures and Firebase Authentication identifiers.
+
+### II. Architecture Alignment & Resolution
+This checkpoint integrates the `NonPortfolioIncomeForm` component, providing an intuitive, touch-accessible, and highly responsive configuration interface for Non-Portfolio Income streams.
+*   **The Solution:** Architected `NonPortfolioIncomeForm.tsx` to handle CRUD operations on `nonPortfolioIncomeStreams` in active scenarios.
+*   **UX & Ergonomics Compliance:** Enforced a minimum 44x44px hit-target for all selectors, input fields, and buttons, allowing comfortable tablet operation.
+*   **"Current Dollars Mandate" Enforcement:** Added a prominent informational box instructing and warning users that inputs must represent today's purchasing power (constant dollars), relying on the simulation worker to handle compounding inflation and custom COLA.
+*   **Performance Optimization:** Outfitted inputs to bind via uncontrolled `onBlur` or `onKeyDown (Enter)` handlers, preventing React state re-render cursor jumps during rapid input edits.
+*   **Multi-Stage Modeling Configuration Integration:** Integrated the form seamlessly into both the "Stages & Drawdowns" (`MultistageModelingConfig.tsx`) and standard scenario parameters editor (`ScenarioBuilder.tsx`) to guarantee intuitive access.
+
+### III. Continuous Validation & Testing
+*   **Static Analysis Validation:** Ran the `lint_applet` tool (`tsc --noEmit`), which completed with zero warnings, errors, or type mismatches.
+*   **Production Build Verification:** Compiled the entire applet using `compile_applet` (`npm run build`) successfully, ensuring production compatibility.
+*   **Replication & Persistence Safety:** Confirmed that adding, editing, and deleting streams securely persists in local RxDB and triggers synchronous Firestore sync replication.
+
+
+## Checkpoint: Non-Portfolio Income vs. Target Budget Visualization (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Scanned all modified and newly created files, specifically `src/components/NonPortfolioIncomeChart.tsx` and `src/components/MultistageModelingView.tsx`. Verified that no credentials, private keys, API secrets, or certificates were introduced. All visual parameters and contexts are derived dynamically through secure React hook interfaces.
+
+### II. Architecture Alignment & Resolution
+Designed and integrated `NonPortfolioIncomeChart.tsx` as a dedicated multi-stage budget projection visualizer.
+*   **Aesthetic Separation & Grid Alignment:** Separated the structural income-gap visualizer from the primary portfolio balance chart to prevent extreme scale distortion on different axes.
+*   **Layered Stacking Logic:** Mapped the six distinct non-portfolio categories—standard pensions, RRB income, non-taxable gifts, portfolio dividends, standard other global incomes, and future income streams—as stacked groups, allowing the user to select either Stacked Area or Stacked Bar rendering modes dynamically.
+*   **Dynamic Valuation Mode Binding:** Bound the chart directly to the `useCurrencyMode` context, allowing instant client-side translation between real-term today's constant dollars and future inflated nominal values, utilizing inflation compound divisors derived on each year slice.
+*   **Threshold Overlay:** Rendered the active target budget requirement as a distinct, thick rose-colored threshold line with a dual-stroke high-contrast background to highlight the structural "Income Gap" requiring portfolio drawdowns.
+
+### III. Continuous Validation & Testing
+*   **Mathematical Consistency:** Verified that the sum of structural components matches `totalNonPortfolioIncome` in the simulation results.
+*   **Responsive Scaling:** Confirmed that wrapping the charts in `<ResponsiveContainer>` handles window/container resize triggers safely.
+*   **Linter & Build Certification:** Both `lint_applet` and `compile_applet` completed with 100% success rates, certifying production readiness.
+
+

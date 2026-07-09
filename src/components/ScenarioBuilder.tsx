@@ -33,6 +33,7 @@ import { FundedRatioTracker } from "./FundedRatioTracker";
 import { WealthVelocityChart } from "./WealthVelocityChart";
 import { InvestmentForm } from "./InvestmentForm";
 import { InvestmentList } from "./InvestmentList";
+import { NonPortfolioIncomeForm } from "./NonPortfolioIncomeForm";
 import { LongTermPortfolioChart } from "./LongTermPortfolioChart";
 import { BucketWaterfallChart } from "./BucketWaterfallChart";
 import { AssetModel } from "../lib/db";
@@ -3228,6 +3229,16 @@ export default function ScenarioBuilder({
                           <span className="text-xs font-bold uppercase tracking-wider">Add Auxiliary Inflow</span>
                         </button>
                       </div>
+                    </div>
+
+                    {/* Non-Portfolio Income Streams (Dividends, Pensions, RRB) */}
+                    <div className="pt-6 border-t border-zinc-250 dark:border-zinc-800 mt-6 mb-6">
+                      <NonPortfolioIncomeForm
+                        plan={plan}
+                        activeScenario={activeScenario}
+                        db={db}
+                        handleRunSimulation={handleRunSimulation}
+                      />
                     </div>
 
                     <button
