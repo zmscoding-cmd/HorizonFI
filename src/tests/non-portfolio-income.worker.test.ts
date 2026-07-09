@@ -12,19 +12,18 @@ describe('Cumulative Income Gap Calculation (Non-Portfolio Income)', () => {
       {
         id: 'taxable-1',
         name: 'Brokerage',
-        type: 'TAXABLE',
+        assetType: 'TAXABLE',
         value: 1000000,
-        costBasis: 500000,
-        expectedReturn: 0.05
+        expectedGrowthRate: 0.05,
+        expectedDividendYield: 0
       }
     ],
     stages: [
       {
         id: 'stage-1',
         name: 'Retirement Phase',
-        startAge: 65,
-        endAge: 100,
-        targetBudgetNominal: 100000,
+        startYearType: "absolute",
+        startAbsoluteYear: 2026,
         fundingPriorities: ['TAXABLE'],
         includeGlobalIncomeStreams: true,
         includeAuxiliaryTaxFreeIncome: true

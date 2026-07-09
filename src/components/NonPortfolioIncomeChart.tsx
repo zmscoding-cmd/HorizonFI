@@ -72,6 +72,8 @@ export function NonPortfolioIncomeChart({
 
       // Percentage coverage
       const coveragePercent = targetBudget > 0 ? (totalIncome / targetBudget) * 100 : 100;
+      
+      const cumulativeIncomeGap = isCurrent ? (d.cumulativeIncomeGapReal || 0) : (d.cumulativeIncomeGapNominal || 0);
 
       return {
         year: d.year,
@@ -85,6 +87,7 @@ export function NonPortfolioIncomeChart({
         totalIncome: Math.round(totalIncome),
         targetBudget: Math.round(targetBudget),
         incomeGap: Math.round(incomeGap),
+        cumulativeIncomeGap: Math.round(cumulativeIncomeGap),
         coveragePercent: Math.round(coveragePercent),
         cumulativeInflation: d.cumulativeInflation || 1
       };
@@ -283,6 +286,12 @@ export function NonPortfolioIncomeChart({
                           <span className="font-bold text-rose-500">Uncovered Income Gap:</span>
                           <span className="font-mono text-rose-600 dark:text-rose-400 font-bold text-sm">
                             {formatCurrency(step?.incomeGap)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4 text-xs border-t border-rose-500/10 pt-1.5 mt-0.5">
+                          <span className="font-semibold text-rose-700/80 dark:text-rose-300/80">Cumulative Portfolio Drawdown:</span>
+                          <span className="font-mono text-rose-700 dark:text-rose-300 font-bold">
+                            {formatCurrency(step?.cumulativeIncomeGap)}
                           </span>
                         </div>
                         <div className="text-[10px] text-zinc-450 dark:text-zinc-500 font-normal leading-normal mt-1">
