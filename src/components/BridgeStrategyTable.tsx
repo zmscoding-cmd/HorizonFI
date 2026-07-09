@@ -57,9 +57,10 @@ export const BridgeStrategyTable: React.FC<BridgeStrategyTableProps> = ({
     if (onRecalculate) {
        const numericOverrides: Record<number, { stockLiquidation?: number, rothConversion?: number }> = {};
        Object.entries(overrides).forEach(([year, values]) => {
+          const typedValues = values as { stockLiquidation?: string, rothConversion?: string };
           numericOverrides[Number(year)] = {
-             stockLiquidation: values.stockLiquidation !== undefined && values.stockLiquidation !== '' ? Number(values.stockLiquidation) : undefined,
-             rothConversion: values.rothConversion !== undefined && values.rothConversion !== '' ? Number(values.rothConversion) : undefined
+             stockLiquidation: typedValues.stockLiquidation !== undefined && typedValues.stockLiquidation !== '' ? Number(typedValues.stockLiquidation) : undefined,
+             rothConversion: typedValues.rothConversion !== undefined && typedValues.rothConversion !== '' ? Number(typedValues.rothConversion) : undefined
           };
        });
        onRecalculate(numericOverrides);

@@ -2403,3 +2403,18 @@ No structural schema or offline mechanism was modified. This purely enhances the
 [x] Offline Capability Verified
 [x] Night-Watch UI/UX Verified when in dark mode
 [x] API Telemetry Logged
+
+## Checkpoint: Scrollable Budget Scenario Selector Layout Optimization (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Thoroughly scanned all newly written and modified code, including `ScenarioBuilder.tsx` and `MultistageModelingView.tsx`. Confirmed that zero hardcoded secrets, API keys, or credentials were introduced or modified. All operations continue to run in a strict zero-trust client environment with dynamic cryptographic session parameters.
+
+### II. Architecture Alignment & Resolution
+This checkpoint updates the user interface layout of the Multi-Scenario planning suite to improve layout efficiency and respect the **UX/UI and Responsiveness Mandates** on smaller display screens and embedded iframe viewports.
+*   **The Gap:** Previously, the Swiss-modern inline scenario selector ribbon was rendered at the top-level of `ScenarioBuilder.tsx` as a frozen/pinned element (`shrink-0`). This occupied valuable vertical display space and was perceived as "frozen" or static, crowding the view for budgeting, multi-stage modeling, and wealth velocity dashboards on laptops and tablets.
+*   **The Solution:** Decoupled the budget scenario selector from the top-level outer skeleton of `ScenarioBuilder.tsx`. Implemented an inline helper function `renderBudgetScenarioSelector()` and dynamically injected it inside the scrollable inner containers (`overflow-y-auto`) of the "Budget", "Multi-Stage Modeling" (config and visualization panels), and "Wealth Velocity" sub-modules.
+*   **Scroll Integration:** The selector now scrolls seamlessly with the active content inside those sub-modules, dramatically expanding the usable vertical canvas for charts, data grids, and forms.
+
+### III. Continuous Validation & Final Verification
+*   **Compilation Verification:** Tested and compiled the entire codebase successfully; both `npm run lint` and `npm run build` pass flawlessly.
+*   **Zero-Trust and Offline Validation:** All actions, scenario duplicates, renames, and deletions continue to occur strictly within the client-side RxDB/IndexedDB boundary, synchronously replicating to Firebase Firestore over a secure, authenticated connection.

@@ -23,6 +23,7 @@ interface MultistageModelingViewProps {
   bridgeData: BridgeOptimizationData[];
   bridgeLoading?: boolean;
   recalculateBridge?: (overrides?: any) => void;
+  renderHeader?: () => React.ReactNode;
 }
 
 export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
@@ -37,6 +38,7 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
   bridgeData,
   bridgeLoading = false,
   recalculateBridge,
+  renderHeader,
 }) => {
   const currentResults = multiStageResults[activeScenarioId || ""] || [];
   const [notification, setNotification] = useState<string | null>(null);
@@ -120,6 +122,7 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
         {viewMode === "config" ? (
           /* Left Sidebar - Configuration */
           <div className="h-full max-w-5xl mx-auto w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-4 sm:p-5 flex flex-col gap-5 lg:overflow-y-auto shadow-sm transition-colors">
+            {renderHeader && renderHeader()}
             <h3 className="font-bold text-sm tracking-tight uppercase text-zinc-500 dark:text-zinc-400">
               Multi-Stage Configuration
             </h3>
@@ -135,8 +138,9 @@ export const MultistageModelingView: React.FC<MultistageModelingViewProps> = ({
         ) : (
           /* Right Area - Visualizations and Analytics */
           <div className="h-full flex flex-col gap-6 lg:overflow-y-auto pb-6">
-        {/* Controls */}
-        <TimeHorizonControls db={db} planId={plan.id} scenarioId={activeScenarioId || ""} />
+            {renderHeader && renderHeader()}
+            {/* Controls */}
+            <TimeHorizonControls db={db} planId={plan.id} scenarioId={activeScenarioId || ""} />
 
         {/* 1. Long-Term Portfolio Projection */}
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-4 flex flex-col gap-6 shadow-sm transition-colors shrink-0">

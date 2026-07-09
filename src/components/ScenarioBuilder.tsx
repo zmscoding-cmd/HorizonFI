@@ -578,6 +578,131 @@ export default function ScenarioBuilder({
     }
   }
 
+  const renderBudgetScenarioSelector = () => {
+    return (
+      <div className="flex flex-col gap-3 bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-200/60 dark:border-zinc-800/80 p-3.5 rounded-2xl transition-colors shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mr-1 select-none">
+              Budget Scenario:
+            </span>
+            {plan.scenarios?.map((scenario: any) => {
+              const isSelected = activeScenarioId === scenario.id;
+              const isActive = scenario.isActive;
+              return (
+                <button
+                  key={scenario.id}
+                  onClick={() => setActiveScenarioId(scenario.id)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer min-h-[32px] flex items-center justify-center gap-1.5 border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                    isSelected
+                      ? "bg-blue-600 dark:bg-red-500 border-transparent text-white dark:text-zinc-950 font-bold shadow-sm"
+                      : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                  }`}
+                >
+                  {isActive && (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        isSelected
+                          ? "bg-white dark:bg-zinc-950"
+                          : "bg-emerald-500 dark:bg-emerald-400"
+                      }`}
+                      title="Current Active Scenario"
+                    />
+                  )}
+                  {scenario.name}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={addScenario}
+              className="flex items-center justify-center gap-1.5 min-h-[32px] bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm border border-transparent dark:border-zinc-700"
+              title="Add a new scenario to this plan"
+            >
+              <Plus size={14} /> New Scenario
+            </button>
+            {activeScenario && (
+              <button
+                onClick={() => duplicateScenario(activeScenario)}
+                className="flex items-center justify-center gap-1.5 min-h-[32px] bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-zinc-200 dark:border-zinc-700"
+                title="Duplicate currently viewed scenario"
+              >
+                <Copy size={14} /> Duplicate
+              </button>
+            )}
+            {activeScenario && (plan.scenarios || []).length > 1 && (
+              <button
+                onClick={() => setScenarioToDeleteId(activeScenario.id)}
+                className="flex items-center justify-center gap-1.5 min-h-[32px] bg-red-50 dark:bg-red-950/20 hover:bg-red-105 dark:hover:bg-red-950/40 text-red-650 dark:text-red-450 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-red-200/40 dark:border-red-900/30"
+                title="Delete this scenario"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            )}
+          </div>
+        </div>
+
+        {activeScenario && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1.5 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mr-1 select-none">
+                Rename Scenario:
+              </span>
+              <input
+                type="text"
+                value={localScenarioName}
+                onChange={(e) => setLocalScenarioName(e.target.value)}
+                onBlur={async () => {
+                  if (!localScenarioName.trim() || localScenarioName === activeScenario.name) return;
+                  const doc = await db.plans.findOne(plan.id).exec();
+                  const updatedScenarios = plan.scenarios.map((s: any) =>
+                    s.id === activeScenario.id ? { ...s, name: localScenarioName } : s
+                  );
+                  await doc.patch({
+                    scenarios: updatedScenarios,
+                    updatedAt: Date.now(),
+                  });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="px-2 py-1 text-xs border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-md focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all min-h-[28px] w-48 font-medium"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              {activeScenario.isActive ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-1 rounded-md border border-emerald-200/30">
+                  <Check size={12} /> Current Active Scenario
+                </span>
+              ) : (
+                <button
+                  onClick={async () => {
+                    const doc = await db.plans.findOne(plan.id).exec();
+                    const updatedScenarios = plan.scenarios.map((s: any) => ({
+                      ...s,
+                      isActive: s.id === activeScenario.id,
+                    }));
+                    await doc.patch({
+                      scenarios: updatedScenarios,
+                      updatedAt: Date.now(),
+                    });
+                  }}
+                  className="flex items-center justify-center gap-1 min-h-[28px] bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/20 dark:hover:bg-blue-950/45 text-blue-600 dark:text-blue-450 text-[11px] font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer border border-blue-200/40 dark:border-blue-900/30"
+                >
+                  Set as Current Active
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col lg:h-[calc(100vh-100px)] lg:overflow-hidden gap-4 sm:gap-6 text-zinc-900 dark:text-zinc-100 transition-colors">
       {showDeletePlanConfirm && (
@@ -814,131 +939,9 @@ export default function ScenarioBuilder({
         )}
       </div>
 
-      {subModule !== "simulation" && (
-        <div className="flex flex-col gap-3 bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-200/60 dark:border-zinc-800/80 p-3.5 rounded-2xl transition-colors shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mr-1 select-none">
-                Budget Scenario:
-              </span>
-              {plan.scenarios?.map((scenario: any) => {
-                const isSelected = activeScenarioId === scenario.id;
-                const isActive = scenario.isActive;
-                return (
-                  <button
-                    key={scenario.id}
-                    onClick={() => setActiveScenarioId(scenario.id)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer min-h-[32px] flex items-center justify-center gap-1.5 border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                      isSelected
-                        ? "bg-blue-600 dark:bg-red-500 border-transparent text-white dark:text-zinc-950 font-bold shadow-sm"
-                        : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
-                    }`}
-                  >
-                    {isActive && (
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          isSelected
-                            ? "bg-white dark:bg-zinc-950"
-                            : "bg-emerald-500 dark:bg-emerald-400"
-                        }`}
-                        title="Current Active Scenario"
-                      />
-                    )}
-                    {scenario.name}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={addScenario}
-                className="flex items-center justify-center gap-1.5 min-h-[32px] bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm border border-transparent dark:border-zinc-700"
-                title="Add a new scenario to this plan"
-              >
-                <Plus size={14} /> New Scenario
-              </button>
-              {activeScenario && (
-                <button
-                  onClick={() => duplicateScenario(activeScenario)}
-                  className="flex items-center justify-center gap-1.5 min-h-[32px] bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-zinc-200 dark:border-zinc-700"
-                  title="Duplicate currently viewed scenario"
-                >
-                  <Copy size={14} /> Duplicate
-                </button>
-              )}
-              {activeScenario && (plan.scenarios || []).length > 1 && (
-                <button
-                  onClick={() => setScenarioToDeleteId(activeScenario.id)}
-                  className="flex items-center justify-center gap-1.5 min-h-[32px] bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/40 text-red-650 dark:text-red-450 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-red-200/40 dark:border-red-900/30"
-                  title="Delete this scenario"
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
-              )}
-            </div>
-          </div>
-
-          {activeScenario && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1.5 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mr-1 select-none">
-                  Rename Scenario:
-                </span>
-                <input
-                  type="text"
-                  value={localScenarioName}
-                  onChange={(e) => setLocalScenarioName(e.target.value)}
-                  onBlur={async () => {
-                    if (!localScenarioName.trim() || localScenarioName === activeScenario.name) return;
-                    const doc = await db.plans.findOne(plan.id).exec();
-                    const updatedScenarios = plan.scenarios.map((s: any) =>
-                      s.id === activeScenario.id ? { ...s, name: localScenarioName } : s
-                    );
-                    await doc.patch({
-                      scenarios: updatedScenarios,
-                      updatedAt: Date.now(),
-                    });
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  className="px-2 py-1 text-xs border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-md focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all min-h-[28px] w-48 font-medium"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                {activeScenario.isActive ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-1 rounded-md border border-emerald-200/30">
-                    <Check size={12} /> Current Active Scenario
-                  </span>
-                ) : (
-                  <button
-                    onClick={async () => {
-                      const doc = await db.plans.findOne(plan.id).exec();
-                      const updatedScenarios = plan.scenarios.map((s: any) => ({
-                        ...s,
-                        isActive: s.id === activeScenario.id,
-                      }));
-                      await doc.patch({
-                        scenarios: updatedScenarios,
-                        updatedAt: Date.now(),
-                      });
-                    }}
-                    className="flex items-center justify-center gap-1 min-h-[28px] bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/20 dark:hover:bg-blue-950/45 text-blue-600 dark:text-blue-450 text-[11px] font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer border border-blue-200/40 dark:border-blue-900/30"
-                  >
-                    Set as Current Active
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {subModule === "budget" && (
         <div className="flex-1 overflow-y-auto pb-8 pr-1 font-sans space-y-4">
+          {renderBudgetScenarioSelector()}
           {!activeScenario ? (
             <div className="p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-zinc-500 mt-6 min-h-[300px]">
               <AlertTriangle className="w-10 h-10 mb-4 text-amber-500 opacity-80" />
@@ -977,6 +980,7 @@ export default function ScenarioBuilder({
           bridgeData={bridgeData}
           bridgeLoading={bridgeLoading}
           recalculateBridge={recalculate}
+          renderHeader={renderBudgetScenarioSelector}
         />
       )}
 
@@ -3481,6 +3485,7 @@ export default function ScenarioBuilder({
 
       {subModule === "velocity" && (
         <div className="flex-1 overflow-y-auto pb-8 pr-1 font-sans space-y-4">
+          {renderBudgetScenarioSelector()}
           {!activeScenario ? (
             <div className="p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-zinc-500 mt-6 min-h-[300px]">
               <AlertTriangle className="w-10 h-10 mb-4 text-amber-500 opacity-80" />
