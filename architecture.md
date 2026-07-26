@@ -2539,3 +2539,32 @@ Calculated the Cumulative Income Gap entirely within the `simulation.worker.ts` 
 ### III. Continuous Validation & Testing
 *   **Mathematical Integrity Check:** Confirmed negative income gap bounds restrictions successfully prevent excess (taxable/reinvested) income from distorting historical shortfall totals.
 *   **Thread Isolation Safety:** Asserted no UI freezing occurs during this computation logic, retaining the primary thread explicitly for high-frame-rate rendering.
+
+## Checkpoint: Cascading Category Deletion & Referential Integrity (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Scanned modified files (`src/lib/db.ts`, `src/components/BudgetDashboard.tsx`). Confirmed zero hardcoded secrets, tokens, or API credentials were introduced.
+
+### II. Architecture Alignment & Resolution
+Resolved silent category deletion failures caused by rigid `preRemove` middleware exception throws when planned expenses referenced a category ID.
+* **Cascading Reference Clean-Up:** Updated `rxdb.categories.preRemove` in `src/lib/db.ts` to automatically patch referencing `planned_expenses` records, resetting `categoryId` to an empty string (`""` / Uncategorized) instead of throwing a blocking error.
+* **UI & State Synchronization:** Updated `handleDeleteCategory` in `src/components/BudgetDashboard.tsx` to explicitly unassign referenced expenses across IndexedDB, reset editing states, clean up actual line items, and remove the category document. Added local validation error display directly within the Categories tab view.
+
+### III. Continuous Validation & Testing
+* **Relational Integrity Verification:** Confirmed that deleting a category smoothly updates all associated planned expenses to "Uncategorized" state without throwing database errors or orphaning records.
+* **Linter & Build Certification:** Ran `lint_applet` and `compile_applet` with 100% success.
+
+## Checkpoint: Plan Copying & Planned Expense Duplication (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Scanned newly written and modified files (`src/lib/scenarioUtils.ts`, `src/components/ScenarioBuilder.tsx`, `src/App.tsx`, `src/contexts/ScenarioContext.tsx`, `src/tests/plan-copying.test.ts`). Confirmed zero hardcoded secrets, tokens, or credentials were introduced.
+
+### II. Architecture Alignment & Resolution
+Resolved issue where duplicating/copying a plan or scenario copied the plan/budget shell but failed to copy the associated `planned_expenses` (and related `funding_allocations`, `tax_events`, and `budgets` documents) to the newly generated scenario IDs in RxDB.
+* **Centralized Duplication Helper:** Created `src/lib/scenarioUtils.ts` exporting `duplicateScenarioCollections` and `duplicatePlanWithData`.
+* **Deep Record Duplication:** When a plan or scenario is duplicated, all scenario-linked documents (`planned_expenses`, `funding_allocations`, `tax_events`, `budgets`) are queried from RxDB and bulk-inserted with new primary keys (`id`) mapped to the new scenario IDs (`newScenarioId`).
+* **Fallback for Legacy Data:** Added fallback detection in `duplicateScenarioCollections` to check for expenses saved under `Baseline` scenario ID if no records exist for a custom scenario ID, ensuring budget items are never lost during duplication.
+
+### III. Continuous Validation & Testing
+* **Unit Testing:** Created `src/tests/plan-copying.test.ts` validating that duplicating plans and scenarios copies all planned expenses to the new scenario IDs, and that fallback resolution works as expected. Tests passed 100%.
+* **Build & Linter Certification:** Executed `lint_applet` and `compile_applet` with 0 errors.

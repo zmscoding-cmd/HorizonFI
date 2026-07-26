@@ -727,3 +727,7 @@ When viewing the **Non-Portfolio Income vs. Target Budget** chart, hovering over
 * **What it means:** This metric represents the total, compounding sum of your annual "Income Gaps" (the deficit between your target budget and your non-portfolio income) from the start of the simulation up to that specific year.
 * **The "Floor" Rule:** If your non-portfolio income exceeds your target budget in any given year, the annual income gap is `$0`. The simulation engine intentionally prevents this surplus from artificially reducing your historical cumulative drawdown. Excess income is either reinvested or taxed, but it does not "erase" past principal withdrawals.
 * **Valuation Alignment:** The cumulative gap respects the global currency mode. In "Current Dollars" mode, you will see the cumulative draw in inflation-adjusted, real purchasing power. In "Future Dollars" mode, it reflects the nominal, compounding cash value withdrawn over time.
+
+### Duplicating Plans & Budgets
+* **Full Budget & Planned Expense Duplication:** When you copy or duplicate a plan (or an individual scenario), all budgets, planned line-item expenses, funding allocations, and tax events are automatically cloned to the new plan's scenario IDs.
+* **Complete Data Integrity:** The duplicated plan retains all expense details, categories, frequencies, and valuations, allowing you to iterate on copied plans without affecting the original.

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getDatabase, generateUUID } from '../lib/db';
+import { duplicateScenarioCollections } from '../lib/scenarioUtils';
 
 export interface ScenarioModel {
   id: string;
@@ -193,8 +194,7 @@ export const ScenarioProvider: React.FC<{ children: React.ReactNode; userId: str
     };
     await db.scenarios.insert(doc);
 
-    // TODO: also duplicate budgets, tax_events, planned_expenses...
-    // For now, just duplicate the scenario shell, since this is a UI stub for discovery
+    await duplicateScenarioCollections(db, id, newId, userId);
     
     return newId;
   };

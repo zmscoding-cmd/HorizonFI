@@ -498,10 +498,43 @@ export default function BudgetDashboard({
   const handleDeleteCategory = async (id: string) => {
     setValidationError(null);
     try {
+      // 1. Unassign categoryId from all planned expenses referencing this category
+      if (db && db.planned_expenses) {
+        const referencingExpenses = await db.planned_expenses.find({ selector: { categoryId: id } }).exec();
+        for (const exp of referencingExpenses) {
+          await exp.patch({ categoryId: '' });
+        }
+      }
+
+      // 2. Unassign from actual line items state if present
+      setActualLineItems(prev => {
+        let updated = false;
+        const nextState: typeof prev = {};
+        for (const [key, list] of Object.entries(prev)) {
+          if (Array.isArray(list)) {
+            nextState[key] = list.map((item: any) => {
+              if (item.categoryId === id) {
+                updated = true;
+                return { ...item, categoryId: '' };
+              }
+              return item;
+            });
+          }
+        }
+        return updated ? nextState : prev;
+      });
+
+      // 3. Clear editing state if this category was being edited
+      if (editingCategoryId === id) {
+        setEditingCategoryId(null);
+      }
+
+      // 4. Delete document
       const doc = await db.categories.findOne(id).exec();
       if (doc) await doc.remove();
     } catch (err: any) {
-      setValidationError(err.message || 'Validation failed.');
+      console.error('Failed to delete category:', err);
+      setValidationError(err.message || 'Failed to delete category.');
     }
   };
 
@@ -2537,6 +2570,15 @@ export default function BudgetDashboard({
           {/* CATEGORIES TAB - Manage budget aggregations */}
           {activeTab === 'categories' && (
             <div className="space-y-6">
+              {validationError && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl text-amber-700 dark:text-amber-400 text-sm flex items-start gap-2.5">
+                  <Info className="shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <p className="font-bold">Validation Issue</p>
+                    <p className="text-xs opacity-90 mt-0.5">{validationError}</p>
+                  </div>
+                </div>
+              )}
               
               {/* Form to insert categories */}
               <form onSubmit={handleAddCategory} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-805 rounded-2xl p-5 shadow-sm space-y-4">

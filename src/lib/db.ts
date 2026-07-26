@@ -1244,9 +1244,10 @@ export async function getDatabase() {
         rxdb.categories.preRemove(async (docData: any) => {
           const id = docData.id;
           const allExpenses = await rxdb.planned_expenses.find().exec();
-          const isReferenced = allExpenses.some((exp: any) => exp.categoryId === id);
-          if (isReferenced) {
-            throw new Error(`Cannot delete category: ID "${id}" is referenced as categoryId in planned expenses.`);
+          for (const exp of allExpenses) {
+            if (exp.categoryId === id) {
+              await exp.patch({ categoryId: '' });
+            }
           }
         }, false);
       }

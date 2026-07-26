@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getDatabase, startReplication, clearDatabase, PlanType, LinkType, generateUUID } from './lib/db';
+import { duplicateScenarioCollections, duplicatePlanWithData } from './lib/scenarioUtils';
 import { auth, isFirebaseConfigured, firebaseConfigError } from './lib/firebase';
 import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { Plus, LogOut, Wallet, TrendingUp, Save, ServerCrash, AlertTriangle, HelpCircle, Link as LinkIcon, Search, Trash2, ExternalLink, Copy } from 'lucide-react';
@@ -834,32 +835,23 @@ const PlanCard: React.FC<{ plan: PlanType, db: any, user: any, onOpen: () => voi
   const duplicateScenario = async (scenarioToDup: any) => {
     const doc = await db.plans.findOne(plan.id).exec();
     const currentScenarios = doc.scenarios || [];
+    const newScenarioId = generateUUID();
     const duplicatedScenario = {
       ...scenarioToDup,
-      id: generateUUID(),
+      id: newScenarioId,
       name: `${scenarioToDup.name} (Copy)`
     };
     await doc.patch({
       scenarios: [...currentScenarios, duplicatedScenario],
       updatedAt: Date.now()
     });
+    await duplicateScenarioCollections(db, scenarioToDup.id, newScenarioId, user?.uid);
   };
 
   const duplicatePlan = async () => {
     if (!db || !user) return;
     try {
-      const newPlan: PlanType = {
-        id: generateUUID(),
-        name: `${plan.name} (Copy)`,
-        members: [user.uid],
-        scenarios: (plan.scenarios || []).map(scenario => ({
-          ...scenario,
-          id: generateUUID()
-        })),
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-      await db.plans.insert(newPlan);
+      await duplicatePlanWithData(db, plan, user.uid);
     } catch (err) {
       console.error('Error duplicating plan:', err);
     }

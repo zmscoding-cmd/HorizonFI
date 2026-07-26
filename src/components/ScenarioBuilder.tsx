@@ -2,6 +2,7 @@ import { useScenarioManager } from '../contexts/ScenarioContext';
 import { evaluateMultiBucketTax } from '../workers/simulation.worker';
 import React, { useState, useEffect, useRef } from "react";
 import { PlanType, generateUUID } from "../lib/db";
+import { duplicateScenarioCollections, duplicatePlanWithData } from "../lib/scenarioUtils";
 import { LineChart, Line, XAxis,
   YAxis,
   CartesianGrid,
@@ -136,18 +137,7 @@ export default function ScenarioBuilder({
     if (!db || !auth.currentUser) return;
     try {
       const copyName = `${plan.name} (Copy)`;
-      const newPlan: PlanType = {
-        id: generateUUID(),
-        name: copyName,
-        members: [auth.currentUser.uid],
-        scenarios: (plan.scenarios || []).map((scenario) => ({
-          ...scenario,
-          id: generateUUID(),
-        })),
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      await db.plans.insert(newPlan);
+      await duplicatePlanWithData(db, plan, auth.currentUser.uid, copyName);
       setCopiedPlanName(copyName);
       setTimeout(() => setCopiedPlanName(null), 3000);
     } catch (err) {
@@ -510,33 +500,7 @@ export default function ScenarioBuilder({
         updatedAt: Date.now(),
       });
 
-      // Deep clone planned_expenses, funding_allocations, and tax_events
-      const collectionsToClone = [
-        { col: db.planned_expenses, schema: 'planned_expenses' },
-        { col: db.funding_allocations, schema: 'funding_allocations' },
-        { col: db.tax_events, schema: 'tax_events' }
-      ];
-
-      for (const { col } of collectionsToClone) {
-        if (!col) continue;
-        const itemsToClone = await col.find({
-          selector: { scenarioId: scenarioToDup.id, userId }
-        }).exec();
-
-        const newItems = itemsToClone.map((item: any) => {
-          const itemJson = item.toJSON();
-          itemJson.id = generateUUID();
-          itemJson.scenarioId = newId;
-          itemJson.updatedAt = Date.now();
-          itemJson.createdAt = Date.now();
-          if (itemJson._rev) delete itemJson._rev;
-          return itemJson;
-        });
-
-        if (newItems.length > 0) {
-          await col.bulkInsert(newItems);
-        }
-      }
+      await duplicateScenarioCollections(db, scenarioToDup.id, newId, userId);
 
       setActiveScenarioId(newId);
     } catch (err) {
