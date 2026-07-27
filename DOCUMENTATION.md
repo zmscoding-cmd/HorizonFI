@@ -731,3 +731,8 @@ When viewing the **Non-Portfolio Income vs. Target Budget** chart, hovering over
 ### Duplicating Plans & Budgets
 * **Full Budget & Planned Expense Duplication:** When you copy or duplicate a plan (or an individual scenario), all budgets, planned line-item expenses, funding allocations, and tax events are automatically cloned to the new plan's scenario IDs.
 * **Complete Data Integrity:** The duplicated plan retains all expense details, categories, frequencies, and valuations, allowing you to iterate on copied plans without affecting the original.
+
+### Mobile & Android Authentication
+* **Google Popup Authentication:** When signing in on Android or mobile web browsers, HorizonFI initiates Google Sign-In via popup overlay directly within your tap/click gesture. This bypasses Chrome mobile storage partitioning and third-party cookie restrictions that occur during page reloads.
+* **Redirect Fallback:** If your mobile browser blocks popups, the login system automatically falls back to standard Google redirect login.
+* **Failsafe Password Login:** If you are operating in a strict embedded webview or offline environment, you can use the Mobile & PWA Password Login option with your registered whitelisted email address.

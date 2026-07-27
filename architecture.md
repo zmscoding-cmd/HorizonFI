@@ -2568,3 +2568,17 @@ Resolved issue where duplicating/copying a plan or scenario copied the plan/budg
 ### III. Continuous Validation & Testing
 * **Unit Testing:** Created `src/tests/plan-copying.test.ts` validating that duplicating plans and scenarios copies all planned expenses to the new scenario IDs, and that fallback resolution works as expected. Tests passed 100%.
 * **Build & Linter Certification:** Executed `lint_applet` and `compile_applet` with 0 errors.
+
+## Checkpoint: Android Mobile Authentication Optimization (Date: July 2026)
+
+### I. Hardcoded Secrets Analysis
+Scanned modified files (`src/App.tsx`). Confirmed zero hardcoded secrets, tokens, or credentials were introduced.
+
+### II. Architecture Alignment & Resolution
+Resolved mobile authentication failures on Android Chrome caused by third-party cookie restrictions and storage partitioning during `signInWithRedirect` page reloads.
+* **Popup-First Strategy for Mobile:** Updated `login()` in `src/App.tsx` to attempt `signInWithPopup(auth, provider)` first across mobile (Android/iOS) and desktop browsers when triggered by user touch/click events.
+* **Storage Partitioning Bypass:** Popup-based auth returns tokens directly via postMessage cross-window messaging without reloading the app or losing local RxDB IndexedDB session state.
+* **Redirection & Password Fallbacks:** Added automatic fallback to `signInWithRedirect` if popup is blocked, as well as password authentication for whitelisted users on isolated PWA webview frames.
+
+### III. Continuous Validation & Testing
+* **Build & Linter Certification:** Executed `lint_applet` and `compile_applet` with 100% success.

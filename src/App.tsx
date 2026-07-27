@@ -213,44 +213,27 @@ export default function App() {
   const login = async () => {
     setAuthError(null);
     const provider = new GoogleAuthProvider();
-    
-    // Apple (iOS, iPadOS, macOS Safari) enforces Apple's Intelligent Tracking Prevention (ITP) which blocks
-    // access to third-party authorization cookies inside iframes, breaking signInWithRedirect completely.
-    // Therefore, any iOS/iPadOS device (including iPad presenting as Macintosh) MUST use signInWithPopup.
-    const isAppleOrSafari = 
-      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (typeof navigator.platform === 'string' && /iPad|iPhone|iPod/.test(navigator.platform)) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
-      (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) ||
-      (/Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent));
-
-    // Non-Apple mobile devices (like Android Chrome on Galaxy S25) don't have this restriction and are prone to
-    // having popups blocked by default, so they utilize signInWithRedirect.
-    const isAndroidOrOtherMobile = /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     try {
-      if (isAppleOrSafari) {
-        console.log('Apple/Safari environment detected. Initializing signInWithPopup to bypass Safari ITP redirect issue...');
-        await signInWithPopup(auth, provider);
-      } else if (isAndroidOrOtherMobile) {
-        console.log('Android or other mobile environment detected. Initializing signInWithRedirect...');
-        await signInWithRedirect(auth, provider);
-      } else {
-        console.log('Desktop environment detected. Initializing signInWithPopup...');
-        await signInWithPopup(auth, provider);
-      }
+      console.log('Initializing Google Sign-In via popup...');
+      await signInWithPopup(auth, provider);
     } catch (err: any) {
-      console.error('Initial login attempt failed:', err);
-      // Fallback if popup is blocked on Apple/Desktop
-      if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+      console.error('Initial popup login attempt failed:', err);
+      // Fallback if popup is blocked, closed, or not supported in current environment
+      if (
+        err.code === 'auth/popup-blocked' ||
+        err.code === 'auth/popup-closed-by-user' ||
+        err.code === 'auth/cancelled-popup-request' ||
+        err.code === 'auth/operation-not-supported-in-this-environment'
+      ) {
         try {
           console.log('Popup blocked or cancelled. Swapping to redirect as fallback...');
           await signInWithRedirect(auth, provider);
         } catch (redirErr: any) {
-          setAuthError(redirErr.message || 'Failed redirection process.');
+          setAuthError(redirErr.message || 'Failed redirection process. Please try logging in with email/password below.');
         }
       } else {
-        setAuthError(err.message || 'Failed to sign in.');
+        setAuthError(err.message || 'Failed to sign in with Google. You can also use the Password Login below.');
       }
     }
   };
@@ -469,13 +452,13 @@ export default function App() {
               Sign in with Google
             </button>
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              Prone to storage-blocking loops on mobile WebKit frames.
+              Supports Google popup login across Android, iOS & Desktop.
             </p>
           </div>
 
           <div className="relative flex py-1 items-center">
             <div className="flex-grow border-t border-zinc-200 dark:border-zinc-800"></div>
-            <span className="flex-shrink mx-4 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-widest">iPad & WebKit Failsafe Fallback</span>
+            <span className="flex-shrink mx-4 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-widest">Mobile & PWA Password Login</span>
             <div className="flex-grow border-t border-zinc-200 dark:border-zinc-800"></div>
           </div>
 
