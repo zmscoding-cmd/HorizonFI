@@ -736,3 +736,10 @@ When viewing the **Non-Portfolio Income vs. Target Budget** chart, hovering over
 * **Google Popup Authentication:** When signing in on Android or mobile web browsers, HorizonFI initiates Google Sign-In via popup overlay directly within your tap/click gesture. This bypasses Chrome mobile storage partitioning and third-party cookie restrictions that occur during page reloads.
 * **Redirect Fallback:** If your mobile browser blocks popups, the login system automatically falls back to standard Google redirect login.
 * **Failsafe Password Login:** If you are operating in a strict embedded webview or offline environment, you can use the Mobile & PWA Password Login option with your registered whitelisted email address.
+
+### Compact & Editable Quick Links
+* **Compact Quick Links Grid & List:** Quick links are now displayed in a space-efficient layout featuring domain favicons, clean titles, domain names, and tag pills. You can toggle between a **Compact Grid View** and a **Dense List View** using the view switcher icon next to the search bar.
+* **Editing Quick Links:** Every quick link card includes a visible Edit button (pencil icon). Clicking it opens the Edit Quick Link window where you can update the link name, destination URL, or associated tags, as well as delete unwanted links.
+
+### Deleting Quick Links
+* **Confirmation Safety Dialog:** When deleting a quick link (either via the trash icon on the link card or within the Edit window), HorizonFI displays a confirmation warning stating the link name and requesting explicit user approval before permanently removing it.
